@@ -11,7 +11,7 @@ It separates "what to create (semantics)" from "how to create (models/prompts)" 
     *   Semantics (SIS) remain fixed while models (e.g., SD, MusicGen) or parameters can be swapped out.
 2.  **Reproducibility & Explainability**
     *   Fully records "what semantic specifications gave birth to this content" in JSON. Serves as a foundation for provenance verification and regeneration.
-3.  **Editable "Knobs" & Manual Correction**
+3.  **Editable "Parameters" & Manual Correction**
     *   Even if LLM extraction is imperfect, the structured data allows for easy manual correction and completion.
     *   Fine-tuning style or tempo is simple just by adjusting the semantics (SIS).
 4.  **Common Interface for Search & Recommendation**
