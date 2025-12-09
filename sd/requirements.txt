@@ -1,0 +1,15 @@
+# PyTorch関連（先にインストール）
+torch>=2.0.0
+torchvision>=0.15.0
+
+# その他の機械学習ライブラリ
+diffusers>=0.20.0
+transformers>=4.30.0
+accelerate>=0.20.0
+pytorch_lightning>=2.0.0
+
+# xformers（PyTorch後にインストール）
+xformers>=0.0.20
+
+# UI関連
+gradio>=3.40.0

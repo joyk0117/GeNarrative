@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block title %}TTS Server - GeNarrative{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="server-header">
+        <h2>🗣️ Text-to-Speech Server</h2>
+        <p class="server-description">Monitor the Coqui TTS service and try quick speech synthesis previews.</p>
+    </div>
+
+    <div class="server-content">
+        <div class="server-sections">
+            <section class="server-section">
+                <h3>🔧 Server Status</h3>
+                <div class="status-grid">
+                    <div class="status-card" id="tts-status-card">
+                        <div class="status-header">
+                            <span class="status-indicator offline" id="tts-status-indicator"></span>
+                            <span class="status-text" id="tts-status-text">Checking...</span>
+                            <button class="btn btn-refresh" id="tts-refresh">Refresh</button>
+                        </div>
+                        <dl class="status-details">
+                            <div>
+                                <dt>Model</dt>
+                                <dd id="tts-model">-</dd>
+                            </div>
+                            <div>
+                                <dt>Server URI</dt>
+                                <dd><a id="tts-uri-link" href="#" target="_blank"><span id="tts-uri">-</span></a></dd>
+                            </div>
+                            <div>
+                                <dt>Last Checked</dt>
+                                <dd id="tts-timestamp">-</dd>
+                            </div>
+                        </dl>
+                        <p class="status-error" id="tts-status-error"></p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="server-section">
+                <h3>🧪 Generate Sample Speech</h3>
+                <div class="gen-grid">
+                    <div class="prompt-col">
+                        <label for="tts-input" class="label">Input text</label>
+                        <textarea id="tts-input" class="prompt-input" rows="4" placeholder="Enter text to synthesize.">Hello, this is a text to speech test.</textarea>
+                    </div>
+                    <div class="controls">
+                        <button class="btn btn-primary" id="tts-generate">Generate Speech</button>
+                        <button class="btn btn-secondary" id="tts-clear">Clear Audio</button>
+                        <p class="status-error" id="tts-message"></p>
+                    </div>
+                </div>
+                <div class="audio-output" id="tts-audio-container" hidden>
+                    <audio id="tts-audio" class="audio-player" controls></audio>
+                    <a id="tts-download" class="btn btn-secondary" download>Download</a>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<style>
+.server-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.server-header h2 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+.server-description {
+    color: #666;
+    font-size: 1.05rem;
+}
+
+.server-content {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.server-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.server-section {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.server-section h3 {
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.4rem;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.status-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    background: #f9f9f9;
+}
+
+.status-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.status-indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #dc3545;
+}
+
+.status-indicator.online { background: #28a745; }
+.status-indicator.offline { background: #dc3545; }
+
+.status-text {
+    font-weight: bold;
+    flex: 1;
+}
+
+.status-details {
+    margin: 0;
+    padding: 0;
+}
+
+.status-details > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-family: 'Menlo', 'Monaco', monospace;
+}
+
+.status-details dt { font-weight: 600; }
+.status-details dd { margin: 0; }
+
+.status-error {
+    color: #dc3545;
+    margin-top: 0.5rem;
+}
+
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.btn-refresh { background: #17a2b8; color: #fff; }
+.btn-primary { background: #007bff; color: #fff; }
+.btn-secondary { background: #6c757d; color: #fff; }
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.gen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.prompt-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-family: inherit;
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.label {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.audio-output {
+    margin-top: 1rem;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.audio-player {
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .audio-output {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+</style>
+
+<script>
+const statusIndicator = document.getElementById('tts-status-indicator');
+const statusText = document.getElementById('tts-status-text');
+const statusModel = document.getElementById('tts-model');
+const statusUri = document.getElementById('tts-uri');
+const statusUriLink = document.getElementById('tts-uri-link');
+const statusTimestamp = document.getElementById('tts-timestamp');
+const statusError = document.getElementById('tts-status-error');
+const refreshButton = document.getElementById('tts-refresh');
+
+const textInput = document.getElementById('tts-input');
+const generateButton = document.getElementById('tts-generate');
+const clearButton = document.getElementById('tts-clear');
+const messageBox = document.getElementById('tts-message');
+const audioContainer = document.getElementById('tts-audio-container');
+const audioElement = document.getElementById('tts-audio');
+const downloadLink = document.getElementById('tts-download');
+
+async function updateStatus() {
+    statusText.textContent = 'Checking...';
+    statusIndicator.classList.remove('online');
+    statusIndicator.classList.add('offline');
+    statusError.textContent = '';
+
+    try {
+        const response = await fetch('/api/servers/tts/status');
+        const data = await response.json();
+
+        statusTimestamp.textContent = data.timestamp || '-';
+        statusModel.textContent = data.model_name || '-';
+        statusUri.textContent = data.server_uri_external || '-';
+        statusUriLink.href = data.server_uri_external || '#';
+
+        if (data.online) {
+            statusIndicator.classList.remove('offline');
+            statusIndicator.classList.add('online');
+            statusText.textContent = 'Online';
+        } else {
+            statusIndicator.classList.remove('online');
+            statusIndicator.classList.add('offline');
+            statusText.textContent = 'Offline';
+            if (data.error) {
+                statusError.textContent = data.error;
+            }
+        }
+    } catch (err) {
+        statusIndicator.classList.remove('online');
+        statusIndicator.classList.add('offline');
+        statusText.textContent = 'Connection error';
+        statusError.textContent = err.message || err;
+    }
+}
+
+async function synthesize() {
+    const text = (textInput.value || '').trim();
+    if (!text) {
+        messageBox.textContent = 'Please enter text.';
+        return;
+    }
+
+    messageBox.textContent = '';
+    generateButton.disabled = true;
+    generateButton.textContent = 'Generating...';
+
+    try {
+        const response = await fetch('/api/servers/tts/synthesize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.success === false) {
+            const msg = data.error || `HTTP ${response.status}`;
+            throw new Error(msg);
+        }
+
+        audioElement.src = data.audio_data;
+        audioElement.play().catch(() => {});
+        downloadLink.href = data.audio_data;
+        downloadLink.download = data.filename || 'tts_preview.wav';
+        audioContainer.hidden = false;
+        messageBox.textContent = `Generated ${data.bytes} bytes of audio.`;
+    } catch (err) {
+        messageBox.textContent = err.message || String(err);
+        audioContainer.hidden = true;
+    } finally {
+        generateButton.disabled = false;
+        generateButton.textContent = 'Generate Speech';
+    }
+}
+
+function clearAudio() {
+    audioElement.pause();
+    audioElement.currentTime = 0;
+    audioElement.removeAttribute('src');
+    downloadLink.removeAttribute('href');
+    downloadLink.removeAttribute('download');
+    audioContainer.hidden = true;
+    messageBox.textContent = '';
+}
+
+refreshButton.addEventListener('click', updateStatus);
+generateButton.addEventListener('click', synthesize);
+clearButton.addEventListener('click', clearAudio);
+
+updateStatus();
+setInterval(updateStatus, 30000);
+</script>
+{% endblock %}

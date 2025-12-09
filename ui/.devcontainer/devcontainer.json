@@ -1,0 +1,18 @@
+{
+  "name": "ui-dev",
+  "build": {
+    "dockerfile": "../Dockerfile"
+  },
+  "forwardPorts": [5000],
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-python.python"
+      ]
+    }
+  },
+  "postStartCommand": "python app/main.py"
+}

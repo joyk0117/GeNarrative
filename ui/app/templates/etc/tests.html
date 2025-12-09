@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+
+{% block title %}Run Unified Tests{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h2>Unified End-to-End Tests</h2>
+  <p>このページから統合テストを実行し、最新のHTMLレポートを表示できます。</p>
+
+  <div style="margin: 16px 0;">
+    <label for="imageSelect">Test image (shared/image): </label>
+    <select id="imageSelect" style="min-width:280px;"></select>
+  </div>
+
+  <div style="margin: 16px 0;">
+    <button id="runTestsBtn">▶ Run Tests</button>
+    <span id="status" style="margin-left:12px;color:#666;"></span>
+  </div>
+
+  <div id="preview" style="margin: 12px 0;">
+    <div style="color:#666; margin-bottom:6px;">Selected image preview:</div>
+    <img id="selectedPreview" alt="preview" style="max-width: 520px; border:1px solid #ccc; border-radius:6px; display:none;"/>
+  </div>
+
+  <div id="result" style="margin-top:16px;"></div>
+
+  <hr/>
+  <div>
+    <p>最新レポートを直接開く:</p>
+    <a href="/etc/tests/unified_test_report.html" target="_blank">/etc/tests/unified_test_report.html</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const btn = document.getElementById('runTestsBtn');
+  const statusEl = document.getElementById('status');
+  const resultEl = document.getElementById('result');
+  const imageSelect = document.getElementById('imageSelect');
+  const previewImg = document.getElementById('selectedPreview');
+
+  function updatePreview() {
+    const name = imageSelect.value;
+    if (name) {
+      const url = '/shared/' + encodeURIComponent('image/' + name);
+      previewImg.src = url;
+      previewImg.style.display = '';
+    } else {
+      previewImg.removeAttribute('src');
+      previewImg.style.display = 'none';
+    }
+  }
+
+  async function loadImages() {
+    try {
+      const res = await fetch('/api/tests/images');
+      const data = await res.json();
+      imageSelect.innerHTML = '';
+      const autoOpt = document.createElement('option');
+      autoOpt.value = '';
+      autoOpt.textContent = '(auto-select first image)';
+      imageSelect.appendChild(autoOpt);
+      if (data.success && Array.isArray(data.files)) {
+        data.files.forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          imageSelect.appendChild(opt);
+        });
+        // If there is at least one file and auto-select is chosen, we could preview the first item
+        // but to avoid confusion, only show preview after explicit selection.
+      }
+      updatePreview();
+    } catch (e) {
+      imageSelect.innerHTML = '<option value="">(failed to list images)</option>';
+    }
+  }
+
+  loadImages();
+
+  imageSelect.addEventListener('change', updatePreview);
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    statusEl.textContent = 'Running... (this can take ~20-40s)';
+    resultEl.innerHTML = '';
+
+    try {
+      const payload = {};
+      if (imageSelect.value) payload.image_name = imageSelect.value;
+      const res = await fetch('/api/tests/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        statusEl.textContent = 'Done';
+        const link = document.createElement('a');
+        link.href = data.report_url || '/etc/tests/unified_test_report.html';
+        link.target = '_blank';
+        link.textContent = 'Open Report';
+        resultEl.appendChild(link);
+        if (data.message) {
+          const pre = document.createElement('pre');
+          pre.textContent = data.message;
+          pre.style.whiteSpace = 'pre-wrap';
+          resultEl.appendChild(pre);
+        }
+      } else {
+        statusEl.textContent = 'Failed';
+        resultEl.innerHTML = '<div style="color:#c33;">' + (data.error || 'Unknown error') + '</div>';
+      }
+    } catch (e) {
+      statusEl.textContent = 'Failed';
+      resultEl.innerHTML = '<div style="color:#c33;">' + (e && e.message ? e.message : String(e)) + '</div>';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

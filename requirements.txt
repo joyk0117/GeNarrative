@@ -1,0 +1,41 @@
+# === LLM / LoRA Related ===
+ollama              # Local execution of Gemma 3n (via Ollama)
+transformers        # Required for model operations and LoRA base
+unsloth             # Fast LoRA fine-tuning (for Unsloth Prize)
+
+# === Flask Web UI / Local Integrated UI ===
+flask               # Web UI server (API compatible)
+pywebview           # Native-style desktop UI
+python-dotenv       # Environment variable management
+
+# === Image Generation ===
+requests            # Integration with external APIs like A1111
+
+# === OCR (Text extraction from picture book images) ===
+pytesseract         # Tesseract OCR Python binding
+easyocr             # Alternative lightweight OCR (multi-language support)
+opencv-python       # OCR preprocessing (resize, noise removal, etc.)
+
+# === Text-to-Speech (TTS) ===
+TTS                 # Coqui TTS engine main body
+whisper             # Whisper TTS or ASR (for speech recognition)
+torchaudio          # Audio loading/saving/preprocessing
+
+# === Music Generation ===
+# git+https://github.com/facebookresearch/audiocraft.git          # Meta MusicGen base (AudioLDM compatible)
+librosa             # Music feature extraction (visualization and sound effect analysis)
+
+# === Output Integration / Generated Content Construction ===
+moviepy             # Video output (image + audio + music → MP4)
+python-pptx         # PowerPoint generation (picture book PPT creation)
+jinja2              # HTML template support (for web display)
+
+# === Jupyter / Technical Verification ===
+jupyter             # Jupyter Notebook (for development and PoC)
+ipykernel           # Python kernel
+notebook            # Notebook interface
+matplotlib          # Graph and image visualization
+pandas              # Data formatting and tabular processing
+
+# === Auxiliary Tools ===
+scipy               # Audio and image processing assistance (some model dependencies)

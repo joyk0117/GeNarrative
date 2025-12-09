@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GeNarrative UI{% endblock %}</title>
+    
+    <!-- Swiper CSS (CDN) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    {% block head %}{% endblock %}
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="container">
+                <h1><a href="/" class="logo-link">GeNarrative</a></h1>
+                <div class="nav-links">
+                    <a href="/scene">Scenes</a>
+                    <a href="/story">Stories</a>
+                    <div class="dropdown">
+                        <a href="#" class="dropdown-toggle">Servers</a>
+                        <div class="dropdown-menu">
+                            <a href="/servers/text">Text Server</a>
+                            <a href="/servers/tts">TTS Server</a>
+                            <a href="/servers/image">Image Server</a>
+                            <a href="/servers/music">Music Server</a>
+                        </div>
+                    </div>
+                    <div class="dropdown">
+                        <a href="#" class="dropdown-toggle">etc</a>
+                        <div class="dropdown-menu">
+                            <a href="/etc/tests">Run Unified Tests</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 GeNarrative. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Swiper JS (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+    
+    <!-- カスタムJS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

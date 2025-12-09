@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Gallery - GeNarrative{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Generated Images Gallery</h2>
+    <p>Swiper.js gallery displaying images from shared folder</p>
+    
+    {% if images %}
+    <div class="swiper gallery-swiper">
+        <div class="swiper-wrapper">
+            {% for image in images %}
+            <div class="swiper-slide">
+                <div class="gallery-item">
+                    <img src="{{ url_for('serve_shared_image', filename=image.filename) }}" 
+                         alt="{{ image.filename }}" 
+                         loading="lazy">
+                    <div class="image-info">
+                        <h4>{{ image.filename }}</h4>
+                        <p>Size: {{ "%.1f"|format(image.size_kb) }} KB</p>
+                        <p>Modified: {{ image.modified }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Thumbnail display -->
+        <div class="swiper gallery-thumbs">
+            <div class="swiper-wrapper">
+                {% for image in images %}
+                <div class="swiper-slide">
+                    <img src="{{ url_for('serve_shared_image', filename=image.filename) }}" 
+                         alt="{{ image.filename }}">
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Navigation -->
+        <div class="swiper-button-next"></div>
+        <div class="swiper-button-prev"></div>
+        
+        <!-- Pagination -->
+        <div class="swiper-pagination"></div>
+    </div>
+    {% else %}
+    <div class="no-images">
+        <p>📁 No images found in shared folder.</p>
+        <p>Please run image generation notebooks to create images.</p>
+    </div>
+    {% endif %}
+    
+    <div class="gallery-stats">
+        <h3>Statistics</h3>
+        <p>Total images: {{ images|length if images else 0 }}</p>
+        {% if images %}
+        <p>Total size: {{ "%.1f"|format(total_size_mb) }} MB</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // サムネイルSwiper
+    const galleryThumbs = new Swiper('.gallery-thumbs', {
+        spaceBetween: 10,
+        slidesPerView: 4,
+        freeMode: true,
+        watchSlidesProgress: true,
+        breakpoints: {
+            640: {
+                slidesPerView: 6,
+            },
+            1024: {
+                slidesPerView: 8,
+            },
+        },
+    });
+
+    // メインギャラリーSwiper
+    const galleryTop = new Swiper('.gallery-swiper', {
+        spaceBetween: 10,
+        navigation: {
+            nextEl: '.swiper-button-next',
+            prevEl: '.swiper-button-prev',
+        },
+        pagination: {
+            el: '.swiper-pagination',
+            type: 'fraction',
+        },
+        thumbs: {
+            swiper: galleryThumbs,
+        },
+        keyboard: {
+            enabled: true,
+        },
+        zoom: {
+            maxRatio: 3,
+        },
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Unified Tests Report</title>
+  <style>
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; }
+    h1 { margin-bottom: 0; }
+    .ts { color: #666; font-size: 0.9em; margin-top: 4px; }
+    section { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    pre { background: #f7f7f7; padding: 12px; border-radius: 6px; overflow: auto; }
+    .ok { color: #0a7; }
+    .ng { color: #c33; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    img { max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 6px; }
+    audio { width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>Unified Tests Report</h1>
+  <div class="ts">Generated at 2025-11-11T08:53:41.961179</div>
+<section>
+<h2>Content2SIS (Image)</h2>
+<div class="ok">SUCCESS (⏱️ 20.51s)</div><div>Source image:</div><div><img src="test_result_20251111_085237/children_art_20250716_012628_1.png" alt="source image"/></div><div>Prompt used for Image SIS extraction:</div><div>Prompt file: test_result_20251111_085237/sis_image_prompt.txt</div><pre>Analyze the attached image and produce a JSON object that matches the provided schema.
+
+Rely only on the schema descriptions for field meanings.
+
+Return ONLY a JSON object (no prose, no comments).</pre><div class="ok">JSON parsed successfully. Using this SIS for downstream steps.</div><div>SIS JSON file: test_result_20251111_085237/sis_from_image.json</div><div>LLM raw response file: test_result_20251111_085237/sis_from_image_raw.txt</div><pre>{
+  "summary": "A child is standing on a grassy field with a bright yellow sun in the background and green trees in the distance.",
+  "mood": "Happy",
+  "themes": ["Childhood", "Nature", "Joy"],
+  "story": {
+    "tone": "Cheerful",
+    "style": "Illustration"
+  },
+  "visual": {
+    "characters": [
+      "Child",
+      "Sun"
+    ],
+    "location": "Field",
+    "style": "Watercolor",
+    "composition": "Centered"
+  ,
+    "lighting": "Bright"
+  ,
+    "perspective": "Eye-level"
+  }
+,
+  "audio": {
+    "genre": "None"
+  ,
+    "tempo": "Moderate"
+  ,
+    "instruments": ["None"]
+  ,
+    "structure": "Simple"
+  }
+}</pre>
+</section>
+<section>
+<h2>SIS2Content (Image)</h2>
+<div class="ok">SUCCESS (⏱️ 8.00s)</div>
+<div>Prompt file: /app/ui/scripts/test/test_result_20251111_085237/test_image_sis2image_prompt.txt</div>
+<div>Prompt content sent to SD:</div>
+<pre>A child is standing on a grassy field with a bright yellow sun in the background and green trees in the distance., Bright lighting, Watercolor style, Happy atmosphere, Childhood, high quality, high quality, detailed, masterpiece, professional artwork</pre>
+<div class="ng">HTTP 500: {"error":"FileNotFoundError","detail":"","body":"","errors":"No checkpoints found. When searching for checkpoints, looked at:\n - file /workspace/webui/model.ckpt\n - directory /workspace/webui/models/Stable-diffusionCan't run without a checkpoint. Find and place a .ckpt or .safetensors file into any of those locations."}</div>
+</section>
+<section>
+<h2>SIS2Content (Music)</h2>
+<div class="ok">SUCCESS (⏱️ 13.99s)</div>
+<div>Prompt file: /app/ui/scripts/test/test_result_20251111_085237/test_music_sis2music_prompt.txt</div>
+<div>Prompt content sent to Music:</div>
+<pre>A cheerful, moderate tempo watercolor-style piece featuring simple instrumentation evoking a feeling of childlike joy and a sunny meadow.</pre>
+<div>Generated music:</div><audio controls src="test_result_20251111_085237/test_music_generated_music.wav"></audio>
+</section>
+<section>
+<h2>SIS2Content (Story Text + TTS)</h2>
+<div class="ok">SUCCESS (⏱️ 2.79s)</div><div>Story output file: /app/ui/scripts/test/test_result_20251111_085237/test_text_sis2story.txt</div><pre>Sun-drenched grass tickled bare feet. A child, lost in joyous laughter, danced beneath the golden light, surrounded by whispering green trees. Pure, simple happiness bloomed in the heart of the field, a watercolor dream of childhood delight.</pre><div>Generated TTS audio:</div><audio controls src="test_result_20251111_085237/test_text_tts_story_tts.wav"></audio>
+</section>
+<section>
+<h2>Content2SIS (Text)</h2>
+<div class="ok">SUCCESS (⏱️ 14.33s)</div><div>Source text file (generated story): test_result_20251111_085237/test_text_sis2story.txt</div><pre>Sun-drenched grass tickled bare feet. A child, lost in joyous laughter, danced beneath the golden light, surrounded by whispering green trees. Pure, simple happiness bloomed in the heart of the field, a watercolor dream of childhood delight.</pre><div>Prompt used for Text SIS extraction:</div><div>Prompt file: test_result_20251111_085237/sis_from_text_prompt.txt</div><pre>Analyze the following text and produce a JSON object that matches the provided schema.
+
+Rely only on the schema descriptions for field meanings.
+
+Text:
+"Sun-drenched grass tickled bare feet. A child, lost in joyous laughter, danced beneath the golden light, surrounded by whispering green trees. Pure, simple happiness bloomed in the heart of the field, a watercolor dream of childhood delight."
+
+Return ONLY a JSON object (no prose, no comments).</pre><div class="ok">JSON parsed successfully from raw Text SIS.</div><div>SIS JSON file: test_result_20251111_085237/sis_from_text.json</div><div>LLM raw response file: test_result_20251111_085237/sis_from_text_raw.txt</div><pre>{
+  "summary": "A child's joyful experience in a sunlit field.",
+  "mood": "Joyful",
+  "themes": [
+    "Childhood",
+    "Happiness",
+    "Nature"
+  ],
+  "story": {
+    "tone": "Peaceful",
+    "style": "Descriptive"
+  }
+,
+  "visual": {
+    "characters": [
+      "child"
+    ],
+    "location": "field",
+    "style": "watercolor"
+  ,
+  "composition": "dancing"
+  ,
+  "lighting": "golden"
+  ,
+  "perspective": "first person"
+}
+,
+  "audio": {
+    "genre": "ambient",
+    "tempo": "slow"
+  ,
+  "instruments": [
+    "wind",
+    "trees"
+  ]
+  ,
+  "structure": "simple"
+}
+}
+</pre>
+</section>
+</body>
+</html>

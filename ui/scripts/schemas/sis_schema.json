@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "_schema_version": "1.2.0",
+  "title": "Semantic Interface Structure (SIS)",
+  "description": "Schema aligned with the SIS prompt template.",
+  "type": "object",
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "brief description of the image content",
+      "examples": ["brief description of the image content"]
+    },
+    "mood": {
+      "type": "string",
+      "description": "overall mood",
+      "examples": ["overall mood"]
+    },
+    "themes": {
+      "type": "array",
+      "description": "themes such as ['theme1', 'theme2', 'theme3']",
+      "items": {
+        "type": "string",
+        "description": "theme label (e.g., theme1, theme2, theme3)",
+        "examples": ["theme1"]
+      },
+      "minItems": 1,
+      "examples": [["theme1", "theme2", "theme3"]]
+    },
+    "story": {
+      "type": "object",
+      "description": "story section",
+      "properties": {
+        "tone": {
+          "type": "string",
+          "description": "story tone",
+          "examples": ["story tone"]
+        },
+        "style": {
+          "type": "string",
+          "description": "story style",
+          "examples": ["story style"]
+        }
+      },
+      "required": ["tone", "style"],
+      "additionalProperties": false
+    },
+    "visual": {
+      "type": "object",
+      "description": "visual section",
+      "properties": {
+        "characters": {
+          "type": "array",
+          "description": "characters list",
+          "items": {
+            "type": "string",
+            "description": "character descriptions",
+            "examples": ["character descriptions"]
+          },
+          "minItems": 1,
+          "examples": [["character descriptions"]]
+        },
+        "location": {
+          "type": "string",
+          "description": "setting description",
+          "examples": ["setting description"]
+        },
+        "style": {
+          "type": "string",
+          "description": "implied visual style",
+          "examples": ["implied visual style"]
+        },
+        "composition": {
+          "type": "string",
+          "description": "scene composition",
+          "examples": ["scene composition"]
+        },
+        "lighting": {
+          "type": "string",
+          "description": "lighting conditions",
+          "examples": ["lighting conditions"]
+        },
+        "perspective": {
+          "type": "string",
+          "description": "viewpoint",
+          "examples": ["viewpoint"]
+        }
+      },
+      "required": ["characters", "location", "style", "composition", "lighting", "perspective"],
+      "additionalProperties": false
+    },
+    "audio": {
+      "type": "object",
+      "description": "audio section",
+      "properties": {
+        "genre": {
+          "type": "string",
+          "description": "music genre that would fit",
+          "examples": ["music genre that would fit"]
+        },
+        "tempo": {
+          "type": "string",
+          "description": "tempo description",
+          "examples": ["tempo description"]
+        },
+        "instruments": {
+          "type": "array",
+          "description": "instrument list",
+          "items": {
+            "type": "string",
+            "description": "instrument (e.g., instrument1, instrument2)",
+            "examples": ["instrument1"]
+          },
+          "minItems": 1,
+          "examples": [["instrument1", "instrument2"]]
+        },
+        "structure": {
+          "type": "string",
+          "description": "musical structure",
+          "examples": ["musical structure"]
+        }
+      },
+      "required": ["genre", "tempo", "instruments", "structure"],
+      "additionalProperties": false
+    }
+  },
+  "required": ["summary", "mood", "themes", "story", "visual", "audio"],
+  "additionalProperties": false
+}

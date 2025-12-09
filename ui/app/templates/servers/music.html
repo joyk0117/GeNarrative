@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+
+{% block title %}Music Server - GeNarrative{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="server-header">
+        <h2>🎵 Music Generation Server</h2>
+        <p class="server-description">Check service health, review the loaded model, and run quick music generation tests.</p>
+    </div>
+
+    <div class="server-content">
+        <div class="server-sections">
+            <section class="server-section">
+                <h3>🔧 Server Status</h3>
+                <div class="status-grid">
+                    <div class="status-card" id="music-status-card">
+                        <div class="status-header">
+                            <span class="status-indicator offline" id="music-status-indicator"></span>
+                            <span class="status-text" id="music-status-text">Checking...</span>
+                            <button class="btn btn-refresh" id="music-refresh">Refresh</button>
+                        </div>
+                        <dl class="status-details">
+                            <div>
+                                <dt>Server URI</dt>
+                                <dd><a id="music-uri-link" href="#" target="_blank"><span id="music-uri">-</span></a></dd>
+                            </div>
+                            <div>
+                                <dt>Device</dt>
+                                <dd id="music-device">-</dd>
+                            </div>
+                            <div>
+                                <dt>Model Loaded</dt>
+                                <dd id="music-model-loaded">-</dd>
+                            </div>
+                            <div>
+                                <dt>Latency</dt>
+                                <dd id="music-latency">-</dd>
+                            </div>
+                            <div>
+                                <dt>Last Checked</dt>
+                                <dd id="music-timestamp">-</dd>
+                            </div>
+                        </dl>
+                        <p class="status-error" id="music-status-error"></p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="server-section">
+                <h3>🎼 Generation Parameters</h3>
+                <div class="parameter-grid">
+                    <div class="form-group">
+                        <label for="music-model">Model preset</label>
+                        <select id="music-model" class="form-control">
+                            <option value="musicgen">MusicGen</option>
+                            <option value="audiocraft">AudioCraft</option>
+                            <option value="magenta">Magenta</option>
+                            <option value="jukebox">Jukebox</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="duration">Duration (seconds)</label>
+                        <input type="range" id="duration" class="form-control" min="5" max="180" step="5" value="30">
+                        <span class="range-value" id="duration-value">30s</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="tempo">Tempo (BPM)</label>
+                        <input type="range" id="tempo" class="form-control" min="60" max="180" step="5" value="120">
+                        <span class="range-value" id="tempo-value">120 BPM</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="music-key">Key</label>
+                        <select id="music-key" class="form-control">
+                            <option value="C">C Major</option>
+                            <option value="G">G Major</option>
+                            <option value="D">D Major</option>
+                            <option value="A">A Major</option>
+                            <option value="E">E Major</option>
+                            <option value="Am">A Minor</option>
+                            <option value="Em">E Minor</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <section class="server-section">
+                <h3>🧪 Test Music Generation</h3>
+                <div class="gen-grid">
+                    <div class="prompt-col">
+                        <label for="music-prompt" class="label">Music description</label>
+                        <textarea id="music-prompt" class="prompt-input" rows="3" placeholder="Describe the music you want to generate...">A peaceful piano melody with soft strings, suitable for a sunset scene</textarea>
+                    </div>
+                    <div class="controls">
+                        <button class="btn btn-primary" id="music-generate">Generate Music</button>
+                        <button class="btn btn-secondary" id="music-random">Random Style</button>
+                        <p class="status-error" id="music-message"></p>
+                    </div>
+                </div>
+                <div class="audio-output" id="music-audio-container" hidden>
+                    <audio id="music-audio" class="audio-player" controls></audio>
+                    <a id="music-download" class="btn btn-secondary" download>Download</a>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<style>
+.server-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.server-header h2 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+.server-description {
+    color: #666;
+    font-size: 1.05rem;
+}
+
+.server-content {
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.server-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.server-section {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.server-section h3 {
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.4rem;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.status-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    background: #f9f9f9;
+}
+
+.status-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.status-indicator {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #dc3545;
+}
+
+.status-indicator.online { background: #28a745; }
+.status-indicator.offline { background: #dc3545; }
+
+.status-text {
+    font-weight: bold;
+    flex: 1;
+}
+
+.status-details {
+    margin: 0;
+    padding: 0;
+}
+
+.status-details > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-family: 'Menlo', 'Monaco', monospace;
+}
+
+.status-details dt { font-weight: 600; }
+.status-details dd { margin: 0; }
+
+.status-error {
+    color: #dc3545;
+    margin-top: 0.5rem;
+}
+
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.btn-refresh { background: #17a2b8; color: #fff; }
+.btn-primary { background: #007bff; color: #fff; }
+.btn-secondary { background: #6c757d; color: #fff; }
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.parameter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-control {
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.range-value {
+    font-weight: 600;
+    color: #007bff;
+}
+
+.gen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.prompt-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-family: inherit;
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.label {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.audio-output {
+    margin-top: 1rem;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.audio-player {
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .audio-output {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+</style>
+
+<script>
+const durationSlider = document.getElementById('duration');
+const durationLabel = document.getElementById('duration-value');
+const tempoSlider = document.getElementById('tempo');
+const tempoLabel = document.getElementById('tempo-value');
+
+[durationSlider, tempoSlider].forEach(slider => {
+    if (!slider) return;
+    slider.addEventListener('input', () => {
+        if (slider === durationSlider) {
+            durationLabel.textContent = `${slider.value}s`;
+        } else {
+            tempoLabel.textContent = `${slider.value} BPM`;
+        }
+    });
+});
+
+const musicIndicator = document.getElementById('music-status-indicator');
+const musicText = document.getElementById('music-status-text');
+const musicDevice = document.getElementById('music-device');
+const musicModelLoaded = document.getElementById('music-model-loaded');
+const musicLatency = document.getElementById('music-latency');
+const musicTimestamp = document.getElementById('music-timestamp');
+const musicError = document.getElementById('music-status-error');
+const musicRefresh = document.getElementById('music-refresh');
+
+async function updateMusicStatus() {
+    musicText.textContent = 'Checking...';
+    musicIndicator.classList.remove('online');
+    musicIndicator.classList.add('offline');
+    musicError.textContent = '';
+
+    try {
+        const resp = await fetch('/api/servers/music/status');
+        const data = await resp.json();
+
+        musicTimestamp.textContent = data.timestamp || '-';
+        musicDevice.textContent = data.device || '-';
+        musicModelLoaded.textContent = data.model_loaded ? 'Yes' : 'No';
+        musicLatency.textContent = (data.latency_ms !== undefined) ? `${data.latency_ms} ms` : '-';
+
+        const uriLink = document.getElementById('music-uri-link');
+        const uriSpan = document.getElementById('music-uri');
+        uriSpan.textContent = data.server_uri_external || '-';
+        uriLink.href = data.server_uri_external || '#';
+
+        if (data.online) {
+            musicIndicator.classList.remove('offline');
+            musicIndicator.classList.add('online');
+            musicText.textContent = 'Online';
+        } else {
+            musicIndicator.classList.remove('online');
+            musicIndicator.classList.add('offline');
+            musicText.textContent = 'Offline';
+            if (data.error) {
+                musicError.textContent = data.error;
+            }
+        }
+    } catch (err) {
+        musicIndicator.classList.remove('online');
+        musicIndicator.classList.add('offline');
+        musicText.textContent = 'Connection error';
+        musicError.textContent = err.message || String(err);
+    }
+}
+
+musicRefresh.addEventListener('click', updateMusicStatus);
+updateMusicStatus();
+setInterval(updateMusicStatus, 30000);
+
+const genBtn = document.getElementById('music-generate');
+const randBtn = document.getElementById('music-random');
+const promptInput = document.getElementById('music-prompt');
+const durationInput = document.getElementById('duration');
+const msgBox = document.getElementById('music-message');
+const audioWrap = document.getElementById('music-audio-container');
+const audioEl = document.getElementById('music-audio');
+const downloadEl = document.getElementById('music-download');
+
+async function generateMusic() {
+    const prompt = (promptInput.value || '').trim();
+    const duration = parseInt(durationInput.value || '30', 10);
+    if (!prompt) {
+        msgBox.textContent = 'Please enter description.';
+        return;
+    }
+
+    msgBox.textContent = '';
+    genBtn.disabled = true;
+    genBtn.textContent = 'Generating...';
+    audioWrap.hidden = true;
+
+    try {
+        const resp = await fetch('/api/servers/music/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, duration })
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.success === false) {
+            throw new Error(data.error || `HTTP ${resp.status}`);
+        }
+        if (!data.file_url) {
+            throw new Error('No file_url returned');
+        }
+        audioEl.src = data.file_url;
+        downloadEl.href = data.file_url;
+        downloadEl.download = data.filename || 'music.wav';
+        audioWrap.hidden = false;
+        audioEl.play().catch(() => {});
+        msgBox.textContent = `Generated: ${data.filename || ''}`;
+    } catch (err) {
+        msgBox.textContent = err.message || String(err);
+        audioWrap.hidden = true;
+    } finally {
+        genBtn.disabled = false;
+        genBtn.textContent = 'Generate Music';
+    }
+}
+
+function randomStyle() {
+    const prompts = [
+        'Happy upbeat electronic music with bright synths',
+        'Calm ambient pads for a night sky',
+        'Gentle piano with soft strings for a sunset',
+        'Cinematic orchestra with emotional build-up',
+        'Jazz quartet with walking bass and brush drums'
+    ];
+    const choice = prompts[Math.floor(Math.random() * prompts.length)];
+    promptInput.value = choice;
+}
+
+genBtn.addEventListener('click', generateMusic);
+randBtn.addEventListener('click', randomStyle);
+</script>
+{% endblock %}

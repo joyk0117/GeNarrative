@@ -1,0 +1,1489 @@
+{% extends "base.html" %}
+
+{% block title %}Scene List - GeNarrative UI{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Scene List</h2>
+    
+    {% if scenes %}
+        <div class="scene-grid">
+            <!-- 新しいシーン作成カード -->
+            <div class="scene-card create-scene-card" onclick="showCreateSceneModal()">
+                <div class="scene-thumbnail create-thumbnail">
+                    <div class="create-icon">+</div>
+                </div>
+                <h3>Create New Scene</h3>
+                <div class="btn btn-primary create-btn">Add Scene</div>
+            </div>
+            
+            {% for scene in scenes %}
+            <div class="scene-card" draggable="true" data-scene-id="{{ scene.id }}">
+                {% if scene.has_image %}
+                <div class="scene-thumbnail">
+                    <img src="/scene/{{ scene.id }}/file/{{ scene.image_filename }}" 
+                         alt="Scene {{ scene.id }}" 
+                         class="thumbnail-image">
+                </div>
+                {% else %}
+                <div class="scene-thumbnail no-image">
+                    <div class="no-image-placeholder">No Image</div>
+                </div>
+                {% endif %}
+                <h3>{{ scene.id }}</h3>
+                <div class="scene-buttons">
+                    <a href="/scene/{{ scene.id }}" class="btn btn-primary btn-sm">View Details</a>
+                    <button class="btn btn-danger btn-sm delete-scene-btn" 
+                            onclick="deleteScene('{{ scene.id }}', event)" 
+                            title="Delete Scene">Delete</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="scene-grid">
+            <!-- 新しいシーン作成カード -->
+            <div class="scene-card create-scene-card" onclick="showCreateSceneModal()">
+                <div class="scene-thumbnail create-thumbnail">
+                    <div class="create-icon">+</div>
+                </div>
+                <h3>Create New Scene</h3>
+                <div class="btn btn-primary create-btn">Add Scene</div>
+            </div>
+        </div>
+        <p>No scenes found. Create your first scene using the card above!</p>
+    {% endif %}
+    
+    <!-- Story Creation Area -->
+    <div class="narrative-section">
+        <h2>Create Story</h2>
+        <p>Drag scenes from above to arrange them in your story sequence</p>
+        <div class="narrative-timeline" id="narrativeTimeline">
+            <div class="timeline-placeholder">Drop scenes here to create your story</div>
+        </div>
+        <div class="narrative-controls">
+            <button class="btn btn-success" id="generateNarrative">Generate Story</button>
+            <button class="btn btn-secondary" id="clearNarrative">Clear All</button>
+        </div>
+    </div>
+</div>
+
+<!-- Story Slideshow Section -->
+<div class="narrative-slideshow" id="narrativeSlideshow" style="display: none;">
+    <div class="slideshow-header">
+        <h2>Generated Story</h2>
+        <div class="slideshow-controls">
+            <button class="btn btn-primary" id="saveNarrative" style="display: none;">Save Story</button>
+            <button class="btn btn-secondary" id="closeSlideshow">Close Slideshow</button>
+        </div>
+    </div>
+    
+    <div class="swiper narrative-swiper">
+        <div class="swiper-wrapper" id="narrativeSwiperWrapper">
+            <!-- Slides will be dynamically generated here -->
+        </div>
+        
+        <!-- Navigation buttons -->
+        <div class="swiper-button-next"></div>
+        <div class="swiper-button-prev"></div>
+        
+        <!-- Pagination -->
+        <div class="swiper-pagination"></div>
+        
+        <!-- Progress bar -->
+        <div class="swiper-scrollbar"></div>
+    </div>
+</div>
+
+<!-- Create Scene Modal -->
+<div class="modal-overlay" id="createSceneModal" style="display: none;">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Create New Scene</h3>
+            <button class="modal-close" onclick="hideCreateSceneModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="sceneId">Scene ID:</label>
+                <input type="text" id="sceneId" placeholder="Enter scene ID (e.g., 20250806_140000)" required>
+                <small class="help-text">Leave empty to auto-generate based on current timestamp</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Scene Creation Type:</label>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="creationType" value="empty" checked>
+                        <span>Create Empty Scene</span>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="creationType" value="copy">
+                        <span>Copy from Existing Scene</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-group copy-source" id="copySourceGroup" style="display: none;">
+                <label for="sourceScene">Source Scene:</label>
+                <select id="sourceScene">
+                    <option value="">Select a scene to copy</option>
+                    {% for scene in scenes %}
+                    <option value="{{ scene.id }}">{{ scene.id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="hideCreateSceneModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="createNewScene()">Create Scene</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.scene-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.scene-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 18px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    cursor: grab;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.scene-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.scene-card.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.scene-thumbnail {
+    width: 120px;
+    height: 90px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+}
+
+.thumbnail-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
+.no-image {
+    background-color: #e9ecef;
+    border: 2px dashed #ced4da;
+}
+
+.no-image-placeholder {
+    color: #6c757d;
+    font-size: 11px;
+    text-align: center;
+}
+
+.scene-card h3 {
+    margin: 0 0 14px 0;
+    color: #333;
+    font-size: 16px;
+    word-break: break-all;
+}
+
+/* Scene Buttons Container */
+.scene-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    width: 100%;
+}
+
+.scene-buttons .btn {
+    flex: 1;
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+.delete-scene-btn {
+    background-color: #dc3545;
+    border: none;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.delete-scene-btn:hover {
+    background-color: #c82333;
+}
+
+.scene-card {
+    position: relative;
+}
+
+/* Create Scene Card Styles */
+.create-scene-card {
+    border: 2px dashed #007bff;
+    background: #f8f9fa;
+    cursor: pointer;
+}
+
+.create-scene-card:hover {
+    border-color: #0056b3;
+    background: #e7f3ff;
+}
+
+.create-thumbnail {
+    background: #007bff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.create-icon {
+    font-size: 48px;
+    color: white;
+    font-weight: bold;
+}
+
+.create-btn {
+    border: none;
+    background: transparent;
+    color: #007bff;
+    cursor: pointer;
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    padding: 20px 24px 0;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    color: #666;
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.modal-footer {
+    padding: 0 24px 24px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input[type="text"],
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.help-text {
+    display: block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.radio-group,
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.radio-label,
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.radio-label input,
+.checkbox-label input {
+    width: auto;
+}
+
+.btn {
+    display: inline-block;
+    padding: 8px 16px;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: bold;
+    text-align: center;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+/* Story Creation Styles */
+.narrative-section {
+    margin-top: 40px;
+    padding: 20px;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    background-color: #f8f9fa;
+}
+
+.narrative-section h2 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.narrative-section p {
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.narrative-timeline {
+    min-height: 150px;
+    border: 2px dashed #ced4da;
+    border-radius: 8px;
+    background-color: white;
+    padding: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: flex-start;
+}
+
+.timeline-placeholder {
+    width: 100%;
+    text-align: center;
+    color: #6c757d;
+    font-style: italic;
+    margin: auto;
+}
+
+.narrative-timeline.drag-over {
+    border-color: #007bff;
+    background-color: #f0f8ff;
+}
+
+.narrative-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+/* Timeline Scene Card Styles */
+.timeline-scene {
+    width: 120px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    cursor: grab;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.timeline-scene:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+.timeline-scene.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+    transform: rotate(5deg);
+}
+
+.timeline-scene .remove-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timeline-scene .scene-thumbnail {
+    width: 80px;
+    height: 60px;
+    margin-bottom: 8px;
+}
+
+.timeline-scene .thumbnail-image {
+    object-fit: contain;
+}
+
+.timeline-scene h4 {
+    font-size: 12px;
+    margin: 0;
+    color: #333;
+    word-break: break-all;
+}
+
+/* Story Slideshow Styles */
+.narrative-slideshow {
+    margin-top: 40px;
+    padding: 20px;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    background-color: #f8f9fa;
+}
+
+.slideshow-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.slideshow-header h2 {
+    color: #333;
+    margin: 0;
+}
+
+.slideshow-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.narrative-swiper {
+    width: 100%;
+    height: 600px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.narrative-slide {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    background: white;
+    padding: 40px;
+    position: relative;
+    gap: 40px;
+    min-height: 500px;
+}
+
+.slide-content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 40px;
+    width: 100%;
+    max-width: 1000px;
+}
+
+.slide-image-container {
+    flex: 0 0 400px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.slide-text-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.slide-image {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    max-height: 400px;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.slide-image.no-image {
+    width: 400px;
+    height: 300px;
+    background-color: #e9ecef;
+    border: 2px dashed #ced4da;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    font-size: 18px;
+}
+
+.slide-text {
+    font-size: 18px;
+    line-height: 1.6;
+    color: #333;
+    max-height: 400px;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+    text-align: left;
+    margin: 0;
+}
+
+.slide-scene-info {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background-color: rgba(0,0,0,0.7);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.slide-number {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: rgba(0,123,255,0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* Swiper customization */
+.narrative-swiper .swiper-button-next,
+.narrative-swiper .swiper-button-prev {
+    color: #007bff;
+    background-color: rgba(255,255,255,0.9);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.narrative-swiper .swiper-button-next:after,
+.narrative-swiper .swiper-button-prev:after {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.narrative-swiper .swiper-pagination-bullet {
+    background-color: #007bff;
+    opacity: 0.7;
+}
+
+.narrative-swiper .swiper-pagination-bullet-active {
+    opacity: 1;
+}
+
+.narrative-swiper .swiper-scrollbar {
+    background-color: rgba(0,0,0,0.1);
+}
+
+.narrative-swiper .swiper-scrollbar-drag {
+    background-color: #007bff;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const narrativeTimeline = document.getElementById('narrativeTimeline');
+    const generateBtn = document.getElementById('generateNarrative');
+    const clearBtn = document.getElementById('clearNarrative');
+    const saveBtn = document.getElementById('saveNarrative');
+    const sceneCards = document.querySelectorAll('.scene-card');
+    
+    let narrativeScenes = [];
+    let currentNarrativeData = [];
+    
+    // Add drag event listeners to scene cards
+    sceneCards.forEach(card => {
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragend', handleDragEnd);
+    });
+    
+    // Add drop event listeners to narrative timeline
+    narrativeTimeline.addEventListener('dragover', handleDragOver);
+    narrativeTimeline.addEventListener('drop', handleDrop);
+    narrativeTimeline.addEventListener('dragenter', handleDragEnter);
+    narrativeTimeline.addEventListener('dragleave', handleDragLeave);
+    
+    function handleDragStart(e) {
+        this.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', this.dataset.sceneId);
+        e.dataTransfer.setData('text/html', this.outerHTML);
+        e.dataTransfer.setData('text/source', 'grid');
+    }
+    
+    function handleDragEnd(e) {
+        this.classList.remove('dragging');
+    }
+    
+    function handleDragOver(e) {
+        e.preventDefault();
+    }
+    
+    function handleDragEnter(e) {
+        e.preventDefault();
+        narrativeTimeline.classList.add('drag-over');
+    }
+    
+    function handleDragLeave(e) {
+        if (!narrativeTimeline.contains(e.relatedTarget)) {
+            narrativeTimeline.classList.remove('drag-over');
+        }
+    }
+    
+    function handleDrop(e) {
+        e.preventDefault();
+        narrativeTimeline.classList.remove('drag-over');
+        
+        const sceneId = e.dataTransfer.getData('text/plain');
+        const sceneHtml = e.dataTransfer.getData('text/html');
+        const dragSource = e.dataTransfer.getData('text/source');
+        
+        if (dragSource === 'timeline') {
+            // Handle reordering within timeline
+            handleTimelineReorder(e, sceneId);
+        } else {
+            // Add scene from grid to narrative (allow duplicates)
+            addSceneToNarrative(sceneId, sceneHtml);
+        }
+    }
+    
+    function addSceneToNarrative(sceneId, sceneHtml) {
+        // Generate unique ID for this instance (allows duplicates)
+        const instanceId = sceneId + '_' + Date.now();
+        narrativeScenes.push({id: sceneId, instanceId: instanceId});
+        
+        // Remove placeholder if this is the first scene
+        const placeholder = narrativeTimeline.querySelector('.timeline-placeholder');
+        if (placeholder) {
+            placeholder.remove();
+        }
+        
+        // Create timeline scene element
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(sceneHtml, 'text/html');
+        const originalCard = doc.querySelector('.scene-card');
+        
+        const timelineScene = document.createElement('div');
+        timelineScene.className = 'timeline-scene';
+        timelineScene.dataset.sceneId = sceneId;
+        timelineScene.dataset.instanceId = instanceId;
+        timelineScene.draggable = true;
+        
+        // Extract scene content
+        const thumbnail = originalCard.querySelector('.scene-thumbnail').cloneNode(true);
+        const title = originalCard.querySelector('h3').textContent;
+        
+        timelineScene.innerHTML = `
+            <button class="remove-btn" onclick="removeFromNarrative('${instanceId}')">×</button>
+            ${thumbnail.outerHTML}
+            <h4>${title}</h4>
+        `;
+        
+        // Add drag event listeners for timeline reordering
+        timelineScene.addEventListener('dragstart', handleTimelineDragStart);
+        timelineScene.addEventListener('dragend', handleTimelineDragEnd);
+        
+        narrativeTimeline.appendChild(timelineScene);
+        updateNarrativeControls();
+    }
+    
+    window.removeFromNarrative = function(instanceId) {
+        narrativeScenes = narrativeScenes.filter(scene => scene.instanceId !== instanceId);
+        const sceneElement = narrativeTimeline.querySelector(`[data-instance-id="${instanceId}"]`);
+        if (sceneElement) {
+            sceneElement.remove();
+        }
+        
+        // Add placeholder back if no scenes
+        if (narrativeScenes.length === 0) {
+            narrativeTimeline.innerHTML = '<div class="timeline-placeholder">Drop scenes here to create your narrative</div>';
+        }
+        
+        updateNarrativeControls();
+    };
+    
+    // Timeline drag and drop functions for reordering
+    function handleTimelineDragStart(e) {
+        this.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', this.dataset.sceneId);
+        e.dataTransfer.setData('text/instance', this.dataset.instanceId);
+        e.dataTransfer.setData('text/source', 'timeline');
+        e.dataTransfer.effectAllowed = 'move';
+    }
+    
+    function handleTimelineDragEnd(e) {
+        this.classList.remove('dragging');
+    }
+    
+    function handleTimelineReorder(e, sceneId) {
+        const instanceId = e.dataTransfer.getData('text/instance');
+        const draggedElement = narrativeTimeline.querySelector(`[data-instance-id="${instanceId}"]`);
+        
+        if (!draggedElement) return;
+        
+        // Find the drop position
+        const afterElement = getDragAfterElement(narrativeTimeline, e.clientX);
+        
+        if (afterElement == null) {
+            narrativeTimeline.appendChild(draggedElement);
+        } else {
+            narrativeTimeline.insertBefore(draggedElement, afterElement);
+        }
+        
+        // Update the narrativeScenes array order
+        updateNarrativeScenesOrder();
+    }
+    
+    function getDragAfterElement(container, x) {
+        const draggableElements = [...container.querySelectorAll('.timeline-scene:not(.dragging)')];
+        
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = x - box.left - box.width / 2;
+            
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+    
+    function updateNarrativeScenesOrder() {
+        const timelineElements = narrativeTimeline.querySelectorAll('.timeline-scene');
+        narrativeScenes = Array.from(timelineElements).map(element => ({
+            id: element.dataset.sceneId,
+            instanceId: element.dataset.instanceId
+        }));
+    }
+    
+    function updateNarrativeControls() {
+        generateBtn.disabled = narrativeScenes.length === 0;
+        clearBtn.disabled = narrativeScenes.length === 0;
+        
+        // Show save button only when narrative is generated
+        if (currentNarrativeData && currentNarrativeData.length > 0) {
+            saveBtn.style.display = 'inline-block';
+        } else {
+            saveBtn.style.display = 'none';
+        }
+    }
+    
+    // Clear narrative
+    clearBtn.addEventListener('click', function() {
+        narrativeScenes = [];
+        currentNarrativeData = [];
+        narrativeTimeline.innerHTML = '<div class="timeline-placeholder">Drop scenes here to create your narrative</div>';
+        saveBtn.style.display = 'none';
+        updateNarrativeControls();
+    });
+    
+    // Save narrative
+    saveBtn.addEventListener('click', async function() {
+        if (currentNarrativeData.length === 0) {
+            alert('No narrative data to save. Please generate a narrative first.');
+            return;
+        }
+        
+        const title = prompt('Enter a title for your narrative:', `Narrative_${new Date().toISOString().slice(0,19).replace(/:/g, '')}`);
+        if (!title) return;
+        
+        try {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            
+            const response = await fetch('/story/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    narrative: currentNarrativeData,
+                    title: title
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(`Narrative saved successfully!\nFile: ${result.filename}`);
+                console.log('Narrative saved to:', result.path);
+                // Navigate to story page with highlight parameter
+                window.location.href = `/story?highlight=${encodeURIComponent(result.filename)}`;
+            } else {
+                alert(`Error saving narrative: ${result.error}`);
+            }
+            
+        } catch (error) {
+            console.error('Error saving narrative:', error);
+            alert('Error saving narrative. Please try again.');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Narrative';
+        }
+    });
+    
+    // Generate narrative
+    generateBtn.addEventListener('click', function() {
+        if (narrativeScenes.length === 0) {
+            alert('Please add scenes to the narrative timeline first.');
+            return;
+        }
+        
+        generateNarrativeSlideshow();
+    });
+    
+    // Generate narrative slideshow
+    async function generateNarrativeSlideshow() {
+        const slideshowContainer = document.getElementById('narrativeSlideshow');
+        const swiperWrapper = document.getElementById('narrativeSwiperWrapper');
+        
+        // Clear existing slides
+        swiperWrapper.innerHTML = '';
+        currentNarrativeData = []; // Reset narrative data
+        
+        // Show loading message
+        slideshowContainer.style.display = 'block';
+        swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="narrative-slide"><h3>Generating slides...</h3></div></div>';
+        
+        // Scroll to slideshow
+        slideshowContainer.scrollIntoView({ behavior: 'smooth' });
+        
+        try {
+            // Generate slides for each scene
+            for (let i = 0; i < narrativeScenes.length; i++) {
+                const scene = narrativeScenes[i];
+                await generateSlideForScene(scene, i + 1);
+            }
+            
+            // Initialize Swiper
+            initializeNarrativeSwiper();
+            
+            // Show save button
+            saveBtn.style.display = 'inline-block';
+            
+        } catch (error) {
+            console.error('Error generating slideshow:', error);
+            swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="narrative-slide"><h3>Error generating slideshow</h3></div></div>';
+        }
+    }
+    
+    async function generateSlideForScene(scene, slideNumber) {
+        const swiperWrapper = document.getElementById('narrativeSwiperWrapper');
+        
+        try {
+            // Fetch scene data
+            const sceneData = await fetchSceneData(scene.id);
+            
+            // Store scene data for saving
+            currentNarrativeData.push(sceneData);
+            
+            // Create slide element
+            const slide = document.createElement('div');
+            slide.className = 'swiper-slide';
+            slide.innerHTML = createSlideHTML(sceneData, slideNumber, scene.id);
+            
+            // Remove loading slide if this is the first real slide
+            if (slideNumber === 1) {
+                swiperWrapper.innerHTML = '';
+            }
+            
+            swiperWrapper.appendChild(slide);
+            
+        } catch (error) {
+            console.error(`Error generating slide for scene ${scene.id}:`, error);
+            
+            // Create error slide and add error data
+            const errorData = {
+                id: scene.id,
+                hasImage: false,
+                image: '',
+                text: `Failed to load content for scene ${scene.id}`,
+                hasTTS: false,
+                hasMusic: false
+            };
+            currentNarrativeData.push(errorData);
+            
+            const slide = document.createElement('div');
+            slide.className = 'swiper-slide';
+            slide.innerHTML = `
+                <div class="narrative-slide">
+                    <div class="slide-scene-info">Scene ${scene.id}</div>
+                    <div class="slide-number">${slideNumber} / ${narrativeScenes.length}</div>
+                    <div class="slide-content">
+                        <h3>Error loading scene data</h3>
+                        <p>Failed to load content for scene ${scene.id}</p>
+                    </div>
+                </div>
+            `;
+            
+            if (slideNumber === 1) {
+                swiperWrapper.innerHTML = '';
+            }
+            swiperWrapper.appendChild(slide);
+        }
+    }
+    
+    async function fetchSceneData(sceneId) {
+        // Simulate fetching scene data - replace with actual API calls
+        try {
+            console.log(`Fetching data for scene: ${sceneId}`);
+            const response = await fetch(`/scene/${sceneId}/data`);
+            if (!response.ok) {
+                console.error(`API response not OK: ${response.status}`);
+                // If API endpoint doesn't exist, create mock data
+                return {
+                    id: sceneId,
+                    image: `/scene/${sceneId}/file/image.png`,
+                    text: `Mock text for scene ${sceneId}. Lorem ipsum dolor sit amet, consectetur adipiscing elit.`,
+                    hasImage: true,
+                    hasTTS: true,
+                    hasMusic: true
+                };
+            }
+            const data = await response.json();
+            console.log(`Scene data received:`, data);
+            return data;
+        } catch (error) {
+            console.error(`Error fetching scene data for ${sceneId}:`, error);
+            return {
+                id: sceneId,
+                image: `/scene/${sceneId}/file/image.png`,
+                text: `Error loading text for scene ${sceneId}`,
+                hasImage: false,
+                hasTTS: false,
+                hasMusic: false
+            };
+        }
+    }
+    
+    function createSlideHTML(sceneData, slideNumber, sceneId) {
+        const imageHTML = sceneData.hasImage ? 
+            `<img src="${sceneData.image}" alt="Scene ${sceneId}" class="slide-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+             <div class="slide-image no-image" style="display: none;">No Image Available</div>` :
+            `<div class="slide-image no-image">No Image Available</div>`;
+        
+        return `
+            <div class="narrative-slide" data-scene-id="${sceneId}" data-has-tts="${sceneData.hasTTS}" data-has-music="${sceneData.hasMusic}">
+                <div class="slide-scene-info">Scene ${sceneId}</div>
+                <div class="slide-number">${slideNumber} / ${narrativeScenes.length}</div>
+                <div class="slide-content">
+                    <div class="slide-image-container">
+                        ${imageHTML}
+                    </div>
+                    <div class="slide-text-container">
+                        <div class="slide-text">${sceneData.text}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    function initializeNarrativeSwiper() {
+        // Destroy existing swiper if it exists
+        if (window.narrativeSwiper) {
+            window.narrativeSwiper.destroy(true, true);
+        }
+        
+        // Initialize new swiper
+        window.narrativeSwiper = new Swiper('.narrative-swiper', {
+            direction: 'horizontal',
+            loop: false,
+            speed: 600,
+            
+            // Navigation arrows
+            navigation: {
+                nextEl: '.swiper-button-next',
+                prevEl: '.swiper-button-prev',
+            },
+            
+            // Pagination
+            pagination: {
+                el: '.swiper-pagination',
+                clickable: true,
+                type: 'bullets',
+            },
+            
+            // Scrollbar
+            scrollbar: {
+                el: '.swiper-scrollbar',
+                draggable: true,
+            },
+            
+            // Keyboard control
+            keyboard: {
+                enabled: true,
+            },
+            
+            // Mouse wheel control
+            mousewheel: {
+                enabled: true,
+            },
+            
+            // Touch gestures
+            touchRatio: 1,
+            touchAngle: 45,
+            
+            // Effects
+            effect: 'slide',
+            
+            // Auto height
+            autoHeight: false,
+            
+            // Events
+            on: {
+                slideChange: function () {
+                    // スライド切り替え時に音声を自動再生
+                    playSlideAudio(this.activeIndex);
+                },
+                init: function () {
+                    // 初期化時に最初のスライドの音声を再生
+                    setTimeout(() => {
+                        playSlideAudio(0);
+                    }, 500);
+                }
+            }
+        });
+    }
+    
+    // スライドの音声を自動再生する関数
+    function playSlideAudio(slideIndex) {
+        console.log(`=== Starting audio for slide ${slideIndex} ===`);
+        
+        // 既存の音声を停止
+        stopAllAudio();
+        
+        const slides = document.querySelectorAll('.narrative-slide');
+        if (!slides || slideIndex >= slides.length) {
+            console.log('No slides found or invalid index');
+            return;
+        }
+        
+        const currentSlide = slides[slideIndex];
+        const sceneId = currentSlide.dataset.sceneId;
+        const hasTTS = currentSlide.dataset.hasTts === 'true';
+        const hasMusic = currentSlide.dataset.hasMusic === 'true';
+        
+        console.log(`Scene ID: ${sceneId}, Has TTS: ${hasTTS}, Has Music: ${hasMusic}`);
+        
+        // TTSとBGMを同時再生
+        if (hasTTS) {
+            console.log('Starting TTS playback...');
+            playTTSAudio(sceneId);
+        }
+        
+        if (hasMusic) {
+            console.log('Starting Music playback...');
+            // TTSがある場合は少し遅らせてBGMを開始
+            const delay = hasTTS ? 1000 : 0; // 1秒に延長
+            setTimeout(() => {
+                playMusicAudio(sceneId);
+            }, delay);
+        }
+        
+        if (!hasTTS && !hasMusic) {
+            console.log('No audio files available for this scene');
+        }
+    }
+    
+    // TTS音声を再生する関数
+    function playTTSAudio(sceneId) {
+        console.log(`Attempting to play TTS for scene: ${sceneId}`);
+        try {
+            const ttsUrl = `/scene/${sceneId}/tts`;
+            console.log(`TTS URL: ${ttsUrl}`);
+            
+            const audio = new Audio(ttsUrl);
+            audio.volume = 0.8; // 音量を80%に設定
+            
+            audio.addEventListener('loadstart', () => {
+                console.log('TTS: Load started');
+            });
+            
+            audio.addEventListener('canplay', () => {
+                console.log('TTS: Can play');
+            });
+            
+            audio.addEventListener('play', () => {
+                console.log('TTS: Started playing');
+            });
+            
+            audio.addEventListener('error', (e) => {
+                console.error('TTS Error:', e);
+            });
+            
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log('TTS: Play promise resolved');
+                }).catch(error => {
+                    console.error(`TTS play failed for scene ${sceneId}:`, error);
+                });
+            }
+            
+            window.currentTTSAudio = audio;
+        } catch (error) {
+            console.error('Error creating TTS audio:', error);
+        }
+    }
+    
+    // BGM音声を再生する関数
+    function playMusicAudio(sceneId) {
+        console.log(`Attempting to play Music for scene: ${sceneId}`);
+        try {
+            const musicUrl = `/scene/${sceneId}/music`;
+            console.log(`Music URL: ${musicUrl}`);
+            
+            const audio = new Audio(musicUrl);
+            audio.volume = 0.3; // BGMは音量を30%に設定
+            audio.loop = true; // BGMはループ再生
+            
+            audio.addEventListener('loadstart', () => {
+                console.log('Music: Load started');
+            });
+            
+            audio.addEventListener('canplay', () => {
+                console.log('Music: Can play');
+            });
+            
+            audio.addEventListener('play', () => {
+                console.log('Music: Started playing');
+            });
+            
+            audio.addEventListener('error', (e) => {
+                console.error('Music Error:', e);
+            });
+            
+            const playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log('Music: Play promise resolved');
+                }).catch(error => {
+                    console.error(`Music play failed for scene ${sceneId}:`, error);
+                });
+            }
+            
+            window.currentMusicAudio = audio;
+        } catch (error) {
+            console.error('Error creating Music audio:', error);
+        }
+    }
+    
+    // Audio control functions (deprecated - keeping for compatibility)
+    window.playTTS = function(sceneId) {
+        playTTSAudio(sceneId);
+    };
+    
+    window.playMusic = function(sceneId) {
+        playMusicAudio(sceneId);
+    };
+    
+    function stopAllAudio() {
+        console.log('=== Stopping all audio ===');
+        
+        // TTS音声を停止
+        if (window.currentTTSAudio) {
+            console.log('Stopping TTS audio');
+            window.currentTTSAudio.pause();
+            window.currentTTSAudio.currentTime = 0;
+            window.currentTTSAudio = null;
+        }
+        
+        // BGM音声を停止
+        if (window.currentMusicAudio) {
+            console.log('Stopping Music audio');
+            window.currentMusicAudio.pause();
+            window.currentMusicAudio.currentTime = 0;
+            window.currentMusicAudio = null;
+        }
+        
+        // 以前の音声も停止（互換性のため）
+        if (window.currentAudio) {
+            console.log('Stopping legacy audio');
+            window.currentAudio.pause();
+            window.currentAudio.currentTime = 0;
+            window.currentAudio = null;
+        }
+        
+        console.log('All audio stopped');
+    }
+    
+    // Close slideshow
+    document.getElementById('closeSlideshow').addEventListener('click', function() {
+        stopAllAudio();
+        document.getElementById('narrativeSlideshow').style.display = 'none';
+        
+        // Destroy swiper to free memory
+        if (window.narrativeSwiper) {
+            window.narrativeSwiper.destroy(true, true);
+            window.narrativeSwiper = null;
+        }
+    });
+    
+    // Initial state
+    updateNarrativeControls();
+});
+
+// Create Scene Modal Functions
+function showCreateSceneModal() {
+    document.getElementById('createSceneModal').style.display = 'flex';
+    
+    // Set up event listeners for radio buttons
+    const radioButtons = document.querySelectorAll('input[name="creationType"]');
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            const copySourceGroup = document.getElementById('copySourceGroup');
+            if (this.value === 'copy') {
+                copySourceGroup.style.display = 'block';
+            } else {
+                copySourceGroup.style.display = 'none';
+            }
+        });
+    });
+}
+
+function hideCreateSceneModal() {
+    document.getElementById('createSceneModal').style.display = 'none';
+    
+    // Reset form
+    document.getElementById('sceneId').value = '';
+    document.querySelector('input[name="creationType"][value="empty"]').checked = true;
+    document.getElementById('copySourceGroup').style.display = 'none';
+    document.getElementById('sourceScene').value = '';
+}
+
+function createNewScene() {
+    const sceneIdInput = document.getElementById('sceneId');
+    const creationType = document.querySelector('input[name="creationType"]:checked').value;
+    const sourceScene = document.getElementById('sourceScene').value;
+    
+    // Generate scene ID if empty
+    let sceneId = sceneIdInput.value.trim();
+    if (!sceneId) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hour = String(now.getHours()).padStart(2, '0');
+        const minute = String(now.getMinutes()).padStart(2, '0');
+        const second = String(now.getSeconds()).padStart(2, '0');
+        sceneId = `${year}${month}${day}_${hour}${minute}${second}`;
+    }
+    
+    // Validate input
+    if (creationType === 'copy' && !sourceScene) {
+        alert('Please select a source scene to copy from');
+        return;
+    }
+    
+    // Disable create button
+    const createBtn = document.querySelector('.modal-footer .btn-primary');
+    createBtn.disabled = true;
+    createBtn.textContent = 'Creating...';
+    
+    // Prepare request data
+    const requestData = {
+        sceneId: sceneId,
+        creationType: creationType,
+        sourceScene: sourceScene
+    };
+    
+    // Send request to server
+    fetch('/scene/create', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Scene created successfully!');
+            hideCreateSceneModal();
+            // Reload page to show new scene
+            window.location.reload();
+        } else {
+            alert('Failed to create scene: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error creating scene:', error);
+        alert('Error occurred while creating scene');
+    })
+    .finally(() => {
+        // Re-enable create button
+        createBtn.disabled = false;
+        createBtn.textContent = 'Create Scene';
+    });
+}
+
+// Delete scene function
+function deleteScene(sceneId, event) {
+    // Stop event propagation to prevent drag event
+    event.stopPropagation();
+    
+    if (!confirm(`Are you sure you want to delete scene "${sceneId}"? This action cannot be undone.`)) {
+        return;
+    }
+    
+    // Send delete request to server
+    fetch(`/scene/${sceneId}/delete`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Scene deleted successfully!');
+            // Reload page to update scene list
+            window.location.reload();
+        } else {
+            alert('Failed to delete scene: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error deleting scene:', error);
+        alert('Error occurred while deleting scene');
+    });
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('createSceneModal');
+    if (event.target === modal) {
+        hideCreateSceneModal();
+    }
+});
+</script>
+{% endblock %}

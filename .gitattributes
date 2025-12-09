@@ -1,0 +1,56 @@
+# Normalize line endings per OS and avoid mixed styles
+* text=auto
+
+# Use LF consistently for Python, Docker and related text files
+*.py text eol=lf
+*Dockerfile text eol=lf
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.js text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.xml text eol=lf
+*.conf text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf
+requirements.txt text eol=lf
+
+# Jupyter Notebook files
+*.ipynb text eol=lf
+
+# Configuration files
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.env text eol=lf
+.env.* text eol=lf
+
+# Docker and container-related files
+docker-compose.yml text eol=lf
+docker-compose.yaml text eol=lf
+*.dockerignore text eol=lf
+
+# Do not apply line ending conversion to binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.ico binary
+*.svg binary
+*.webp binary
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.avi binary
+*.mov binary
+*.pdf binary
+*.zip binary
+*.tar binary
+*.gz binary
+*.safetensors binary

@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Swiper.js デモ - GeNarrative{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Swiper.js デモ</h2>
+    
+    <!-- 基本的なSwiper -->
+    <section class="demo-section">
+        <h3>基本的なスライダー</h3>
+        <div class="swiper basic-swiper">
+            <div class="swiper-wrapper">
+                <div class="swiper-slide">
+                    <div class="slide-content">
+                        <h4>スライド 1</h4>
+                        <p>これは最初のスライドです。Swiper.jsの基本的な使用例を示しています。</p>
+                    </div>
+                </div>
+                <div class="swiper-slide">
+                    <div class="slide-content">
+                        <h4>スライド 2</h4>
+                        <p>2番目のスライドです。左右にスワイプして移動できます。</p>
+                    </div>
+                </div>
+                <div class="swiper-slide">
+                    <div class="slide-content">
+                        <h4>スライド 3</h4>
+                        <p>3番目のスライドです。ナビゲーションボタンも使用できます。</p>
+                    </div>
+                </div>
+                <div class="swiper-slide">
+                    <div class="slide-content">
+                        <h4>スライド 4</h4>
+                        <p>最後のスライドです。ページネーションも表示されています。</p>
+                    </div>
+                </div>
+            </div>
+            <!-- ページネーション -->
+            <div class="swiper-pagination"></div>
+            <!-- ナビゲーションボタン -->
+            <div class="swiper-button-next"></div>
+            <div class="swiper-button-prev"></div>
+        </div>
+    </section>
+
+    <!-- カードスタイルのSwiper -->
+    <section class="demo-section">
+        <h3>カード型スライダー</h3>
+        <div class="swiper card-swiper">
+            <div class="swiper-wrapper">
+                <div class="swiper-slide">
+                    <div class="card">
+                        <div class="card-image">🖼️</div>
+                        <h4>画像分析</h4>
+                        <p>AIが画像の内容を詳細に分析し、重要な要素を抽出します。</p>
+                    </div>
+                </div>
+                <div class="swiper-slide">
+                    <div class="card">
+                        <div class="card-image">📖</div>
+                        <h4>物語生成</h4>
+                        <p>分析された画像から魅力的な物語を自動生成します。</p>
+                    </div>
+                </div>
+                <div class="swiper-slide">
+                    <div class="card">
+                        <div class="card-image">🎵</div>
+                        <h4>音楽生成</h4>
+                        <p>物語の雰囲気に合った背景音楽を作成します。</p>
+                    </div>
+                </div>
+                <div class="swiper-slide">
+                    <div class="card">
+                        <div class="card-image">🎙️</div>
+                        <h4>音声合成</h4>
+                        <p>生成されたテキストを自然な音声に変換します。</p>
+                    </div>
+                </div>
+            </div>
+            <div class="swiper-pagination"></div>
+        </div>
+    </section>
+
+    <!-- 縦スクロールSwiper -->
+    <section class="demo-section">
+        <h3>縦スクロール スライダー</h3>
+        <div class="swiper vertical-swiper">
+            <div class="swiper-wrapper">
+                <div class="swiper-slide">
+                    <div class="vertical-slide">
+                        <h4>ステップ 1</h4>
+                        <p>画像をアップロードします</p>
+                    </div>
+                </div>
+                <div class="swiper-slide">
+                    <div class="vertical-slide">
+                        <h4>ステップ 2</h4>
+                        <p>AIが画像を分析します</p>
+                    </div>
+                </div>
+                <div class="swiper-slide">
+                    <div class="vertical-slide">
+                        <h4>ステップ 3</h4>
+                        <p>物語が生成されます</p>
+                    </div>
+                </div>
+                <div class="swiper-slide">
+                    <div class="vertical-slide">
+                        <h4>ステップ 4</h4>
+                        <p>音楽と音声が追加されます</p>
+                    </div>
+                </div>
+            </div>
+            <div class="swiper-pagination"></div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Swiperの初期化
+document.addEventListener('DOMContentLoaded', function() {
+    // 基本的なSwiper
+    const basicSwiper = new Swiper('.basic-swiper', {
+        loop: true,
+        pagination: {
+            el: '.swiper-pagination',
+            clickable: true,
+        },
+        navigation: {
+            nextEl: '.swiper-button-next',
+            prevEl: '.swiper-button-prev',
+        },
+        autoplay: {
+            delay: 3000,
+            disableOnInteraction: false,
+        },
+    });
+
+    // カード型Swiper
+    const cardSwiper = new Swiper('.card-swiper', {
+        slidesPerView: 1,
+        spaceBetween: 20,
+        pagination: {
+            el: '.card-swiper .swiper-pagination',
+            clickable: true,
+        },
+        breakpoints: {
+            640: {
+                slidesPerView: 2,
+            },
+            1024: {
+                slidesPerView: 3,
+            },
+        },
+    });
+
+    // 縦スクロールSwiper
+    const verticalSwiper = new Swiper('.vertical-swiper', {
+        direction: 'vertical',
+        slidesPerView: 1,
+        spaceBetween: 0,
+        mousewheel: true,
+        pagination: {
+            el: '.vertical-swiper .swiper-pagination',
+            clickable: true,
+        },
+    });
+});
+</script>
+{% endblock %}

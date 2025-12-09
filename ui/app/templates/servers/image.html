@@ -1,0 +1,580 @@
+{% extends "base.html" %}
+
+{% block title %}Image Generation Server - GeNarrative{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="server-header">
+        <h2>🖼️ Image Generation Server</h2>
+        <p class="server-description">Stable Diffusion (AUTOMATIC1111) status and management</p>
+    </div>
+
+    <div class="server-content">
+        <div class="server-sections">
+            <!-- Server Status -->
+            <section class="server-section">
+                <h3>🔧 Server Status</h3>
+                <div class="status-grid">
+                    <div class="status-card" id="server-status-card">
+                        <div class="status-header">
+                            <span class="status-indicator" id="status-indicator">⏳</span>
+                            <span class="status-text" id="status-text">Checking server status...</span>
+                            <button class="btn btn-refresh" id="refresh-btn" onclick="refreshServerStatus()">🔄 Refresh</button>
+                        </div>
+                        <div class="status-details" id="status-details">
+                            <div class="loading-spinner">Checking connection...</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Model Information -->
+            <section class="server-section" id="models-section" style="display: none;">
+                <h3>📦 Model Information</h3>
+                <div class="info-card" id="models-card">
+                    <!-- Models information will be loaded here -->
+                </div>
+                <div class="model-actions" style="margin-top: 12px; display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+                    <button class="btn btn-refresh" onclick="refreshModels()">🔄 Refresh Models</button>
+                    <select id="model-select" class="form-control" style="max-width: 420px;"></select>
+                    <button class="btn btn-test" onclick="loadSelectedModel()">🧠 Load Selected Model</button>
+                    <span id="model-action-status" style="margin-left:8px; font-size: 13px; color:#6c757d;"></span>
+                </div>
+            </section>
+
+            <!-- Test Image Generation -->
+            <section class="server-section" id="test-generate-section">
+                <h3>🧪 Test Image Generation</h3>
+                <div class="gen-grid">
+                    <div>
+                        <label for="txt2img-prompt" class="label">Prompt</label>
+                        <textarea id="txt2img-prompt" class="prompt-input" rows="4" placeholder="a cute cat, watercolor, soft light"></textarea>
+                    </div>
+                    <div class="controls" style="display:flex; gap:12px; flex-wrap: wrap; align-items: center; margin-top: 10px;">
+                        <div>
+                            <label>Width</label>
+                            <input id="txt2img-width" type="number" min="64" max="1024" step="64" value="512" style="width:90px;">
+                        </div>
+                        <div>
+                            <label>Height</label>
+                            <input id="txt2img-height" type="number" min="64" max="1024" step="64" value="512" style="width:90px;">
+                        </div>
+                        <div>
+                            <label>Steps</label>
+                            <input id="txt2img-steps" type="number" min="5" max="50" step="1" value="20" style="width:90px;">
+                        </div>
+                        <div>
+                            <label>CFG</label>
+                            <input id="txt2img-cfg" type="number" min="1" max="20" step="0.5" value="7" style="width:90px;">
+                        </div>
+                        <div>
+                            <label>Sampler</label>
+                            <select id="txt2img-sampler" style="min-width:180px;"></select>
+                        </div>
+                        <button class="btn btn-primary" id="txt2img-run" onclick="runTxt2Img()">Generate</button>
+                        <span id="txt2img-status" style="font-size: 13px; color:#6c757d;"></span>
+                    </div>
+                    <div id="txt2img-preview" style="margin-top:15px;">
+                        <!-- generated image preview -->
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Common styles for server pages (can be moved to base.css later) */
+.server-header {
+    margin-bottom: 2rem;
+}
+.server-header h2 {
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+.server-description {
+    color: #666;
+    font-size: 1.05rem;
+}
+.server-content {
+    max-width: 100%;
+}
+.server-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.server-section {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+.server-section h3 {
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.4rem;
+}
+.status-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    background: #f9f9f9;
+}
+.status-card.loading { border-color: #ffc107; background: #fff8dc; }
+.status-card.online { border-color: #28a745; background: #f8fff9; }
+.status-card.offline { border-color: #dc3545; background: #fff8f8; }
+
+.status-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.status-indicator { font-size: 24px; }
+.status-text { font-weight: bold; flex: 1; }
+.status-details {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    background: white;
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    max-height: 400px;
+    overflow-y: auto;
+}
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+.info-item {
+    background: white;
+    padding: 15px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+.info-item h4 {
+    margin-top: 0;
+    color: #495057;
+    font-size: 16px;
+}
+.prompt-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-family: inherit;
+}
+.btn-refresh { background-color: #17a2b8; color: white; }
+.btn-refresh:hover { background-color: #138496; }
+.btn-test { background-color: #6f42c1; color: white; }
+.btn-test:hover { background-color: #5a359a; }
+</style>
+
+<script>
+// ユーザーが明示的にUnloadを選択したかを追跡
+let userRequestedUnload = false;
+
+// ページ読み込み時にサーバー状態を確認
+document.addEventListener('DOMContentLoaded', function() {
+    refreshServerStatus();
+});
+
+async function refreshServerStatus() {
+    const statusCard = document.getElementById('server-status-card');
+    const statusIndicator = document.getElementById('status-indicator');
+    const statusText = document.getElementById('status-text');
+    const statusDetails = document.getElementById('status-details');
+    const refreshBtn = document.getElementById('refresh-btn');
+    
+    // ローディング状態に設定
+    statusCard.className = 'status-card loading';
+    statusIndicator.textContent = '⏳';
+    statusText.textContent = 'Checking server status...';
+    statusDetails.innerHTML = '<div class="loading-spinner">Connecting to image generation server...</div>';
+    refreshBtn.disabled = true;
+    
+    // セクションを非表示
+    hideAllSections();
+    
+    try {
+        const response = await fetch('/api/servers/image/status');
+        const data = await response.json();
+        
+        console.log('Server status response:', data);
+        
+        if (data.online) {
+            // オンライン状態
+            statusCard.className = 'status-card online';
+            statusIndicator.textContent = '✅';
+            statusText.textContent = 'Image Generation Server Online';
+            
+            // 詳細情報の表示
+            displayServerDetails(data);
+            
+            if (data.models_info) {
+                displayModelsInfo(data.models_info);
+            }
+            
+        } else {
+            // オフライン状態
+            statusCard.className = 'status-card offline';
+            statusIndicator.textContent = '❌';
+            statusText.textContent = 'Image Generation Server Offline';
+            
+            statusDetails.innerHTML = `
+                <div style="color: #dc3545;">
+                    <strong>Connection Error:</strong> ${data.error || 'Unknown error'}<br>
+                    <strong>Server URI:</strong> ${data.server_uri}<br>
+                    <strong>Checked at:</strong> ${new Date(data.timestamp).toLocaleString()}
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        // エラー状態
+        statusCard.className = 'status-card offline';
+        statusIndicator.textContent = '💥';
+        statusText.textContent = 'Status Check Failed';
+        
+        statusDetails.innerHTML = `
+            <div style="color: #dc3545;">
+                <strong>Network Error:</strong> ${error.message}<br>
+                <strong>Checked at:</strong> ${new Date().toLocaleString()}
+            </div>
+        `;
+    } finally {
+        refreshBtn.disabled = false;
+    }
+}
+
+function displayServerDetails(data) {
+    const statusDetails = document.getElementById('status-details');
+    
+    // Current Modelの表示を決定
+    let currentModelDisplay;
+    if (userRequestedUnload || data.model_loaded === false || !data.current_model) {
+        currentModelDisplay = '<em style="color:#6c757d">Unloaded</em>';
+    } else {
+        currentModelDisplay = data.current_model;
+    }
+    
+    let detailsHtml = `
+        <div>
+            <strong>Server URI (internal):</strong> ${data.server_uri_internal || data.server_uri}<br>
+            <strong>Server URI (external):</strong> <a href="${data.server_uri_external || 'http://localhost:7860'}" target="_blank">${data.server_uri_external || 'http://localhost:7860'}</a><br>
+            <strong>Status:</strong> <span style="color: #28a745;">Online</span><br>
+            <strong>Last Checked:</strong> ${new Date(data.timestamp).toLocaleString()}<br>
+            <strong>Current Model:</strong> ${currentModelDisplay}<br>
+            <strong>Model Loaded:</strong> ${(userRequestedUnload || data.model_loaded === false) ? '<span style="color:#dc3545">No</span>' : '<span style="color:#28a745">Yes</span>'}<br>
+    `;
+    
+    if (data.additional_info_error) {
+        detailsHtml += `<strong>Additional Info:</strong> <span style="color: #ffc107;">Partial data (${data.additional_info_error})</span><br>`;
+    }
+    
+    detailsHtml += '</div>';
+    
+    statusDetails.innerHTML = detailsHtml;
+    
+    // セレクトボックスの値を現在のモデルに同期
+    const select = document.getElementById('model-select');
+    if (select) {
+        if (userRequestedUnload) {
+            select.value = '__UNLOAD__';
+        } else if (data.current_model && data.model_loaded === true) {
+            const options = Array.from(select.options);
+            const matchingOption = options.find(opt => opt.value === data.current_model || opt.textContent === data.current_model);
+            if (matchingOption) {
+                select.value = matchingOption.value;
+            }
+        } else if (data.model_loaded === false) {
+            select.value = '__UNLOAD__';
+        }
+    }
+}
+
+function displayModelsInfo(modelsData) {
+    const modelsSection = document.getElementById('models-section');
+    const modelsCard = document.getElementById('models-card');
+    const select = document.getElementById('model-select');
+    const status = document.getElementById('model-action-status');
+    
+    if (!modelsData || modelsData.length === 0) {
+        modelsCard.innerHTML = '<div>No models information available</div>';
+        modelsSection.style.display = 'block';
+        select.innerHTML = '';
+        return;
+    }
+    
+    let modelsHtml = '<div class="info-grid">';
+    
+    modelsData.slice(0, 6).forEach(model => {
+        modelsHtml += `
+            <div class="info-item">
+                <h4>${model.title || model.model_name || 'Unknown Model'}</h4>
+                <div style="font-size: 12px; color: #6c757d;">
+                    ${model.filename || 'No filename'}<br>
+                    ${model.sha256 ? `SHA256: ${model.sha256.substring(0, 12)}...` : 'No hash'}
+                </div>
+            </div>
+        `;
+    });
+    
+    if (modelsData.length > 6) {
+        modelsHtml += `<div class="info-item"><h4>And ${modelsData.length - 6} more models...</h4></div>`;
+    }
+    
+    modelsHtml += '</div>';
+    
+    modelsCard.innerHTML = modelsHtml;
+    modelsSection.style.display = 'block';
+
+    const currentSelection = select.value;
+    
+    select.innerHTML = '';
+    const unloadOpt = document.createElement('option');
+    unloadOpt.value = '__UNLOAD__';
+    unloadOpt.textContent = 'Unload (release current model)';
+    select.appendChild(unloadOpt);
+    modelsData.forEach(m => {
+        const title = m.title || m.model_name || (m.filename ? m.filename.split('/').pop() : '');
+        const opt = document.createElement('option');
+        opt.value = title;
+        opt.textContent = title || 'Unknown Model';
+        select.appendChild(opt);
+    });
+    
+    if (currentSelection) {
+        const options = Array.from(select.options);
+        const matchingOption = options.find(opt => opt.value === currentSelection);
+        if (matchingOption) {
+            select.value = currentSelection;
+        }
+    }
+    
+    status.textContent = '';
+}
+
+function hideAllSections() {
+    document.getElementById('models-section').style.display = 'none';
+}
+
+async function refreshModels() {
+    const status = document.getElementById('model-action-status');
+    status.style.color = '#6c757d';
+    status.textContent = 'Refreshing model list...';
+    try {
+        const resp = await fetch('/api/servers/image/models/refresh', { method: 'POST' });
+        const j = await resp.json();
+        if (j.success) {
+            const list = await fetch('/api/servers/image/models');
+            const lj = await list.json();
+            if (lj.success) {
+                displayModelsInfo(lj.models);
+                status.style.color = '#28a745';
+                status.textContent = 'Model list refreshed';
+            } else {
+                status.style.color = '#dc3545';
+                status.textContent = 'Failed to load model list';
+            }
+        } else {
+            status.style.color = '#dc3545';
+            status.textContent = 'Refresh failed: ' + (j.error || 'unknown error');
+        }
+    } catch (e) {
+        status.style.color = '#dc3545';
+        status.textContent = 'Network error: ' + e.message;
+    }
+}
+
+async function loadSelectedModel() {
+    const select = document.getElementById('model-select');
+    const status = document.getElementById('model-action-status');
+    const model = select.value;
+    if (!model) {
+        status.style.color = '#dc3545';
+        status.textContent = 'No model selected';
+        return;
+    }
+    if (model === '__UNLOAD__') {
+        status.style.color = '#6c757d';
+        status.textContent = 'Unloading model...';
+        select.disabled = true;
+        const buttons = document.querySelectorAll('.model-actions .btn');
+        buttons.forEach(b => b.disabled = true);
+        try {
+            const resp = await fetch('/api/servers/image/model/unload', { method: 'POST' });
+            const j = await resp.json();
+            if (j.success) {
+                userRequestedUnload = true;
+                status.style.color = '#28a745';
+                status.textContent = 'Unloaded';
+                select.value = '__UNLOAD__';
+                scheduleStatusRefresh();
+            } else {
+                status.style.color = '#dc3545';
+                status.textContent = 'Unload failed: ' + (j.error || 'unknown error');
+            }
+        } catch (e) {
+            status.style.color = '#dc3545';
+            status.textContent = 'Network error: ' + e.message;
+        } finally {
+            buttons.forEach(b => b.disabled = false);
+            select.disabled = false;
+        }
+        return;
+    }
+    
+    userRequestedUnload = false;
+    
+    status.style.color = '#6c757d';
+    status.textContent = `Loading model: ${model} ...`;
+    select.disabled = true;
+    const buttons = document.querySelectorAll('.model-actions .btn');
+    buttons.forEach(b => b.disabled = true);
+    try {
+        const resp = await fetch('/api/servers/image/model/load', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ checkpoint: model })
+        });
+        const j = await resp.json();
+        if (resp.status === 202 || j.loading) {
+            status.style.color = '#ffc107';
+            status.textContent = 'Model loading in progress...';
+            const success = await pollUntilModelLoaded(model, status, 120, 5000);
+            if (success) {
+                select.value = model;
+            }
+            scheduleStatusRefresh();
+        } else if (j.success) {
+            status.style.color = '#28a745';
+            status.textContent = 'Loaded: ' + (j.current_model || model);
+            select.value = model;
+            scheduleStatusRefresh();
+        } else {
+            status.style.color = '#dc3545';
+            status.textContent = 'Load failed: ' + (j.error || 'unknown error');
+        }
+    } catch (e) {
+        status.style.color = '#dc3545';
+        status.textContent = 'Network error: ' + e.message;
+    } finally {
+        buttons.forEach(b => b.disabled = false);
+        select.disabled = false;
+    }
+}
+
+async function pollUntilModelLoaded(targetModelTitle, statusEl, maxTries = 60, intervalMs = 5000) {
+    for (let i = 0; i < maxTries; i++) {
+        try {
+            const r = await fetch('/api/servers/image/status');
+            const s = await r.json();
+            const current = s.current_model || (s.options_info && (s.options_info.sd_model_checkpoint || s.options_info.sd_model));
+            const loaded = s.model_loaded === true;
+            if (loaded && current && current.toLowerCase().includes(targetModelTitle.toLowerCase())) {
+                statusEl.style.color = '#28a745';
+                statusEl.textContent = 'Loaded: ' + current;
+                refreshServerStatus();
+                return true;
+            }
+        } catch (e) {
+        }
+        await new Promise(res => setTimeout(res, intervalMs));
+        statusEl.textContent = `Model loading in progress... (${i+1}/${maxTries})`;
+    }
+    statusEl.style.color = '#dc3545';
+    statusEl.textContent = 'Timeout waiting for model to load';
+    return false;
+}
+
+function scheduleStatusRefresh() {
+    refreshServerStatus();
+    setTimeout(() => refreshServerStatus(), 2000);
+    setTimeout(() => refreshServerStatus(), 5000);
+}
+
+(function initTxt2ImgUI(){
+  fetch('/api/servers/image/status').then(r=>r.json()).then(data=>{
+    const sel = document.getElementById('txt2img-sampler');
+    if (!sel) return;
+    sel.innerHTML = '';
+    const samplers = (data && data.samplers_info) || [];
+    if (samplers.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = 'Euler a';
+      opt.textContent = 'Euler a';
+      sel.appendChild(opt);
+      return;
+    }
+    samplers.forEach(s => {
+      const name = s.name || (s.aliases && s.aliases[0]) || 'Euler a';
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    });
+  }).catch(()=>{});
+})();
+
+async function runTxt2Img(){
+  const promptEl = document.getElementById('txt2img-prompt');
+  const wEl = document.getElementById('txt2img-width');
+  const hEl = document.getElementById('txt2img-height');
+  const stepsEl = document.getElementById('txt2img-steps');
+  const cfgEl = document.getElementById('txt2img-cfg');
+  const samplerEl = document.getElementById('txt2img-sampler');
+  const statusEl = document.getElementById('txt2img-status');
+  const previewEl = document.getElementById('txt2img-preview');
+
+  const prompt = (promptEl?.value || '').trim();
+  if (!prompt){
+    statusEl.style.color = '#dc3545';
+    statusEl.textContent = 'Prompt is required';
+    return;
+  }
+
+  statusEl.style.color = '#6c757d';
+  statusEl.textContent = 'Generating...';
+  previewEl.innerHTML = '';
+
+  const body = {
+    prompt,
+    width: Number(wEl?.value || 512),
+    height: Number(hEl?.value || 512),
+    steps: Number(stepsEl?.value || 20),
+    cfg_scale: Number(cfgEl?.value || 7),
+    sampler: samplerEl?.value || undefined,
+  };
+
+  try {
+    const resp = await fetch('/api/servers/image/txt2img', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const j = await resp.json();
+    if (!j.success){
+      statusEl.style.color = '#dc3545';
+      statusEl.textContent = 'Failed: ' + (j.error || 'unknown error');
+      return;
+    }
+    const b64 = j.image_base64;
+    const img = new Image();
+    img.src = 'data:image/png;base64,' + b64;
+    img.style.maxWidth = '512px';
+    img.style.border = '1px solid #e0e0e0';
+    img.style.borderRadius = '6px';
+    previewEl.appendChild(img);
+    statusEl.style.color = '#28a745';
+    statusEl.textContent = 'Done';
+  } catch(e){
+    statusEl.style.color = '#dc3545';
+    statusEl.textContent = 'Network error: ' + e.message;
+  }
+}
+</script>
+{% endblock %}

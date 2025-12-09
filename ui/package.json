@@ -1,0 +1,22 @@
+{
+  "name": "genarrative-ui",
+  "version": "1.0.0",
+  "description": "GeNarrative UI with Swiper.js integration",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'Building static assets...'",
+    "postinstall": "mkdir -p app/static/css app/static/js && cp node_modules/swiper/swiper-bundle.min.css app/static/css/ && cp node_modules/swiper/swiper-bundle.min.js app/static/js/"
+  },
+  "dependencies": {
+    "swiper": "^11.1.14"
+  },
+  "devDependencies": {},
+  "keywords": [
+    "swiper",
+    "slider",
+    "ui",
+    "genarrative"
+  ],
+  "author": "GeNarrative Team",
+  "license": "MIT"
+}

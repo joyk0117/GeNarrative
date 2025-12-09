@@ -1,0 +1,125 @@
+services:
+  ui:
+    build: ./ui
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./shared:/app/shared
+      - ./ui/app:/app           # For development: mount application code
+      - ./ui/scripts:/app/ui/scripts   # Mount ui/scripts directory
+      - ./dev/scripts:/app/dev/scripts # Mount dev/scripts directory
+    networks:
+      genarrative-net:
+
+  sd:
+    build: ./sd
+    ports:
+      - "7860:7860"
+    volumes:
+      - ./shared:/workspace/shared
+      - ./sd/webui/models/Stable-diffusion:/workspace/webui/models/Stable-diffusion
+    environment:
+      # Disable --ui-debug-mode to enable auto-loading (re-enable if needed)
+      - COMMANDLINE_ARGS=--listen --port 7860 --api # --ui-debug-mode
+    networks:
+      genarrative-net:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+
+  tts:
+    image: ghcr.io/coqui-ai/tts:latest
+    entrypoint: ["tts-server"]
+    command: ["--model_name", "tts_models/en/ljspeech/tacotron2-DDC", "--port", "5002"]
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./shared:/app/shared
+    networks:
+      genarrative-net:
+
+  music:
+    build: ./music
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./shared:/app/shared
+      - music_models:/app/models
+      - music_cache:/app/cache
+    networks:
+      genarrative-net:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+    environment:
+      TRANSFORMERS_CACHE: /app/cache
+      HF_HOME: /app/cache
+
+  unsloth:
+    build: ./unsloth  
+    profiles: ["unsloth"]
+    environment:
+      - JUPYTER_PASSWORD=unsloth2024
+      - JUPYTER_PORT=8888
+      - USER_PASSWORD=unsloth2024
+      - TRANSFORMERS_CACHE=/workspace/cache
+      - HF_HOME=/workspace/cache
+      - CUDA_VISIBLE_DEVICES=0
+      - FLASK_ENV=production
+      - FLASK_DEBUG=False
+      - AUTO_LOAD_MODEL=False
+    ports:
+      - "8890:8888"    # Jupyter Lab (default of official image)
+      - "2222:22"      # SSH access (optional)
+      - "5006:5006"    # Flask API server (custom)
+      - "5007:5007"    # Flask API server (custom)
+      - "5008:5008"    # Flask API server (custom)
+      - "8001:8001"    # API Server (custom)
+    volumes:
+      - ./shared:/workspace/work           # Officially recommended work directory
+      - ./unsloth:/workspace               # Mount entire unsloth directory
+      - unsloth_models:/workspace/models
+      - unsloth_cache:/workspace/cache
+    networks:
+      genarrative-net:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+
+  ollama:
+    build: ./ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama/models:/root/.ollama/models
+    networks:
+      genarrative-net:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: ["gpu"]
+
+networks:
+  genarrative-net:
+    driver: bridge
+
+volumes:
+  music_models:
+  music_cache:
+  unsloth_models:
+  unsloth_cache:
