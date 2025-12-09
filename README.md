@@ -35,13 +35,11 @@ GeNarrative is built as a microservice-based system. The UI orchestrates the RES
 GeNarrative-dev/
 ├── docker-compose.yml      # Definitions for all services
 ├── requirements.txt        # Common Python dependencies
-├── dev/                    # Development (e.g., Jupyter)
 ├── docs/                   # Documentation
 ├── sd/                     # Image generation (Stable Diffusion WebUI)
 ├── tts/                    # Text-to-speech (Coqui TTS)
 ├── music/                  # Music generation (MusicGen)
 ├── ui/                     # UI + integrated Flask server
-├── unsloth/                # LLM experimentation/inference
 └── shared/                 # Shared data area
 ```
 
@@ -131,9 +129,7 @@ docker compose logs tts
 ## 📚 Documents / References
 - Structured specification (SIS): `docs/SIS.md`
 - UI / API details: `ui/README.md`, `ui/API_REFERENCE.md`
-- Development notes: `dev/README.md`
 - TTS details: `tts/README.md`
-- Jupyter usage: `jupyter/README.md`
 
 ## 🎯 Roadmap
 - Automatic generation of entire stories

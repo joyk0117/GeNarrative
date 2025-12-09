@@ -35,13 +35,11 @@ GeNarrative はマイクロサービス構成です。UI が各サービスの R
 GeNarrative-dev/
 ├── docker-compose.yml      # 全サービス定義
 ├── requirements.txt        # 共通 Python 依存
-├── dev/                    # 開発用 (Jupyter など)
 ├── docs/                   # ドキュメント
 ├── sd/                     # 画像生成 (Stable Diffusion WebUI)
 ├── tts/                    # 音声合成 (Coqui TTS)
 ├── music/                  # 音楽生成 (MusicGen)
 ├── ui/                     # UI + Flask 統合サーバ
-├── unsloth/                # LLM 実験/推論関連
 └── shared/                 # 共有データ領域
 ```
 
@@ -131,9 +129,7 @@ docker compose logs tts
 ## 📚 ドキュメント / 参照
 - 構造化仕様（SIS）: `docs/SIS.md`
 - UI/API 詳細: `ui/README.md`, `ui/API_REFERENCE.md`
-- 開発向けメモ: `dev/README.md`
 - TTS 詳細: `tts/README.md`
-- Jupyter 利用: `jupyter/README.md`
 
 ## 🎯 今後の予定 (Roadmap)
 - ストーリー全体の自動生成
