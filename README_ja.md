@@ -24,16 +24,21 @@ GeNarrative は、作品やシーンの意味情報を **SIS** としてJSON化�
 UIが各サービスのREST APIをオーケストレーションし、成果物を `shared/` に集約します。
 これにより、LLM / 画像生成 / TTS / 音楽生成を **モジュール単位で比較**できます。
 
+## 🔍 Related work（関連）
+Google Gemini には、プロンプトや写真・画像から 10 ページのイラスト付きストーリーブックを生成し、読み上げも可能な「Storybook」機能があります。
+
+GeNarrative は、それと同じ完成体験を再現することよりも、SIS（構造化された中間表現）を中心に、生成・再生成・比較・差し替えをしやすいローカル実験パイプラインとして設計されています（本プロジェクトは Google とは無関係です）。
+
 ## 🏗️ アーキテクチャ / 技術スタック
 GeNarrative はマイクロサービス構成です。UI が各サービスの REST API をオーケストレーションし、共有ストレージで成果物を受け渡します。
 
 | コンポーネント | 技術 | 既定ポート | 説明 |
 |---|---|---|---|
 | 統合 UI | Flask + Swiper.js | 5000 | 一体型フロント/バックエンド、ワークフロー実行 |
-| 画像生成 | Stable Diffusion (AUTOMATIC1111) | 7860 | イラスト・画像生成 |
+| 画像生成 | AUTOMATIC1111(Stable Diffusion) | 7860 | イラスト・画像生成 |
 | 音声合成 | Coqui TTS | 5002 | ナレーション音声生成 |
 | 音楽生成 | MusicGen (Meta AudioCraft) | 5003 | 背景音楽・効果音生成 |
-| LLM ランタイム | Ollama | 11434 | テキスト生成、SIS 変換補助 |
+| LLM ランタイム | Ollama(Gemma3) | 11434 | テキスト生成、SIS 変換補助 |
 
 - 内部ネットワーク: Docker ブリッジネットワーク
 - 共有ストレージ: `shared/`（各サービスで共用）
@@ -48,7 +53,7 @@ GeNarrative はマイクロサービス構成です。UI が各サービスの R
 
 ## 📁 ディレクトリ構成
 ```text
-GeNarrative-dev/
+GeNarrative/
 ├── docker-compose.yml      # 全サービス定義
 ├── requirements.txt        # 共通 Python 依存
 ├── docs/                   # ドキュメント
@@ -74,10 +79,11 @@ GeNarrative-dev/
 
 - セットアップ時間の目安: 初回インストール〜起動まで 30 分以上
 - 必要な空きディスク容量: 100GB 以上
+（モデルDL・コンテナビルドが主因）
 
 ```powershell
-git clone https://github.com/joyk0117/GeNarrative-dev.git
-cd GeNarrative-dev
+git clone https://github.com/joyk0117/GeNarrative.git
+cd GeNarrative
 docker compose up -d
 ```
 

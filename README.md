@@ -23,6 +23,11 @@ GeNarrative serializes semantic information about works and scenes as **SIS** (J
 The UI orchestrates REST APIs for each service and aggregates outputs into `shared/`.
 This makes it possible to **compare LLM / image generation / TTS / music generation at the module level**.
 
+## Related Work
+Google Gemini provides a "Storybook" feature that can generate a 10-page illustrated storybook with narration from prompts or photos/images.
+
+Rather than reproducing that exact end-user experience, GeNarrative is designed as a local experimental pipeline centered on SIS (a structured intermediate representation) that makes it easy to generate, regenerate, compare, and swap components. This project is not affiliated with Google.
+
 ## Architecture / Tech Stack
 GeNarrative adopts a microservice architecture. The UI orchestrates each service via REST APIs and exchanges artifacts via shared storage.
 
@@ -32,7 +37,7 @@ GeNarrative adopts a microservice architecture. The UI orchestrates each service
 | Image Generation | Stable Diffusion (AUTOMATIC1111) | 7860 | Illustration / image generation |
 | Text-to-Speech | Coqui TTS | 5002 | Narration audio generation |
 | Music Generation | MusicGen (Meta AudioCraft) | 5003 | Background music / sound effects generation |
-| LLM Runtime | Ollama | 11434 | Text generation, SIS conversion assistance |
+| LLM Runtime | Ollama (Gemma3) | 11434 | Text generation, SIS conversion assistance |
 
 - Internal network: Docker bridge network
 - Shared storage: `shared/` (shared by all services)
@@ -47,7 +52,7 @@ GeNarrative adopts a microservice architecture. The UI orchestrates each service
 
 ## Directory Layout
 ```text
-GeNarrative-dev/
+GeNarrative/
 ├── docker-compose.yml      # All service definitions
 ├── requirements.txt        # Shared Python dependencies
 ├── docs/                   # Documentation
@@ -75,8 +80,8 @@ Install Docker in advance (NVIDIA environment required for GPU usage).
 - Required free disk space: 100GB+
 
 ```powershell
-git clone https://github.com/joyk0117/GeNarrative-dev.git
-cd GeNarrative-dev
+git clone https://github.com/joyk0117/GeNarrative.git
+cd GeNarrative
 docker compose up -d
 ```
 
