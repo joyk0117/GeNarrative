@@ -2,47 +2,56 @@
 
 ## 🎯 1. Overview
 
-Semantic Interface Structure (SIS) is an intermediate representation that **extracts "semantic information of works and scenes" and serves as a "hub" for generation, search, and reuse.**
-It separates "what to create (semantics)" from "how to create (models/prompts)" and functions as a common language across all phases of generation, search, and learning.
+Semantic Interface Structure (SIS) is an **intermediate representation that captures the “semantic information of a work or scene” and serves as a hub for generation, search, and reuse**.
+It separates **“what to create (semantics)”** from **“how to create it (models / prompts)”**, and acts as a common language across all phases of generation, retrieval, and evaluation.
 
-### Key Benefits
+### Main Advantages
 
-1.  **Module Separation & Controllability**
-    *   Semantics (SIS) remain fixed while models (e.g., SD, MusicGen) or parameters can be swapped out.
-2.  **Reproducibility & Explainability**
-    *   Fully records "what semantic specifications gave birth to this content" in JSON. Serves as a foundation for provenance verification and regeneration.
-3.  **Editable "Parameters" & Manual Correction**
-    *   Even if LLM extraction is imperfect, the structured data allows for easy manual correction and completion.
-    *   Fine-tuning style or tempo is simple just by adjusting the semantics (SIS).
-4.  **Common Interface for Search & Recommendation**
-    *   Enables semantics-based search and recommendation across text, images, and music (e.g., "melancholy + night + piano").
-5.  **Foundation for Training Data & Evaluation**
-    *   SIS can be used as ground truth data for prompt generation, QA pair creation, and automated model evaluation (consistency checking).
-6.  **Hub for Vector DBs & Other Models**
-    *   Elements of SIS can be vectorized to bridge with external DBs or Embedding models.
+1. **Modularization & Controllability**
+   - Keep semantics (SIS) fixed while swapping only models (e.g., SD / MusicGen) or parameters.
+2. **Reproducibility & Explainability**
+   - Record “what semantic specification led to the output” as JSON. This becomes the basis for provenance tracking and regeneration.
+3. **Editable Parameters & Human Correction**
+   - Even if LLM-based extraction is imperfect, SIS is structured data, so humans can easily correct and supplement it.
+4. **Semantic-Based Search & Recommendation**
+   - Enables semantic queries like “melancholic + night + piano” for search and recommendation.
+5. **Basis for Training Data & Evaluation**
+   - Use SIS as ground truth to support prompt generation, QA construction, and model evaluation (semantic consistency checking).
+6. **Hub for Vector DBs and Other Models**
+   - Vectorize each SIS element to bridge with external DBs and embedding models.
 
-## 🏗 2. Layer Structure (Story / Scene)
+---
 
-In the scope of GeNarrative, SIS consists of the following two types of objects:
+## 🏗 2. Layered Structure (Story / Scene / Media)
 
-### StorySIS (Upper Layer)
+Within the scope of GeNarrative, SIS is composed of the following three types of objects:
 
-- An object that holds the semantic structure of the entire work.
-- Basic story information (title, etc.)
-- Story type (Kishotenketsu, Three-act structure, etc.)
-- Character settings
-- List of scenes and their roles
-- Overall style policy (writing style, art style, music policy)
+### StorySIS (Top Level: Whole Work)
 
-### SceneSIS (Lower Layer)
+- Holds the semantic structure of the entire work.
+- Story structure type (e.g., Kishōtenketsu, three-act, etc.)
+- Global themes and character settings
+- Global style policy for the work (writing style, visual style, audio policy)
 
-- An object representing the **minimum semantic unit (1 scene)** that makes up the work.
-- Scene semantics (summary, emotions, etc.)
-- Text generation parameters
-- Visual generation parameters (image/video)
-- Audio generation parameters (music/speech/sfx)
-- SceneSIS is saved as a JSONL file (1 JSON per line).
-- **For reusability, SceneSIS does not include `story_id` (the same scene can be reused in multiple stories).**
+### SceneSIS (Middle Level: Semantic Unit)
+
+- Represents the **minimum semantic unit (one scene)** that composes a work.
+- Scene semantics (summary / semantics)
+- Scene-level generation policy (text / visual / audio)
+  - For reusability, SceneSIS does **not** include `story_id` (the same Scene can be reused across multiple Stories).
+
+### MediaSIS (Lower Level: Expression Unit)
+
+- Represents **“scene components (expression units)”** that further decompose the inside of a SceneSIS.
+- Examples: shots (composition), dialogue, narration, subtitles, sound effects, BGM segments, objects, etc.
+
+#### Connections Between Layers and External Index
+
+- The links between StorySIS, SceneSIS, and MediaSIS (the correspondences of `story_id`, `scene_id`, and `media_id`) are **not stored directly inside each SIS JSON**, but managed as **external indexes**.
+- This allows a single SceneSIS / MediaSIS to be reused from multiple StorySIS instances (reusability). Also, updating only the relationships (without modifying Story / Scene / Media bodies) makes the system more robust to change.
+- Concretely, we assume saving the correspondences among Story / Scene / Media in graph structures (graph databases) or relationship tables in relational databases.
+
+---
 
 ## 📘 3. StorySIS Specification
 
@@ -51,209 +60,258 @@ In the scope of GeNarrative, SIS consists of the following two types of objects:
 ```jsonc
 {
   "sis_type": "story",
-  "story_id": "string",
-  "title": "string or null",
-  "summary": "string or null",
+  "story_id": "123e4567-e89b-12d3-a456-426614174000",
 
-  // Story Structure Type (Required)
-  "story_type": "kishotenketsu", 
-  // e.g.: "kishotenketsu" | "three_act" | "three_attempts" | "circular"
+  "title": "The Girl and the Forest",
+  "summary": "A curious girl explores a mysterious forest.",
+  "story_type": "kishotenketsu", // e.g., "kishotenketsu" | "three_act" | "attempts" | "circular" | "catalog"
 
-  // Themes of the work
-  "themes": ["trust", "learning"],
+  // Global semantic structure of the work (themes, style policy)
+  "semantics": {
+    // Global semantic information shared across the work
+    "common": {
+      "themes": ["trust", "learning"],
+      "descriptions": [
+        "A gentle story about a girl learning to trust the forest and herself.",
+        "Focuses on emotional growth rather than fast-paced action."
+      ]
+    },
 
-  // Characters
-  "characters": [
-    {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "name": "Nancy",
-      "traits": ["girl", "curious"],
-      "visual": {
-        "hair": "brown curly hair",
-        "clothes": "striped shirt and purple skirt"
-      }
-    }
-  ],
-
-  // List of Scenes (Also serves as structural info)
-  "scenes": [
-    {
-      "scene_id": "123e4567-e89b-12d3-a456-426614174000",
-      "role": "ki",       // Introduction (Ki)
-      "summary": "Introduction of the girl and the forest."
-    }
-  ]
+    // Optional: global style policies of the work
+    "text":  {"language": "English", "tone": "gentle", "point_of_view": "third"},
+    "visual": {"style": "watercolor"},
+    "audio": {"genre": "ambient"}
+  }
 }
 ```
 
-### 3.2 Field Details
+### 3.2 Field Details (Excerpt)
 
-| Field                 | Type   | Description                                            |
-|-----------------------|--------|--------------------------------------------------------|
-| story_type            | string | Type of story structure (e.g., Kishotenketsu)          |
-| themes                | array  | Themes of the entire work                              |
-| scenes[].role         | string | Role of the scene (e.g., ki/sho/ten/ketsu)             |
-| characters[]          | array  | Character traits and visual information                |
+| Field | Type | Description |
+|---|---|---|
+| story_type | string | Type of story structure (e.g., Kishōtenketsu) |
+| semantics.common.themes | array | Global themes of the work |
+| semantics.common.descriptions | array | Additional explanations of the work (nuances or intentions not fully captured by summary) |
+| semantics.text / semantics.visual / semantics.audio | object | Global style policies of the work (can be overridden by SceneSIS / MediaSIS) |
 
+### 3.3 Standard Values of story_type
 
-### 3.3 Standard Values for story_type
+Representative patterns and the correspondence with `SceneSIS.scene_type` are as follows:
 
-| story_type       | roles (scene.role)                                  |
-|------------------|-----------------------------------------------------|
-| kishotenketsu    | ki / sho / ten / ketsu                              |
-| three_act        | setup / conflict / resolution                       |
-| three_attempts   | problem / attempt1 / attempt2 / attempt3 / result   |
-| circular         | home_start / away / change / home_end               |
+| story_type | Overview | scene_type (SceneSIS.scene_type) |
+|---|---|---|
+| three_act | Drama type (difficulty → resolution) | setup / conflict / resolution |
+| kishotenketsu | Twist / punchline type (meaning reverses at the end) | ki / sho / ten / ketsu |
+| circular | Journey-and-return type (go out, change, and come back) | home_start / away / change / home_end |
+| attempts | Multiple-attempts type (trial and error) | problem / attempt (repeated) / result |
+| catalog | Catalog / introduction type (weak ordering) | intro / entry (repeated) / outro |
+
+---
 
 ## 🎬 4. SceneSIS Specification
 
-SceneSIS is a JSON object describing a single scene.
-Saving in JSONL (1 Scene per line) is recommended.
+SceneSIS is a JSON object that describes one scene.
+The storage format can be **JSON or JSONL**, but when handling many scenes, **JSONL (one Scene per line)** is recommended.
+
+The following JSON schema is a conceptual **JSONC (JSON with comments)** for explanation. In actual files, please store plain JSON / JSONL without comments.
 
 ### 4.1 SceneSIS – JSON Schema (Conceptual)
 
 ```jsonc
 {
   "sis_type": "scene",
-  // Matches StorySIS
   "scene_id": "123e4567-e89b-12d3-a456-426614174000",
-  "role": "ki",       // Introduction (Ki)
+
   "summary": "Introduction of the girl and the forest.",
-  
-  // Scene Semantics (Common across modalities)
+  "scene_type": "ki",
+
+  // Semantics of the scene + generation policies (background shared across modalities)
   "semantics": {
-    "mood": "calm",
-    "characters": [
-      {
-        "id": "550e8400-e29b-41d4-a716-446655440000",
-        "name": "Nancy",
-        "visual": { "clothes": "raincoat" }
-      }
-    ],
-    "location": "forest",
-    "time": "day",
-    "weather": "sunny"
-  },
+    "common": {
+      "mood": "calm",
+      "characters": [
+        {
+          "name": "Nancy",
+          "traits": ["girl", "curious"],
+          "visual": {
+            "hair": "brown curly hair",
+            "clothes": "striped shirt and purple skirt"
+          }
+        }
+      ],
+      "location": "forest",
+      "time": "day",
+      "weather": "sunny",
+      // Salient motifs and colors (elements that are easy to semantically ground)
+      "objects": [
+        { "name": "big_sun", "colors": ["yellow", "orange"] },
+        { "name": "small_house", "colors": ["red", "brown"] },
+        { "name": "tree", "colors": ["green", "brown"] }
+      ],
+      "descriptions": [
+        "Nancy quietly observes the forest, feeling both curiosity and a slight nervousness.",
+        "The scene emphasizes gentle light and a peaceful, exploratory mood."
+      ]
+    },
 
-  // Text Generation
-  "text": {
-    "mode": "narrative",   // narrative/expository/dialogue/caption/question
-    "style": "simple",
-    "language": "English",
-    "tone": "gentle",
-    "point_of_view": "third"
-  },
-
-  // Visual Generation (Image/Video)
-  "visual": {
-    "mode": "image",       // image | video
-    "style": "watercolor",
-    "composition": "mid-shot",
-    "lighting": "soft",
-    "perspective": "eye-level"
-  },
-
-  // Audio Generation (Music/Speech/SFX)
-  "audio": {
-    "mode": "music",       // music | speech | sfx | ambience
-    "genre": "ambient",
-    "tempo": "slow",
-    "instruments": ["piano", "pad"]
+    // Semantic information for each modality
+    "text":   { "style": "simple", "language": "English", "tone": "gentle", "point_of_view": "third" },
+    "visual": { "style": "watercolor", "composition": "mid-shot", "lighting": "soft", "perspective": "eye-level" },
+    "audio":  { "genre": "ambient", "tempo": "slow", "instruments": ["piano", "pad"] }
   }
 }
 ```
 
-### 4.2 Field Details
+### 4.2 Field Details (Excerpt)
 
-#### 4.2.1 Common Fields
+#### 4.2.1 semantics (Scene Semantics)
 
-| Field      | Description    |
-|------------|----------------|
-| summary    | Scene summary  |
-| mood       | Atmosphere/Mood|
-| themes     | Themes         |
+This is the “semantic background” referenced by all modalities: image, text, and audio.
+`semantics.common` may have the following fields:
 
-#### 4.2.2 semantics (Scene Semantic Information)
+| Field | Description |
+|---|---|
+| characters | Detailed info on characters appearing in the scene (ID, name, appearance, etc.). Scene-specific outfits can be described. |
+| location | Location name |
+| time | Time of day |
+| weather | Weather |
+| mood | Atmosphere of the scene |
+| objects | Salient motifs and colors; important objects in the scene |
+| descriptions | Textual notes such as scene intentions, nuances, or interpretations not fully captured by summary (can hold multiple entries) |
 
-"Semantic background" referenced by image, text, and sound.
+#### 4.2.2 semantics.text / semantics.visual / semantics.audio (Scene-Level Policies)
 
-| Field        | Description                                                                 |
-|--------------|-----------------------------------------------------------------------------|
-| characters   | List of detailed character info for the scene (ID, name, visuals, etc.). Can describe scene-specific clothing. |
-| location     | Location name                                                               |
-| time         | Time of day                                                                 |
-| weather      | Weather                                                                     |
+- `semantics.text`, `semantics.visual`, and `semantics.audio` are **scene-level default policies**.
+- The **final unit for generation, editing, and output is MediaSIS** (Media elements inherit and optionally override these policies).
 
-#### 4.2.3 text (Text Generation)
+---
 
-| Field           | Description                            |
-|-----------------|----------------------------------------|
-| mode            | narrative / expository / dialogue, etc.|
-| style           | Writing style                          |
-| tone            | Tone of the text                       |
-| point_of_view   | First-person / Third-person, etc.      |
+## 🧩 5. MediaSIS Specification
 
-#### 4.2.4 visual (Image/Video Generation)
+MediaSIS is the “component (expression unit)” obtained by decomposing the inside of a SceneSIS.
+By using MediaSIS as the final unit of generation, editing, and output, both coarse-grained and fine-grained scenes can be handled within the same framework.
 
-| Field        | Description                           |
-|--------------|---------------------------------------|
-| mode         | image or video                        |
-| style        | watercolor, anime, realistic, etc.    |
-| composition  | Composition                           |
-| lighting     | Lighting/Atmosphere                   |
-| perspective  | Perspective                           |
+### 5.1 MediaSIS – JSON Schema (Conceptual)
 
-#### 4.2.5 audio (Music/Speech/SFX)
+The following is a **sample MediaSIS extracted from an image (visual)** and does not include text or audio elements.
 
-| Field        | Description                           |
-|--------------|---------------------------------------|
-| mode         | music / speech / sfx / ambience       |
-| genre        | Music genre                           |
-| tempo        | Speed/Tempo                           |
-| instruments  | List of instruments                   |
+```jsonc
+{
+  "sis_type": "media",
+  "media_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
 
-## 🔗 5. Relationship between StorySIS and SceneSIS
+  // A short summary of this media element as a whole
+  "summary": "a happy scene in a park with a big sun and a small house",
+  
+  // Type of component and which modality it belongs to (image in this example)
+  "media_type": "visual",
 
+  // Semantic structure (extraction target)
+  "semantics": {
+    "common": {
+      // Overall atmosphere
+      "mood": "happy",
+      // Semantic information and interpretation notes that are hard to divide into summary / description (can have multiple entries)
+      "descriptions": [
+        "The drawing conveys a strong sense of safety and warmth between the two figures.",
+        "Colors are intentionally vivid to reflect a child's joyful perception of the world."
+      ],
+
+      "location": "park",
+      "time": "day",
+      "weather": "sunny",
+
+      // Characters appearing in the media
+      "characters": [
+        {
+          "name": "girl",
+          "traits": ["small", "smiling"],
+          "visual": {
+            "style_hint": "simple_stick_figure",
+            "colors": ["pink", "yellow"]
+          }
+        }
+      ],
+
+      // Salient motifs and colors
+      "objects": [
+        { "name": "big_sun", "colors": ["yellow", "orange"] },
+        { "name": "small_house", "colors": ["red", "brown"] },
+        { "name": "tree", "colors": ["green", "brown"] }
+      ]
+
+    }
+  },
+
+  // Provenance and generation record
+  "provenance": {
+    "assets": [
+      {
+        "asset_id": "child_drawing_001",
+        "uri": "shared/.../child_drawing_001.png"
+      }
+    ],
+    "generator": {
+      "system": "ollama",
+      "model": "..."
+    }
+  }
+}
 ```
-StorySIS
- ├── scenes[0] → SceneSIS(scene_001)
- ├── scenes[1] → SceneSIS(scene_002)
- ├── scenes[2] → SceneSIS(scene_003)
- ...
-```
+
+#### 5.2 semantics.text / semantics.visual / semantics.audio (Media-Level Policies)
+
+- `semantics.text`, `semantics.visual`, and `semantics.audio` at MediaSIS level hold **media-level policies** that inherit and optionally override the SceneSIS policies.
+- Typical modality-specific fields include:
+
+| Modality | Example Fields |
+|---|---|
+| text | `style` (writing style), `language`, `tone`, `point_of_view`, etc. |
+| visual | `style` (art style), `composition`, `lighting`, `perspective`, etc. |
+| audio | `genre`, `tempo`, `instruments`, `mood`, etc. |
 
 ## 🚀 6. Use Cases
 
 ### A. Typical Use Cases in GeNarrative
-*   **Child's Drawing → SIS Extraction:** Extract semantics from an image to create an SIS, then generate a story and BGM from it.
-*   **SIS DB:** Save generated SIS to serve as a foundation for reusing "works with similar atmosphere" or "sequels".
+- **Child drawing → SIS extraction:** Extract semantics from an image, convert it to SIS, and then generate stories and BGM from it.
 
 ### B. Cataloging Existing Content
-*   Automatically extract SIS from commercial picture books or public domain works (e.g., Aozora Bunko) to use for semantic labeling like "picture book recommendations" or "BGM search matching a scene".
+- Automatically extract SIS from commercial picture books or public-domain texts (e.g., Aozora Bunko), and use it for semantic labeling such as “picture book recommendation” or “searching for BGM that fits the scene”.
 
-### C. Education & Research
-*   Use the same SIS to conduct experiments changing "only the image" or "only the BGM" to verify the impact on learning effects.
+### C. Education and Research
+- Use the same SIS while changing “only the image” or “only the BGM” to perform controlled experiments and evaluate effects on learning.
 
-### D. Connection with Evaluation Protocols
-*   Use SIS as the "ground truth semantic structure" and measure how much the generated content matches the SIS for quantitative model evaluation.
+### D. Connection to Evaluation Protocols
+- Use SIS as the “ground-truth semantic structure” and measure how well generated content aligns with SIS to quantitatively evaluate models.
 
-## 🛠 7. Storage Format
+----
 
-- StorySIS: `story.json`
-- SceneSIS: `story_scenes.jsonl (1 Scene per line)`
+## 🛠 7. Storage Formats
 
-## 🧪 8. LLM Generation Workflow (Recommended)
+- StorySIS: `story.json` (JSON file that stores a single StorySIS object)
+- SceneSIS: `story_scenes.json` / `story_scenes.jsonl` (for multiple SceneSIS objects, use JSON or JSONL)
+- MediaSIS: `story_media.json` / `story_media.jsonl` (for multiple MediaSIS objects, use JSON or JSONL)
 
-1. Generate StorySIS (Determine roles according to story_type)
-2. Generate SceneSIS one by one based on scenes[].scene_id
-3. Save SceneSIS to JSONL
-4. Convert SceneSIS → Text/Image/Music/Video
+The links among StorySIS / SceneSIS / MediaSIS (correspondences between `story_id`, `scene_id`, and `media_id`) are basically managed in **external indexes** such as separate files or databases.
+
+----
+
+## 🧪 8. Recommended LLM-Based Workflow
+
+1. Generate StorySIS (decide `scene_type` according to `story_type`).
+2. Based on the list of `scene_id` / `scene_type` in the external index, generate SceneSIS one by one.
+3. For each SceneSIS, generate MediaSIS for required modalities (text / visual / audio), and manage the correspondence between `scene_id` and `media_id` in an external index (e.g., DB or separate JSON).
+4. Save SceneSIS / MediaSIS as JSON / JSONL (when handling many records, JSONL is recommended).
+5. Convert SceneSIS (policies) + MediaSIS (elements) into text / images / music / video.
+
+----
 
 ## 🎉 9. Summary
 
-This specification fully satisfies:
+This specification supports:
 
-- Story structures like Kishotenketsu
-- Consistent management of Scene semantics + generation conditions
-- Optimization for multi-modal generation
-- Clarity across UI/LLM/File storage
+- Story structures such as Kishōtenketsu (StorySIS)
+- Unified management of scene semantics and generation policies (SceneSIS)
+- Decomposition into expression units via Media and subsequent editing (MediaSIS)
+- Optimization for multimodal generation
+- Easy handling from UI / LLM / file storage perspectives
