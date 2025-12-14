@@ -181,14 +181,13 @@ SceneSIS は 1 シーンを記述する JSON オブジェクトです。
 
 #### 4.2.2 semantics.text / semantics.visual / semantics.audio（Sceneレベル方針）
 - `semantics.text/semantics.visual/semantics.audio` は **Sceneレベルの方針（デフォルト）**。
-- **最終的な生成・編集・出力の単位は MediaSIS**（Mediaが方針を継承し、差分を持つ）。
 
 ---
 
 ## 🧩 5. MediaSIS 仕様
 
 MediaSISは、SceneSISの内部を分解した「構成要素（表現単位）」です。  
-生成・編集・出力の最終単位を MediaSIS に揃えることで、粒度の粗いシーンも細かいシーンも同じ枠組みで扱えます。
+生成・編集・出力の最小単位を MediaSIS に揃えることで、粒度の粗いシーンも細かいシーンも同じ枠組みで扱えます。
 
 ### 5.1 MediaSIS – JSON スキーマ（概念）
 
@@ -227,8 +226,8 @@ MediaSISは、SceneSISの内部を分解した「構成要素（表現単位）�
           "name": "girl",
           "traits": ["small", "smiling"],
           "visual": {
-            "style_hint": "simple_stick_figure",
-            "colors": ["pink", "yellow"]
+            "hair": "brown curly hair",
+            "clothes": "striped shirt and purple skirt"
           }
         }
       ],
@@ -297,15 +296,37 @@ StorySIS / SceneSIS / MediaSIS 同士の紐づけ（`story_id`・`scene_id`・`m
 
 ## 🧪 8. LLM生成ワークフロー（推奨）
 
-1. StorySIS を生成（story_type に従い scene_type を決定）
-2. 外部インデックス上の `scene_id` / `scene_type` の一覧に基づき SceneSIS を1つずつ生成
-3. 各 SceneSIS に対して、必要なモーダル（text/visual/audio）の MediaSIS を生成し、`scene_id` と `media_id` の対応を外部インデックス（例：DB や別 JSON）で管理
-4. SceneSIS / MediaSIS を JSON / JSONL に保存（多数のレコードを扱う場合は JSONL を推奨）
-5. SceneSIS（方針）＋ MediaSIS（要素）→ テキスト/画像/音楽/動画に変換
+1. MediaSIS を用意（任意）
+   - 既存の素材（画像/文章/音など）から抽出して作る、または人手で作る
+2. SceneSIS を生成
+   - Scene の意味背景（`semantics.common`）と、モーダル別の方針（`semantics.text/visual/audio`）を定義
+   - 必要なモーダル（text/visual/audio）の MediaSIS を生成し、`scene_id` と `media_id` の対応を外部インデックス（例：DB や別 JSON）で管理
+3. StorySIS を生成
+   - story_type に従い scene_type を決定し、外部インデックス上で Story ↔ Scene の対応を管理
 
 ----
 
-## 🎉 9. まとめ
+## 🔗 9. 関連概念（Inspirations / Related Concepts）
+
+SIS は独自の仕様ですが、設計思想として以下の既存概念と共通点があります。  
+※ここで挙げるのは **参考（アナロジー）**であり、SIS がこれらへの準拠や互換性を保証するものではありません。
+
+### OpenUSD（シーン記述 ↔ レンダリングの分離）
+
+OpenUSD は 3D 制作で「編集対象としてのシーン記述」と「出力工程（レンダリング）」を分離し、差し替え・合成・再利用を容易にする考え方を提供します。  
+SIS はこの発想を 3D に限定せず、物語・画像・音声などマルチモーダル創作に拡張し、「意味」を編集可能な中間表現として扱うことを目的とします。
+
+### W3C PROV（provenance：出所・生成履歴のモデル）
+
+SIS の `provenance` は、素材（assets）や生成器（generator）など「どの入力・どの生成条件から生まれたか」を保持するための領域です。  
+この領域の考え方は、出所・生成履歴を表現する汎用モデル（W3C PROV：Entity / Activity / Agent）と親和性があります（将来の拡張・相互運用の参考）。
+
+### JSON Schema（編集可能JSONのバリデーション）
+
+SIS は人手編集を前提とするため、スキーマに基づくバリデーション（必須項目・型・列挙値など）を導入すると、破損や表記揺れを抑えられます。  
+将来的に SIS のスキーマ進化（後方互換）やツール連携（フォームUI生成など）を行う際の基盤として、JSON Schema は有用です。
+
+## 🎉 10. まとめ
 
 本仕様は以下を満たします：
 
