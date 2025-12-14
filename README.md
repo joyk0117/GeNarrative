@@ -40,7 +40,7 @@ GeNarrative uses a microservice architecture. The UI orchestrates each service v
 | Unified UI | Flask + Swiper.js | 5000 | Integrated front/back end, workflow execution |
 | Image generation | AUTOMATIC1111 (Stable Diffusion) | 7860 | Illustration / image generation |
 | Text-to-Speech | Coqui TTS | 5002 | Narration voice generation |
-| Music generation | MusicGen (Meta AudioCraft) | 5003 | Background music / sound effects generation |
+| Music generation | AudioCraft (MusicGen) | 5003 | Background music / sound effects generation |
 | LLM runtime | Ollama (Gemma3) | 11434 | Text generation, SIS transformation support |
 
 - Internal network: Docker bridge network
@@ -163,6 +163,10 @@ docker compose logs tts
 - Integration with external AI services
 - Gradual modernization (Frontend: Flask → Vue.js, Backend: Flask → FastAPI)
 - Fine-tuning (Image: LoRA, LLM: Unsloth)
+
+## 🧪 Development Notes
+- Some parts of the code in this repository were created with the help of LLM-based coding assistance (AI-assisted coding).
+- The author carried out the architecture design (Docker separation and workflow), SIS schema design, service integration, and verification/debugging.
 
 ## 📜 License
 MIT License  

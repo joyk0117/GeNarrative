@@ -38,7 +38,7 @@ GeNarrative はマイクロサービス構成です。UI が各サービスの R
 | 統合 UI | Flask + Swiper.js | 5000 | 一体型フロント/バックエンド、ワークフロー実行 |
 | 画像生成 | AUTOMATIC1111(Stable Diffusion) | 7860 | イラスト・画像生成 |
 | 音声合成 | Coqui TTS | 5002 | ナレーション音声生成 |
-| 音楽生成 | MusicGen (Meta AudioCraft) | 5003 | 背景音楽・効果音生成 |
+| 音楽生成 | AudioCraft (MusicGen) | 5003 | 背景音楽・効果音生成 |
 | LLM ランタイム | Ollama(Gemma3) | 11434 | テキスト生成、SIS 変換補助 |
 
 - 内部ネットワーク: Docker ブリッジネットワーク
@@ -161,6 +161,10 @@ docker compose logs tts
 - 外部のAIサービスとの連携
 - 段階的モダナイズ（フロントエンド: Flask → Vue.js、バックエンド: Flask → FastAPI）
 - ファインチューニング(Image: LoRA, LLM: Unsloth)
+
+## 🧪 Development notes（開発メモ）
+- 本リポジトリの一部コードは、LLMベースのコーディング支援（AI-assisted coding）を活用して作成しています。
+- アーキテクチャ設計（Docker分離・ワークフロー）、SISスキーマ設計、各サービス統合、動作検証とデバッグは作者が実施しています。
 
 ## 📜 ライセンス
 MIT License  
