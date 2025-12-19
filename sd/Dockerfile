@@ -29,12 +29,19 @@ RUN pip install xformers>=0.0.20 || echo "xformers installation failed, continui
 RUN pip install gradio>=3.40.0
 
 # Automatic1111 (Stable Diffusion WebUI) のセットアップ
-RUN git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui.git /workspace/webui
+# PR #17207 がマージされている dev ブランチを使用
+RUN git clone --branch dev --single-branch https://github.com/AUTOMATIC1111/stable-diffusion-webui.git /workspace/webui
 
-# root起動禁止チェックを無効化
-RUN sed -i 's/if \[ "$(id -u)" == "0" \ ]; then/#&/g' /workspace/webui/webui.sh && \
-    sed -i 's/    echo "ERROR: This script must not be launched as root, aborting..."/#&/g' /workspace/webui/webui.sh && \
-    sed -i 's/    exit 1/#&/g' /workspace/webui/webui.sh
+# CompVis/stable-diffusion が要求する "taming" パッケージを提供
+RUN mkdir -p /workspace/webui/repositories && \
+    git clone https://github.com/CompVis/taming-transformers.git /workspace/webui/repositories/taming-transformers
+
+ENV PYTHONPATH=/workspace/webui/repositories/taming-transformers
+
+# root起動禁止チェックを無効化（正しいsedパターン）
+RUN sed -i 's/if \[ "$(id -u)" == "0" \]; then/#if [ "$(id -u)" == "0" ]; then/g' /workspace/webui/webui.sh && \
+    sed -i 's/    echo "ERROR: This script must not be launched as root, aborting..."/#    echo "ERROR: This script must not be launched as root, aborting..."/g' /workspace/webui/webui.sh && \
+    sed -i 's/    exit 1/#    exit 1/g' /workspace/webui/webui.sh
 
 RUN mkdir -p /workspace/webui/models/Stable-diffusion
 
