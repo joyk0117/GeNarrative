@@ -292,7 +292,7 @@ class SISExtractor(ContentProcessor):
 
     def _sis_schema(self) -> Dict[str, Any]:
         """外部 JSON Schema ファイルを読み込み。失敗時は簡易スキーマにフォールバック"""
-        schema_path = os.path.join(os.path.dirname(__file__), 'schemas', 'sis_schema.json')
+        schema_path = os.path.join(os.path.dirname(__file__), 'schemas', 'SceneSIS_semantics.json')
         try:
             with open(schema_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
@@ -301,9 +301,16 @@ class SISExtractor(ContentProcessor):
             return {
                 "type": "object",
                 "properties": {
-                    "summary": {"type": "string"}
+                    "common": {
+                        "type": "object",
+                        "properties": {
+                            "mood": {"type": "string"},
+                            "characters": {"type": "array"},
+                            "location": {"type": "string"}
+                        }
+                    }
                 },
-                "required": ["summary"],
+                "required": ["common"],
                 "additionalProperties": True
             }
 
