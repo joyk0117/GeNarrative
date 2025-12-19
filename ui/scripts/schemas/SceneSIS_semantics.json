@@ -1,0 +1,320 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "_schema_version": "1.0.0",
+  "title": "SceneSIS Semantics",
+  "description": "Schema for SceneSIS.semantics (common/text/visual/audio) based on docs/SIS_ja.md.",
+  "type": "object",
+  "properties": {
+    "common": {
+      "type": "object",
+      "description": "Multi-modal shared semantic background for the scene. This is the scene's 'meaning layer' shared by text/visual/audio.",
+      "properties": {
+        "mood": {
+          "type": "string",
+          "description": "Overall atmosphere / emotional air of the scene (single label or short phrase).",
+          "examples": ["calm", "tense", "bittersweet", "hopeful"]
+        },
+        "characters": {
+          "type": "array",
+          "description": "Characters appearing in the scene. Use scene-specific details (e.g., current outfit) if relevant.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Character name or label used in this scene.",
+                "examples": ["Nancy", "girl", "old_man"]
+              },
+              "traits": {
+                "type": "array",
+                "description": "Short trait tags that are useful for generation/search.",
+                "items": {
+                  "type": "string",
+                  "description": "Trait label.",
+                  "examples": ["curious", "shy", "brave", "tired"]
+                },
+                "minItems": 1,
+                "examples": [["girl", "curious"], ["mentor", "calm"], ["small", "smiling"]]
+              },
+              "visual": {
+                "type": "object",
+                "description": "Visual appearance notes that matter for images (and optionally text).",
+                "properties": {
+                  "hair": {
+                    "type": "string",
+                    "description": "Hair description (color/style).",
+                    "examples": ["brown curly hair", "short black hair", "silver ponytail"]
+                  },
+                  "clothes": {
+                    "type": "string",
+                    "description": "Clothing description for this scene.",
+                    "examples": [
+                      "striped shirt and purple skirt",
+                      "blue hoodie and jeans",
+                      "white dress with a red ribbon"
+                    ]
+                  }
+                },
+                "required": ["hair", "clothes"],
+                "additionalProperties": false,
+                "examples": [
+                  { "hair": "brown curly hair", "clothes": "striped shirt and purple skirt" },
+                  { "hair": "short black hair", "clothes": "blue hoodie and jeans" }
+                ]
+              }
+            },
+            "required": ["name", "traits", "visual"],
+            "additionalProperties": false,
+            "examples": [
+              {
+                "name": "Nancy",
+                "traits": ["girl", "curious"],
+                "visual": { "hair": "brown curly hair", "clothes": "striped shirt and purple skirt" }
+              },
+              {
+                "name": "old_man",
+                "traits": ["mentor", "calm"],
+                "visual": { "hair": "silver ponytail", "clothes": "dark coat and scarf" }
+              }
+            ]
+          },
+          "minItems": 1
+        },
+        "location": {
+          "type": "string",
+          "description": "Location/setting of the scene (place name or short description).",
+          "examples": ["forest", "quiet classroom", "small coastal town", "underground station"]
+        },
+        "time": {
+          "type": "string",
+          "description": "Time of day / temporal context.",
+          "examples": ["dawn", "day", "sunset", "night"]
+        },
+        "weather": {
+          "type": "string",
+          "description": "Weather conditions (or indoor equivalent like 'neon-lit' if needed).",
+          "examples": ["sunny", "rainy", "foggy", "snowy"]
+        },
+        "objects": {
+          "type": "array",
+          "description": "Important objects/motifs in the scene. Include salient colors to make motifs easier to generate/search.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Object name or label.",
+                "examples": ["big_sun", "small_house", "red_umbrella", "broken_clock"]
+              },
+              "colors": {
+                "type": "array",
+                "description": "Salient colors for this object (as short labels).",
+                "items": {
+                  "type": "string",
+                  "description": "Color label.",
+                  "examples": ["yellow", "orange", "red", "brown", "green"]
+                },
+                "minItems": 1,
+                "examples": [["yellow", "orange"], ["red"], ["green", "brown"]]
+              }
+            },
+            "required": ["name", "colors"],
+            "additionalProperties": false,
+            "examples": [
+              { "name": "big_sun", "colors": ["yellow", "orange"] },
+              { "name": "red_umbrella", "colors": ["red"] },
+              { "name": "tree", "colors": ["green", "brown"] }
+            ]
+          },
+          "minItems": 1
+        },
+        "descriptions": {
+          "type": "array",
+          "description": "Interpretation notes / nuance not covered by summary (multiple allowed). Use this for intent, subtext, or what to emphasize.",
+          "items": {
+            "type": "string",
+            "description": "Free-form description.",
+            "examples": [
+              "The scene emphasizes gentle light and a peaceful, exploratory mood.",
+              "Despite the calm setting, there is a faint sense of unease.",
+              "Focus on emotional distance between the two characters."
+            ]
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "mood",
+        "characters",
+        "location",
+        "time",
+        "weather",
+        "objects",
+        "descriptions"
+      ],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "mood": "calm",
+          "characters": [
+            {
+              "name": "Nancy",
+              "traits": ["girl", "curious"],
+              "visual": { "hair": "brown curly hair", "clothes": "striped shirt and purple skirt" }
+            }
+          ],
+          "location": "forest",
+          "time": "day",
+          "weather": "sunny",
+          "objects": [
+            { "name": "big_sun", "colors": ["yellow", "orange"] },
+            { "name": "small_house", "colors": ["red", "brown"] },
+            { "name": "tree", "colors": ["green", "brown"] }
+          ],
+          "descriptions": [
+            "Nancy quietly observes the forest, feeling both curiosity and a slight nervousness.",
+            "The scene emphasizes gentle light and a peaceful, exploratory mood."
+          ]
+        }
+      ]
+    },
+    "text": {
+      "type": "object",
+      "description": "Scene-level text generation policy (default). Can be overridden by MediaSIS.text.",
+      "properties": {
+        "style": {
+          "type": "string",
+          "description": "Writing style or register.",
+          "examples": ["simple", "poetic", "cinematic", "documentary"]
+        },
+        "language": {
+          "type": "string",
+          "description": "Language for narration/dialogue.",
+          "examples": ["English", "Japanese"]
+        },
+        "tone": {
+          "type": "string",
+          "description": "Emotional tone for text.",
+          "examples": ["gentle", "dark", "humorous", "solemn"]
+        },
+        "point_of_view": {
+          "type": "string",
+          "description": "Point of view (e.g., first/third) or a short descriptor.",
+          "examples": ["third", "first", "omniscient"]
+        }
+      },
+      "required": ["style", "language", "tone", "point_of_view"],
+      "additionalProperties": false,
+      "examples": [
+        { "style": "simple", "language": "English", "tone": "gentle", "point_of_view": "third" },
+        { "style": "poetic", "language": "Japanese", "tone": "bittersweet", "point_of_view": "first" }
+      ]
+    },
+    "visual": {
+      "type": "object",
+      "description": "Scene-level visual generation policy (default). Defines how the scene should look.",
+      "properties": {
+        "style": {
+          "type": "string",
+          "description": "Visual style (e.g., watercolor, anime, photorealistic).",
+          "examples": ["watercolor", "anime", "photorealistic", "paper cutout"]
+        },
+        "composition": {
+          "type": "string",
+          "description": "Composition / shot framing (e.g., close-up, mid-shot, wide shot).",
+          "examples": ["close-up", "mid-shot", "wide shot", "over-the-shoulder"]
+        },
+        "lighting": {
+          "type": "string",
+          "description": "Lighting condition (quality, direction, time-related feel).",
+          "examples": ["soft", "dramatic", "backlit", "neon-lit"]
+        },
+        "perspective": {
+          "type": "string",
+          "description": "Camera/viewpoint perspective.",
+          "examples": ["eye-level", "low-angle", "high-angle", "bird's-eye"]
+        }
+      },
+      "required": ["style", "composition", "lighting", "perspective"],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "style": "watercolor",
+          "composition": "mid-shot",
+          "lighting": "soft",
+          "perspective": "eye-level"
+        },
+        {
+          "style": "photorealistic",
+          "composition": "wide shot",
+          "lighting": "backlit",
+          "perspective": "low-angle"
+        }
+      ]
+    },
+    "audio": {
+      "type": "object",
+      "description": "Scene-level audio generation policy (default). Defines BGM/SFX direction for the scene.",
+      "properties": {
+        "genre": {
+          "type": "string",
+          "description": "Music genre or style label.",
+          "examples": ["ambient", "lofi", "orchestral", "synthwave"]
+        },
+        "tempo": {
+          "type": "string",
+          "description": "Tempo descriptor (can be a word or approximate BPM like '120bpm').",
+          "examples": ["slow", "medium", "fast", "120bpm"]
+        },
+        "instruments": {
+          "type": "array",
+          "description": "Primary instruments to feature.",
+          "items": {
+            "type": "string",
+            "description": "Instrument.",
+            "examples": ["piano", "pad", "strings", "acoustic guitar"]
+          },
+          "minItems": 1,
+          "examples": [["piano", "pad"], ["strings"], ["acoustic guitar", "soft drums"]]
+        }
+      },
+      "required": ["genre", "tempo", "instruments"],
+      "additionalProperties": false,
+      "examples": [
+        { "genre": "ambient", "tempo": "slow", "instruments": ["piano", "pad"] },
+        { "genre": "orchestral", "tempo": "medium", "instruments": ["strings", "piano"] }
+      ]
+    }
+  },
+  "required": ["common", "text", "visual", "audio"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "common": {
+        "mood": "calm",
+        "characters": [
+          {
+            "name": "Nancy",
+            "traits": ["girl", "curious"],
+            "visual": { "hair": "brown curly hair", "clothes": "striped shirt and purple skirt" }
+          }
+        ],
+        "location": "forest",
+        "time": "day",
+        "weather": "sunny",
+        "objects": [
+          { "name": "big_sun", "colors": ["yellow", "orange"] },
+          { "name": "small_house", "colors": ["red", "brown"] },
+          { "name": "tree", "colors": ["green", "brown"] }
+        ],
+        "descriptions": [
+          "Nancy quietly observes the forest, feeling both curiosity and a slight nervousness.",
+          "The scene emphasizes gentle light and a peaceful, exploratory mood."
+        ]
+      },
+      "text": { "style": "simple", "language": "English", "tone": "gentle", "point_of_view": "third" },
+      "visual": { "style": "watercolor", "composition": "mid-shot", "lighting": "soft", "perspective": "eye-level" },
+      "audio": { "genre": "ambient", "tempo": "slow", "instruments": ["piano", "pad"] }
+    }
+  ]
+}
