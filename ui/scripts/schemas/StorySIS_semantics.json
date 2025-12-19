@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "_schema_version": "1.0.0",
+  "title": "StorySIS Semantics",
+  "description": "Schema for StorySIS.semantics (common/text/visual/audio) based on docs/SIS_ja.md.",
+  "type": "object",
+  "properties": {
+    "common": {
+      "type": "object",
+      "description": "Story-level shared meaning layer (themes, intent, nuance) referenced by scenes and media.",
+      "properties": {
+        "themes": {
+          "type": "array",
+          "description": "Core themes of the story. Keep them as short tags for reuse/search.",
+          "items": {
+            "type": "string",
+            "description": "Theme tag.",
+            "examples": ["trust", "learning", "loss", "friendship"]
+          },
+          "minItems": 1,
+          "examples": [
+            ["trust", "learning"],
+            ["friendship", "courage"],
+            ["loss", "reconciliation"]
+          ]
+        },
+        "descriptions": {
+          "type": "array",
+          "description": "Notes that explain the intent/subtext not captured by the short summary (multiple allowed).",
+          "items": {
+            "type": "string",
+            "description": "Free-form description.",
+            "examples": [
+              "A gentle story about emotional growth rather than fast-paced action.",
+              "The world feels safe, but characters still face internal conflict.",
+              "Focus on small everyday moments that gradually change relationships."
+            ]
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["themes", "descriptions"],
+      "additionalProperties": false,
+      "examples": [
+        {
+          "themes": ["trust", "learning"],
+          "descriptions": [
+            "A gentle story about a girl learning to trust the forest and herself.",
+            "Focuses on emotional growth rather than fast-paced action."
+          ]
+        },
+        {
+          "themes": ["loss", "reconciliation"],
+          "descriptions": [
+            "The central tension is unresolved grief, not external danger.",
+            "Moments of warmth appear briefly, making the ending feel earned."
+          ]
+        }
+      ]
+    },
+    "text": {
+      "type": "object",
+      "description": "Story-level text style policy (optional). Scenes/media may override.",
+      "properties": {
+        "language": {
+          "type": "string",
+          "description": "Primary language for narration/dialogue.",
+          "examples": ["English", "Japanese"]
+        },
+        "tone": {
+          "type": "string",
+          "description": "Overall tone for the story text.",
+          "examples": ["gentle", "dark", "humorous", "hopeful"]
+        },
+        "point_of_view": {
+          "type": "string",
+          "description": "Default point of view.",
+          "examples": ["third", "first", "omniscient"]
+        }
+      },
+      "required": ["language", "tone", "point_of_view"],
+      "additionalProperties": false,
+      "examples": [
+        { "language": "English", "tone": "gentle", "point_of_view": "third" },
+        { "language": "Japanese", "tone": "bittersweet", "point_of_view": "first" }
+      ]
+    },
+    "visual": {
+      "type": "object",
+      "description": "Story-level visual style policy (optional). Scenes/media may override.",
+      "properties": {
+        "style": {
+          "type": "string",
+          "description": "Default visual style for the story.",
+          "examples": ["watercolor", "anime", "storybook illustration", "photorealistic"]
+        }
+      },
+      "required": ["style"],
+      "additionalProperties": false,
+      "examples": [
+        { "style": "watercolor" },
+        { "style": "storybook illustration" }
+      ]
+    },
+    "audio": {
+      "type": "object",
+      "description": "Story-level audio/music direction (optional). Scenes/media may override.",
+      "properties": {
+        "genre": {
+          "type": "string",
+          "description": "Default genre or sound palette for the story.",
+          "examples": ["ambient", "orchestral", "lofi", "acoustic"]
+        }
+      },
+      "required": ["genre"],
+      "additionalProperties": false,
+      "examples": [
+        { "genre": "ambient" },
+        { "genre": "acoustic" }
+      ]
+    }
+  },
+  "required": ["common"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "common": {
+        "themes": ["trust", "learning"],
+        "descriptions": [
+          "A gentle story about a girl learning to trust the forest and herself.",
+          "Focuses on emotional growth rather than fast-paced action."
+        ]
+      },
+      "text": { "language": "English", "tone": "gentle", "point_of_view": "third" },
+      "visual": { "style": "watercolor" },
+      "audio": { "genre": "ambient" }
+    }
+  ]
+}

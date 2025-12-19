@@ -149,8 +149,8 @@ class ContentGenerator(ContentProcessor):
         if not sis_data:
             raise ValidationError('SIS data is empty')
         
-        # 最低限必要なフィールドの確認
-        essential_fields = ['summary']
+        # 最低限必要なフィールドの確認（SceneSIS_semantics.json形式）
+        essential_fields = ['common']
         missing_essential = [field for field in essential_fields if field not in sis_data or not sis_data[field]]
         
         if missing_essential:
@@ -160,19 +160,21 @@ class ContentGenerator(ContentProcessor):
             )
         
         # 欠損フィールドを警告として記録（エラーにしない）
-        expected_fields = ['summary', 'emotions', 'mood', 'themes', 'narrative', 'visual', 'audio']
+        expected_fields = ['common', 'text', 'visual', 'audio']
         missing_fields = [field for field in expected_fields if field not in sis_data]
         
         if missing_fields:
             self.logger.logger.warning(f"⚠️ SIS missing optional fields: {missing_fields}")
             # 欠損フィールドにデフォルト値を設定
             for field in missing_fields:
-                if field in ['emotions', 'themes']:
-                    sis_data[field] = []
-                elif field in ['mood', 'narrative']:
-                    sis_data[field] = ''
-                elif field in ['visual', 'audio']:
-                    sis_data[field] = {}
+                if field == 'common':
+                    sis_data[field] = {'mood': '', 'characters': [], 'location': '', 'time': '', 'weather': '', 'objects': [], 'descriptions': []}
+                elif field == 'text':
+                    sis_data[field] = {'style': '', 'language': 'English', 'tone': '', 'point_of_view': 'third'}
+                elif field == 'visual':
+                    sis_data[field] = {'style': '', 'composition': '', 'lighting': '', 'perspective': ''}
+                elif field == 'audio':
+                    sis_data[field] = {'genre': '', 'tempo': '', 'instruments': []}
     
     def _create_prompt(self, sis_data: Dict[str, Any], content_type: str, **kwargs) -> str:
         """コンテンツタイプに応じたプロンプト生成"""
@@ -219,26 +221,51 @@ Here is the SIS data:
 Generate the image prompt:"""
     
     def _create_music_prompt(self, sis_data: Dict[str, Any], duration: int) -> str:
-        """音楽生成プロンプト作成"""
+        """音楽生成プロンプト作成（画像と同じシンプルな構造）"""
         sis_json = json.dumps(sis_data, indent=2, ensure_ascii=False)
         
-        return f"""You are a music prompt designer for MusicGen.
+        return f"""Based on the following SIS data, generate a MusicGen prompt in 1-2 sentences for a {duration}-second audio piece.
+Focus on genre, tempo, instruments, and emotional atmosphere.
+Output only the music prompt without any explanations.
 
-Below is the structured Semantic Interface Structure (SIS; formerly SIS) describing a scene.
-
-Your task is to:
-1. Read and interpret the SIS, focusing only on the elements relevant to music.
-2. Create a **descriptive natural language prompt** suitable for generating a {duration}-second music piece with MusicGen.
-3. The prompt should include genre, tempo, mood, instruments, and any emotional tone.
-4. Output just the music prompt (1–2 lines) and nothing else.
-
-Here is the SIS:
-
-```json
-{sis_json}
-```
-
-Generate the music prompt:"""
+SIS data:
+{sis_json}"""
+    
+    def _create_fallback_music_prompt(self, sis_data: Dict[str, Any], duration: int) -> str:
+        """LLM失敗時のフォールバック: ルールベースで音楽プロンプト生成"""
+        self.logger.logger.info("🔧 Using fallback rule-based music prompt generation")
+        
+        prompt_parts = []
+        
+        # SceneSIS形式から情報抽出
+        common = sis_data.get('common', {})
+        audio = sis_data.get('audio', {})
+        
+        # ジャンル
+        genre = audio.get('genre', 'ambient')
+        if genre:
+            prompt_parts.append(genre)
+        
+        # テンポ
+        tempo = audio.get('tempo', 'moderate')
+        if tempo:
+            prompt_parts.append(f"{tempo} tempo")
+        
+        # 楽器
+        instruments = audio.get('instruments', [])
+        if instruments:
+            inst_str = ', '.join(instruments[:2])  # 最大2楽器
+            prompt_parts.append(inst_str)
+        
+        # ムード
+        mood = common.get('mood', '')
+        if mood:
+            prompt_parts.append(f"{mood} atmosphere")
+        
+        if not prompt_parts:
+            return "ambient music"
+        
+        return ', '.join(prompt_parts)
     
     def _create_text_prompt(self, sis_data: Dict[str, Any], word_count: int) -> str:
         """テキスト生成プロンプト作成"""
@@ -425,93 +452,142 @@ Write the story:"""
             })
     
     def _create_direct_image_prompt(self, sis_data: Dict[str, Any]) -> str:
-        """SISデータから直接画像プロンプトを生成（Unsloth無し）"""
-        self.logger.logger.info("🎨 Creating direct image prompt from SIS data")
+        """SISデータから直接画像プロンプトを生成（LLMを使用）"""
+        self.logger.logger.info("🎨 Creating image prompt from SIS data using LLM")
         
-        # SISから重要な要素を抽出
-        summary = sis_data.get('summary', '')
-        emotions = sis_data.get('emotions', [])
-        mood = sis_data.get('mood', '')
-        themes = sis_data.get('themes', [])
-        visual = sis_data.get('visual', {})
+        # SceneSIS形式のSISデータをJSON文字列化
+        sis_json_str = json.dumps(sis_data, ensure_ascii=False, indent=2)
+        self.logger.logger.info(f"📊 SIS data size: {len(sis_json_str)} chars")
         
-        self.logger.logger.info(f"📊 SIS elements - summary: {len(summary)} chars, emotions: {len(emotions)}, visual: {len(visual)} keys")
+        # LLMに渡すプロンプト
+        system_prompt = """You are an expert at creating Stable Diffusion prompts from scene descriptions.
+Create concise, detailed image generation prompts that capture all important visual elements."""
         
-        # 画像プロンプトの構築
+        user_prompt = f"""Given this scene description in JSON format:
+{sis_json_str}
+
+Create a detailed image generation prompt for Stable Diffusion.
+Include:
+- Character appearance (hair, clothes, expressions)
+- Setting and location details
+- Objects and their colors
+- Lighting and atmosphere
+- Art style
+- Composition and perspective
+
+Keep the prompt concise but detailed. Use comma-separated tags.
+Output ONLY the prompt text (no JSON, no explanation, no quotes)."""
+        
+        try:
+            # Ollamaで画像プロンプトを生成
+            self.logger.logger.info("🤖 Calling Ollama to generate image prompt...")
+            payload = {
+                'model': self.api_config.ollama_model,
+                'messages': [
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': user_prompt}
+                ],
+                'stream': False,
+                'options': {
+                    'temperature': 0.3,  # 創造的だが一貫性を保つ
+                    'num_predict': 150   # プロンプトは短めに
+                }
+            }
+            
+            response = requests.post(
+                f"{self.api_config.ollama_uri}/api/chat",
+                json=payload,
+                timeout=60
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                message = result.get('message', {})
+                generated_prompt = message.get('content', '').strip()
+                
+                if generated_prompt:
+                    # 不要な引用符やマークダウンを除去
+                    generated_prompt = generated_prompt.strip('"\'`')
+                    if generated_prompt.startswith('```'):
+                        lines = generated_prompt.split('\n')
+                        generated_prompt = '\n'.join([l for l in lines if not l.startswith('```')]).strip()
+                    
+                    # 品質タグを追加
+                    if 'high quality' not in generated_prompt.lower():
+                        generated_prompt += ', high quality, detailed, masterpiece'
+                    
+                    self.logger.logger.info(f"✅ Generated prompt ({len(generated_prompt)} chars): {generated_prompt[:100]}...")
+                    return generated_prompt
+                else:
+                    raise GeNarrativeError('Empty response from LLM')
+            else:
+                raise GeNarrativeError(f'HTTP {response.status_code}: {response.text}')
+                
+        except Exception as e:
+            self.logger.logger.warning(f"⚠️ LLM prompt generation failed: {str(e)}, falling back to rule-based")
+            # フォールバック: ルールベースの簡易プロンプト生成
+            return self._create_fallback_image_prompt(sis_data)
+    
+    def _create_fallback_image_prompt(self, sis_data: Dict[str, Any]) -> str:
+        """LLM失敗時のフォールバック: ルールベースでプロンプト生成"""
+        self.logger.logger.info("🔧 Using fallback rule-based prompt generation")
+        
         prompt_parts = []
         
-        # 基本シーン（最も重要）
-        if summary:
-            # summaryをより自然な画像プロンプトに変換
-            clean_summary = summary.replace('"', '').strip()
-            prompt_parts.append(clean_summary)
-            self.logger.logger.info(f"✅ Added summary: {clean_summary[:50]}...")
+        # SceneSIS形式から情報抽出
+        common = sis_data.get('common', {})
+        visual = sis_data.get('visual', {})
         
-        # ビジュアル要素の追加
-        if visual:
-            if visual.get('setting'):
-                setting = visual['setting']
-                prompt_parts.append(f"{setting}")
-                self.logger.logger.info(f"✅ Added setting: {setting}")
-                
-            if visual.get('lighting'):
-                lighting = visual['lighting']
-                prompt_parts.append(f"{lighting} lighting")
-                self.logger.logger.info(f"✅ Added lighting: {lighting}")
-                
-            if visual.get('color_palette'):
-                colors = visual['color_palette']
-                if isinstance(colors, list) and colors:
-                    color_str = ', '.join(colors[:3])  # 最初の3色のみ使用
-                    prompt_parts.append(f"{color_str} colors")
-                    self.logger.logger.info(f"✅ Added colors: {color_str}")
-                elif isinstance(colors, str):
-                    prompt_parts.append(f"{colors} colors")
-                    self.logger.logger.info(f"✅ Added colors: {colors}")
-            
-            if visual.get('style'):
-                style = visual['style']
-                prompt_parts.append(f"{style} style")
-                self.logger.logger.info(f"✅ Added style: {style}")
+        # キャラクター
+        characters = common.get('characters', [])
+        for char in characters[:2]:  # 最大2キャラクター
+            if isinstance(char, dict):
+                name = char.get('name', '')
+                traits = ', '.join(char.get('traits', [])[:3])
+                visual_info = char.get('visual', {})
+                hair = visual_info.get('hair', '')
+                clothes = visual_info.get('clothes', '')
+                parts = [p for p in [name, traits, hair, clothes] if p]
+                if parts:
+                    prompt_parts.append(' '.join(parts))
         
-        # 感情とムードの追加（より抽象的）
-        emotional_elements = []
-        if emotions and isinstance(emotions, list):
-            # 最初の2つの感情のみ使用
-            emotional_elements.extend(emotions[:2])
+        # 場所・時間・天気
+        location = common.get('location', '')
+        time = common.get('time', '')
+        weather = common.get('weather', '')
+        scene_parts = [p for p in [location, time, weather] if p]
+        if scene_parts:
+            prompt_parts.append(', '.join(scene_parts))
         
+        # オブジェクト
+        objects = common.get('objects', [])
+        for obj in objects[:3]:  # 最大3オブジェクト
+            if isinstance(obj, dict):
+                obj_name = obj.get('name', '')
+                obj_colors = ', '.join(obj.get('colors', []))
+                if obj_name:
+                    prompt_parts.append(f"{obj_colors} {obj_name}" if obj_colors else obj_name)
+        
+        # 説明
+        descriptions = common.get('descriptions', [])
+        if descriptions:
+            prompt_parts.append(descriptions[0])
+        
+        # ビジュアルスタイル
+        style = visual.get('style', '')
+        lighting = visual.get('lighting', '')
+        composition = visual.get('composition', '')
+        visual_parts = [p for p in [lighting, style, composition] if p]
+        if visual_parts:
+            prompt_parts.append(', '.join(visual_parts))
+        
+        # ムード
+        mood = common.get('mood', '')
         if mood:
-            emotional_elements.append(mood)
+            prompt_parts.append(f"{mood} atmosphere")
         
-        if emotional_elements:
-            emotion_str = ', '.join(emotional_elements)
-            prompt_parts.append(f"{emotion_str} atmosphere")
-            self.logger.logger.info(f"✅ Added emotions: {emotion_str}")
-        
-        # テーマの追加（控えめに）
-        if themes and isinstance(themes, list) and themes:
-            # 最初のテーマのみ使用
-            theme = themes[0]
-            prompt_parts.append(f"{theme}")
-            self.logger.logger.info(f"✅ Added theme: {theme}")
-        
-        # プロンプトを結合
         base_prompt = ', '.join(prompt_parts)
-        
-        # 画質向上のための標準的なタグを追加
-        quality_tags = "high quality, detailed, masterpiece, professional artwork"
-        
-        # ネガティブな要素を避けるための調整
-        final_prompt = f"{base_prompt}, {quality_tags}"
-        
-        # プロンプトの長さを制限（Stable Diffusionの制限に配慮）
-        if len(final_prompt) > 200:
-            final_prompt = final_prompt[:200].rsplit(',', 1)[0]  # 最後のカンマで切断
-            final_prompt += f", {quality_tags}"
-        
-        self.logger.logger.info(f"🎨 Final prompt ({len(final_prompt)} chars): {final_prompt[:100]}...")
-        
-        return final_prompt
+        return f"{base_prompt}, high quality, detailed, masterpiece"
     
     def _clean_generated_text(self, generated_text: str) -> str:
         """生成テキストのクリーニング"""
