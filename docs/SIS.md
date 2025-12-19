@@ -329,7 +329,93 @@ This aligns well with the general provenance model W3C PROV (Entity / Activity /
 Because SIS assumes manual editing, introducing schema-based validation (required fields, types, enums, etc.) helps reduce corruption and inconsistency.
 JSON Schema can be a foundation for future SIS schema evolution (backward compatibility) and tool integration (e.g., form-based UI generation).
 
-## 🎉 10. Summary
+## 🧭 10. Comparison with alternatives (reference)
+
+SIS is positioned as an “intermediate representation for connecting modalities,” but similar goals can be achieved with other designs.
+This section summarizes representative alternatives and how they differ from SIS.
+
+---
+
+### 10.1 Overview of approaches
+
+#### A) SIS (explicit schema JSON)
+- **Overview**: Store semantic information as an **explicit schema (JSON)** that can be edited by humans when needed, and use it to connect image/text/audio generation.
+- **Good for**: Iterative improvement (generate → edit → regenerate), diff/versioning, validation, model swapping, and explainability.
+- **Weakness**: Schema design, transformations (SIS → modality-specific conditions), and operations can add overhead. For a quick “good-enough” output, it may be too heavy.
+
+#### B) Direct piping (no intermediate)
+- **Overview**: Create captions/instructions from images or text, then pass them directly into each modality generator (text/image/music). The intermediate artifact is not fixed.
+- **Good for**: Fast prototypes, demos, and one-off personal use.
+- **Weakness**: Weak reproducibility/diffability/validation; harder to stably adjust only intended attributes. Behavior changes more easily when the model changes.
+
+#### C) Natural-language script / story bible
+- **Overview**: Use a structured document (world, characters, scene summaries, mood, etc.) as the intermediate artifact instead of schema JSON.
+- **Good for**: Human-readable editing while preserving creative freedom.
+- **Weakness**: Hard to mechanically validate (type checks), interpret diffs semantically, and build search/reuse without extra work.
+
+#### D) Embedding / latent (vector intermediate)
+- **Overview**: Convert images/audio into embedding vectors and use them for similarity search or conditioning (the intermediate representation is a vector).
+- **Good for**: Search/recommendation over large asset libraries; reuse by similarity.
+- **Weakness**: Hard for humans to edit; tends to be black-box. Validation and “change only this attribute” are difficult.
+
+#### E) Graph (knowledge graph / scene graph)
+- **Overview**: Represent relationships like “Character A holds Object B” and “location is forest” as nodes/edges.
+- **Good for**: Consistency checks of relationships, dependency management, inference, and constraints.
+- **Weakness**: Design/implementation costs can be high. Preserving creative freedom requires careful modeling.
+
+#### F) Existing standards + extension (e.g., OpenUSD)
+- **Overview**: Align with an existing standard format (especially for scene/asset management) and store additional meaning as extension metadata.
+- **Good for**: Integration with existing production/asset pipelines and leveraging ecosystem tooling.
+- **Weakness**: Adoption/operations costs are large; narrative/emotion semantics often still require another layer.
+
+---
+
+### 10.2 Balance table (〇/△/×)
+
+- **〇**: Strong / easy to realize as-is
+- **△**: Depends / achievable with additional design
+- **×**: Weak / often needs another mechanism
+
+| Approach | Startup speed (quick “good-enough”) | Human-editable | Reproducibility / diffs | Type/constraint validation | Robust to model swapping | Less black-box | Search / reuse | Implementation / ops cost | Creative freedom |
+|---|---|---|---|---|---|---|---|---|---|
+| **SIS (explicit schema JSON)** | △ | 〇 | 〇 | 〇 | 〇 | 〇 | 〇 | △ | △ |
+| Direct piping (no intermediate) | 〇 | × | × | × | △ | × | △ | 〇 | 〇 |
+| Natural-language script / story bible | 〇 | 〇 | △ | × | △ | 〇 | △ | 〇 | 〇 |
+| Embedding / latent (vector intermediate) | △ | × | 〇 | × | × | × | 〇 | △ | △ |
+| Graph (knowledge graph / scene graph) | × | △ | 〇 | 〇 | 〇 | 〇 | 〇 | × | × |
+| Existing standards + extension (OpenUSD etc.) | × | △ | 〇 | 〇 | 〇 | 〇 | 〇 | × | △ |
+
+---
+
+### 10.3 Operational guideline: SIS + natural-language descriptions (recommended)
+
+In practice, a hybrid approach of **SIS (skeleton) + descriptions (flesh)** is often the easiest to operate.
+
+#### Basic policy
+- Keep SIS **small and focused**: fix only the minimum elements you want to edit and validate.
+- Put freer content into `descriptions`: details, aftertaste, examples, candidate lists, etc.
+- During generation, prioritize **confirmed SIS fields**; treat `descriptions` as supportive context.
+
+#### What to put into SIS vs descriptions
+- **Put into SIS (things you want to fix/validate)**
+  - Story/scene structure (things you want to validate as types)
+  - Characters/locations/era/POV/tone—parameters that change the whole output
+  - Prohibitions/constraints (e.g., no violence, for children, forbidden vocabulary)
+  - References related to consistency (e.g., mappings like `scene_id` references, parent-child relationships)
+- **Put into `descriptions` (keep flexible)**
+  - Concrete examples, associations, phrasing candidates, mood supplements
+  - Elements you want to leave room for interpretation (“like…”, “maybe…”) 
+  - Details that are highly model/prompt-dependent (poetic expressions, metaphors, long scenery)
+  - Multiple alternatives you want to keep (e.g., list candidates)
+
+#### Minimal SIS (example: start with this)
+- StorySIS: `genre / audience / tone / structure / theme / constraints / scenes[]`
+- SceneSIS: `scene_id / summary / characters / setting / mood / key_events / constraints`
+- MediaSIS: `asset_id / type / purpose / style / constraints / source_refs`
+
+If needed, promote items gradually from `descriptions` into explicit SIS fields (description → SIS field).
+
+## 🎉 11. Summary
 
 This specification provides:
 
