@@ -1,0 +1,572 @@
+{% extends 'base.html' %}
+
+{% block title %}SIS ↔ SIS Transformation Tests{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h2>SIS ↔ SIS Transformation Tests</h2>
+  <p>SceneSIS ↔ StorySIS の相互変換をテストします。</p>
+
+  <!-- Mode Selector -->
+  <div style="margin: 16px 0;">
+    <label style="margin-right: 16px;">
+      <input type="radio" name="mode" value="scene2story" checked> SceneSIS → StorySIS
+    </label>
+    <label>
+      <input type="radio" name="mode" value="story2scene"> StorySIS → SceneSIS
+    </label>
+  </div>
+
+  <!-- Scene2Story Section -->
+  <div id="scene2storySection" style="display: block;">
+    <h3>SceneSIS → StorySIS</h3>
+    <div style="margin: 16px 0;">
+      <label for="sceneFileSelect">既存のSceneSISを読み込む: </label>
+      <select id="sceneFileSelect" style="min-width:280px;"></select>
+      <button id="loadSceneBtn" style="margin-left: 8px;">📂 Load</button>
+      <button id="addSceneBtn" style="margin-left: 8px;">➕ Add Scene</button>
+    </div>
+
+    <div id="scenesContainer" style="margin: 16px 0;">
+      <!-- Scene inputs will be added dynamically -->
+    </div>
+
+    <div style="margin: 16px 0;">
+      <button id="runScene2StoryBtn" class="primary-btn">▶ Generate StorySIS</button>
+      <span id="scene2storyStatus" style="margin-left:12px;color:#666;"></span>
+    </div>
+
+    <div id="scene2storyResult" style="margin-top:16px;"></div>
+  </div>
+
+  <!-- Story2Scene Section -->
+  <div id="story2sceneSection" style="display: none;">
+    <h3>StorySIS → SceneSIS</h3>
+    <div style="margin: 16px 0;">
+      <label for="storyFileSelect">既存のStorySISを読み込む: </label>
+      <select id="storyFileSelect" style="min-width:280px;"></select>
+      <button id="loadStoryBtn" style="margin-left: 8px;">📂 Load</button>
+    </div>
+
+    <div style="margin: 16px 0;">
+      <label for="storyInput">StorySIS JSON:</label>
+      <textarea id="storyInput" rows="20" style="width: 100%; font-family: monospace; font-size: 13px;"></textarea>
+    </div>
+
+    <div style="margin: 16px 0;">
+      <button id="runStory2SceneBtn" class="primary-btn">▶ Generate SceneSIS</button>
+      <span id="story2sceneStatus" style="margin-left:12px;color:#666;"></span>
+    </div>
+
+    <div id="story2sceneResult" style="margin-top:16px;"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.scene-item {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #f9f9f9;
+}
+.scene-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.scene-item-header h4 {
+  margin: 0;
+}
+.scene-item textarea {
+  width: 100%;
+  font-family: monospace;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 8px;
+}
+.remove-btn {
+  background: #c33;
+  color: white;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.remove-btn:hover {
+  background: #a22;
+}
+.primary-btn {
+  background: #0a7;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.primary-btn:hover {
+  background: #085;
+}
+.primary-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+.result-box {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+  background: #f7f7f7;
+  margin-top: 12px;
+}
+.result-box h4 {
+  margin-top: 0;
+}
+.result-box pre {
+  background: white;
+  padding: 12px;
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 400px;
+}
+.ok { color: #0a7; }
+.ng { color: #c33; }
+</style>
+
+<script>
+(function(){
+  const modeRadios = document.querySelectorAll('input[name="mode"]');
+  const scene2storySection = document.getElementById('scene2storySection');
+  const story2sceneSection = document.getElementById('story2sceneSection');
+  const scenesContainer = document.getElementById('scenesContainer');
+  const addSceneBtn = document.getElementById('addSceneBtn');
+  const sceneFileSelect = document.getElementById('sceneFileSelect');
+  const loadSceneBtn = document.getElementById('loadSceneBtn');
+  const runScene2StoryBtn = document.getElementById('runScene2StoryBtn');
+  const scene2storyStatus = document.getElementById('scene2storyStatus');
+  const scene2storyResult = document.getElementById('scene2storyResult');
+  
+  const storyFileSelect = document.getElementById('storyFileSelect');
+  const loadStoryBtn = document.getElementById('loadStoryBtn');
+  const storyInput = document.getElementById('storyInput');
+  const runStory2SceneBtn = document.getElementById('runStory2SceneBtn');
+  const story2sceneStatus = document.getElementById('story2sceneStatus');
+  const story2sceneResult = document.getElementById('story2sceneResult');
+
+  let sceneCount = 0;
+
+  // Mode switching
+  modeRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (radio.value === 'scene2story') {
+        scene2storySection.style.display = 'block';
+        story2sceneSection.style.display = 'none';
+      } else {
+        scene2storySection.style.display = 'none';
+        story2sceneSection.style.display = 'block';
+      }
+    });
+  });
+
+  // Scene2Story: Add scene input
+  function addSceneInput(content = '') {
+    sceneCount++;
+    const sceneItem = document.createElement('div');
+    sceneItem.className = 'scene-item';
+    sceneItem.dataset.sceneId = sceneCount;
+    
+    const defaultContent = content || JSON.stringify({
+      "sis_type": "scene",
+      "scene_id": "00000000-0000-0000-0000-000000000000",
+      "summary": "Scene summary",
+      "scene_type": "ki",
+      "semantics": {
+        "common": {
+          "mood": "calm",
+          "characters": [{"name": "character", "traits": ["trait"], "visual": {"hair": "brown", "clothes": "casual"}}],
+          "location": "location",
+          "time": "day",
+          "weather": "sunny",
+          "objects": [{"name": "object", "colors": ["color"]}],
+          "descriptions": ["description"]
+        },
+        "text": {"style": "simple", "language": "English", "tone": "gentle", "point_of_view": "third"},
+        "visual": {"style": "watercolor", "composition": "mid-shot", "lighting": "soft", "perspective": "eye-level"},
+        "audio": {"genre": "ambient", "tempo": "slow", "instruments": ["piano"]}
+      }
+    }, null, 2);
+    
+    sceneItem.innerHTML = `
+      <div class="scene-item-header">
+        <h4>Scene ${sceneCount}</h4>
+        <button class="remove-btn" onclick="removeScene(${sceneCount})">✖ Remove</button>
+      </div>
+      <textarea rows="15">${defaultContent}</textarea>
+    `;
+    scenesContainer.appendChild(sceneItem);
+  }
+
+  window.removeScene = function(id) {
+    const item = document.querySelector(`[data-scene-id="${id}"]`);
+    if (item) item.remove();
+  };
+
+  addSceneBtn.addEventListener('click', () => addSceneInput());
+
+  // Initialize with one scene
+  addSceneInput();
+
+  // Load scene files list
+  async function loadSceneFiles() {
+    try {
+      const res = await fetch('/api/sis2sis/list_scenes');
+      const data = await res.json();
+      sceneFileSelect.innerHTML = '<option value="">(select a file)</option>';
+      if (data.success && Array.isArray(data.files)) {
+        data.files.forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          sceneFileSelect.appendChild(opt);
+        });
+      }
+    } catch (e) {
+      sceneFileSelect.innerHTML = '<option value="">(failed to list)</option>';
+    }
+  }
+
+  loadSceneFiles();
+
+  // Load selected scene file
+  loadSceneBtn.addEventListener('click', async () => {
+    const fileName = sceneFileSelect.value;
+    if (!fileName) return;
+    try {
+      const res = await fetch('/api/sis2sis/load_scene?file=' + encodeURIComponent(fileName));
+      const data = await res.json();
+      if (data.success && data.content) {
+        addSceneInput(data.content);
+      } else {
+        alert('Failed to load scene: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  });
+
+  // Run Scene2Story
+  runScene2StoryBtn.addEventListener('click', async () => {
+    const sceneItems = document.querySelectorAll('.scene-item textarea');
+    if (sceneItems.length === 0) {
+      alert('Please add at least one scene');
+      return;
+    }
+    
+    const scenes = [];
+    for (const textarea of sceneItems) {
+      try {
+        const parsed = JSON.parse(textarea.value);
+        scenes.push(parsed);
+      } catch (e) {
+        alert('Invalid JSON in one of the scenes: ' + e.message);
+        return;
+      }
+    }
+
+    runScene2StoryBtn.disabled = true;
+    scene2storyStatus.textContent = 'Running... (this can take 10-30s)';
+    scene2storyResult.innerHTML = '';
+
+    try {
+      const res = await fetch('/api/sis2sis/scene2story', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenes })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        scene2storyStatus.textContent = 'Done';
+        const storySis = data.story_sis || {};
+        const prompt = data.prompt || '';
+        
+        let promptHtml = '';
+        if (prompt) {
+          promptHtml = `
+            <div style="margin-top: 16px;">
+              <h5>📝 Prompt sent to LLM:</h5>
+              <pre style="background: #fff; padding: 12px; border: 1px solid #ddd; border-radius: 4px; overflow: auto; max-height: 300px; white-space: pre-wrap;">${escapeHtml(prompt)}</pre>
+            </div>
+          `;
+        }
+        
+        const resultHtml = `
+          <div class="result-box">
+            <h4 class="ok">✅ StorySIS Generated Successfully</h4>
+            <div><strong>Title:</strong> ${escapeHtml(storySis.title || 'N/A')}</div>
+            <div><strong>Story Type:</strong> ${escapeHtml(storySis.story_type || 'N/A')}</div>
+            <div><strong>Scenes:</strong> ${(storySis.scene_blueprints || []).length}</div>
+            ${promptHtml}
+            <div style="margin-top: 12px;"><strong>Full JSON:</strong></div>
+            <pre>${escapeHtml(JSON.stringify(storySis, null, 2))}</pre>
+          </div>
+        `;
+        scene2storyResult.innerHTML = resultHtml;
+      } else {
+        scene2storyStatus.textContent = 'Failed';
+        scene2storyResult.innerHTML = `<div class="result-box"><div class="ng">❌ Error: ${escapeHtml(data.error || 'Unknown error')}</div></div>`;
+      }
+    } catch (e) {
+      scene2storyStatus.textContent = 'Failed';
+      scene2storyResult.innerHTML = `<div class="result-box"><div class="ng">❌ Error: ${escapeHtml(e.message)}</div></div>`;
+    } finally {
+      runScene2StoryBtn.disabled = false;
+    }
+  });
+
+  // Load story files list
+  async function loadStoryFiles() {
+    try {
+      const res = await fetch('/api/sis2sis/list_stories');
+      const data = await res.json();
+      storyFileSelect.innerHTML = '<option value="">(select a file)</option>';
+      if (data.success && Array.isArray(data.files)) {
+        data.files.forEach(name => {
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = name;
+          storyFileSelect.appendChild(opt);
+        });
+      }
+    } catch (e) {
+      storyFileSelect.innerHTML = '<option value="">(failed to list)</option>';
+    }
+  }
+
+  loadStoryFiles();
+
+  // Load selected story file
+  loadStoryBtn.addEventListener('click', async () => {
+    const fileName = storyFileSelect.value;
+    if (!fileName) return;
+    try {
+      const res = await fetch('/api/sis2sis/load_story?file=' + encodeURIComponent(fileName));
+      const data = await res.json();
+      if (data.success && data.content) {
+        storyInput.value = data.content;
+      } else {
+        alert('Failed to load story: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Error: ' + e.message);
+    }
+  });
+
+  // Initialize story input with template
+  storyInput.value = JSON.stringify({
+    "sis_type": "story",
+    "story_id": "00000000-0000-0000-0000-000000000000",
+    "title": "Story Title",
+    "summary": "Story summary",
+    "semantics": {
+      "common": {
+        "themes": ["theme1", "theme2"],
+        "descriptions": ["Story description"]
+      },
+      "text": {"language": "English", "tone": "gentle", "point_of_view": "third"},
+      "visual": {"style": "watercolor"},
+      "audio": {"genre": "ambient"}
+    },
+    "story_type": "kishotenketsu",
+    "scene_blueprints": [
+      {"scene_type": "ki", "summary": "Opening scene"},
+      {"scene_type": "sho", "summary": "Development"},
+      {"scene_type": "ten", "summary": "Twist"},
+      {"scene_type": "ketsu", "summary": "Conclusion"}
+    ]
+  }, null, 2);
+
+  // Run Story2Scene
+  runStory2SceneBtn.addEventListener('click', async () => {
+    let storySis;
+    try {
+      storySis = JSON.parse(storyInput.value);
+    } catch (e) {
+      alert('Invalid JSON: ' + e.message);
+      return;
+    }
+
+    const blueprints = storySis.scene_blueprints || [];
+    if (blueprints.length === 0) {
+      alert('StorySIS must have scene_blueprints');
+      return;
+    }
+
+    runStory2SceneBtn.disabled = true;
+    story2sceneStatus.textContent = `Generating ${blueprints.length} scenes... (0/${blueprints.length} completed)`;
+    story2sceneResult.innerHTML = '<div class="result-box"><h4 class="ok">⏳ Generating scenes...</h4></div>';
+
+    const generatedScenes = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      for (let idx = 0; idx < blueprints.length; idx++) {
+        const blueprint = blueprints[idx];
+        story2sceneStatus.textContent = `Generating scene ${idx + 1}/${blueprints.length}...`;
+        
+        // 各シーンを個別に生成
+        try {
+          const res = await fetch('/api/sis2sis/story2scene_single', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              story_sis: storySis,
+              blueprint: blueprint,
+              blueprint_index: idx
+            })
+          });
+          const data = await res.json();
+          
+          if (data.success) {
+            const sceneData = {
+              scene_sis: data.scene_sis,
+              prompt: data.prompt,
+              blueprint_index: idx
+            };
+            generatedScenes.push(sceneData);
+            successCount++;
+            
+            // 即座に画面に追加表示
+            appendSceneToResult(sceneData, idx);
+            story2sceneStatus.textContent = `Generated ${successCount}/${blueprints.length} scenes`;
+          } else {
+            failCount++;
+            const errorMsg = data.error || 'Unknown error';
+            console.error(`Scene ${idx + 1} generation failed:`, errorMsg);
+            appendSceneError(idx, blueprint, errorMsg);
+          }
+        } catch (e) {
+          failCount++;
+          console.error(`Scene ${idx + 1} request failed:`, e);
+          appendSceneError(idx, blueprint, e.message);
+        }
+      }
+      
+      // 完了メッセージ
+      story2sceneStatus.textContent = `Done: ${successCount} succeeded, ${failCount} failed`;
+      
+      // 保存ボタンを追加
+      if (successCount > 0) {
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = '💾 Save All Generated Scenes';
+        saveBtn.className = 'primary-btn';
+        saveBtn.style.marginTop = '16px';
+        saveBtn.addEventListener('click', () => saveGeneratedScenes(generatedScenes, storySis));
+        story2sceneResult.appendChild(saveBtn);
+      }
+      
+    } catch (e) {
+      story2sceneStatus.textContent = 'Failed';
+      story2sceneResult.innerHTML = `<div class="result-box"><div class="ng">❌ Error: ${escapeHtml(e.message)}</div></div>`;
+    } finally {
+      runStory2SceneBtn.disabled = false;
+    }
+  });
+
+  function appendSceneToResult(sceneData, idx) {
+    const scene = sceneData.scene_sis || {};
+    const prompt = sceneData.prompt || '';
+    
+    let promptHtml = '';
+    if (prompt) {
+      promptHtml = `
+        <div style="margin-top: 8px;">
+          <strong>📝 Prompt sent to LLM:</strong>
+          <pre style="background: #fff; padding: 8px; border: 1px solid #ddd; border-radius: 4px; overflow: auto; max-height: 200px; font-size: 12px; white-space: pre-wrap;">${escapeHtml(prompt)}</pre>
+        </div>
+      `;
+    }
+    
+    const sceneHtml = `
+      <div class="scene-result-item" data-scene-index="${idx}" style="margin-top: 16px; padding: 16px; border: 1px solid #0a7; border-radius: 6px; background: #f0fff4;">
+        <h5 style="margin-top: 0;">✅ Scene ${idx + 1}: ${escapeHtml(scene.scene_type || 'N/A')}</h5>
+        <div><strong>Summary:</strong> ${escapeHtml(scene.summary || 'N/A')}</div>
+        ${promptHtml}
+        <div style="margin-top: 8px;">
+          <strong>Full JSON:</strong>
+          <details style="margin-top: 4px;">
+            <summary style="cursor: pointer; color: #0a7;">Show/Hide JSON</summary>
+            <pre style="margin-top: 8px;">${escapeHtml(JSON.stringify(scene, null, 2))}</pre>
+          </details>
+        </div>
+      </div>
+    `;
+    
+    // 既存の結果ボックスに追加
+    let resultBox = story2sceneResult.querySelector('.result-box');
+    if (!resultBox) {
+      resultBox = document.createElement('div');
+      resultBox.className = 'result-box';
+      story2sceneResult.innerHTML = '';
+      story2sceneResult.appendChild(resultBox);
+    }
+    
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = sceneHtml;
+    resultBox.appendChild(tempDiv.firstElementChild);
+  }
+
+  function appendSceneError(idx, blueprint, errorMsg) {
+    const errorHtml = `
+      <div class="scene-result-item" data-scene-index="${idx}" style="margin-top: 16px; padding: 16px; border: 1px solid #c33; border-radius: 6px; background: #fff0f0;">
+        <h5 style="margin-top: 0;">❌ Scene ${idx + 1}: ${escapeHtml(blueprint.scene_type || 'N/A')} (Failed)</h5>
+        <div><strong>Blueprint Summary:</strong> ${escapeHtml(blueprint.summary || 'N/A')}</div>
+        <div style="margin-top: 8px; color: #c33;"><strong>Error:</strong> ${escapeHtml(errorMsg)}</div>
+      </div>
+    `;
+    
+    let resultBox = story2sceneResult.querySelector('.result-box');
+    if (!resultBox) {
+      resultBox = document.createElement('div');
+      resultBox.className = 'result-box';
+      story2sceneResult.innerHTML = '';
+      story2sceneResult.appendChild(resultBox);
+    }
+    
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = errorHtml;
+    resultBox.appendChild(tempDiv.firstElementChild);
+  }
+
+  async function saveGeneratedScenes(scenes, storySis) {
+    try {
+      const res = await fetch('/api/sis2sis/save_scenes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scenes, story_sis: storySis })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        alert(`Saved ${data.saved_count} scenes to:\n${data.output_dir}`);
+      } else {
+        alert('Failed to save: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Error saving: ' + e.message);
+    }
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+})();
+</script>
+{% endblock %}

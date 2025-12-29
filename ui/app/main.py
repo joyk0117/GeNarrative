@@ -3345,5 +3345,343 @@ def api_servers_text_generate():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+# ========================================
+# SIS ↔ SIS Transformation Endpoints
+# ========================================
+
+@app.route("/etc/sis2sis")
+def etc_sis2sis_page():
+    """SIS ↔ SIS transformation test page"""
+    return render_template('etc/sis2sis.html')
+
+@app.route('/api/sis2sis/list_scenes')
+def api_list_scene_sis_files():
+    """List available SceneSIS JSON files"""
+    try:
+        sis_dir = os.path.join(SHARED_DIR, 'sis')
+        scene_dir = os.path.join(sis_dir, 'scenes')
+        files = []
+        
+        # Check both sis/ and sis/scenes/
+        for check_dir in [sis_dir, scene_dir]:
+            if os.path.isdir(check_dir):
+                for name in sorted(os.listdir(check_dir)):
+                    if name.endswith('.json'):
+                        try:
+                            full_path = os.path.join(check_dir, name)
+                            with open(full_path, 'r', encoding='utf-8') as f:
+                                data = json.load(f)
+                                if data.get('sis_type') == 'scene':
+                                    files.append(name)
+                        except Exception:
+                            pass
+        
+        return jsonify({'success': True, 'files': files})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/sis2sis/list_stories')
+def api_list_story_sis_files():
+    """List available StorySIS JSON files"""
+    try:
+        sis_dir = os.path.join(SHARED_DIR, 'sis')
+        story_dir = os.path.join(sis_dir, 'stories')
+        files = []
+        
+        # Check both sis/ and sis/stories/
+        for check_dir in [sis_dir, story_dir]:
+            if os.path.isdir(check_dir):
+                for name in sorted(os.listdir(check_dir)):
+                    if name.endswith('.json'):
+                        try:
+                            full_path = os.path.join(check_dir, name)
+                            with open(full_path, 'r', encoding='utf-8') as f:
+                                data = json.load(f)
+                                if data.get('sis_type') == 'story':
+                                    files.append(name)
+                        except Exception:
+                            pass
+        
+        return jsonify({'success': True, 'files': files})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/sis2sis/load_scene')
+def api_load_scene_sis():
+    """Load a SceneSIS JSON file"""
+    try:
+        file_name = request.args.get('file', '').strip()
+        if not file_name:
+            return jsonify({'success': False, 'error': 'file parameter required'}), 400
+        
+        sis_dir = os.path.join(SHARED_DIR, 'sis')
+        scene_dir = os.path.join(sis_dir, 'scenes')
+        
+        # Try both locations
+        for check_dir in [sis_dir, scene_dir]:
+            file_path = os.path.join(check_dir, file_name)
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                return jsonify({'success': True, 'content': content})
+        
+        return jsonify({'success': False, 'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/sis2sis/load_story')
+def api_load_story_sis():
+    """Load a StorySIS JSON file"""
+    try:
+        file_name = request.args.get('file', '').strip()
+        if not file_name:
+            return jsonify({'success': False, 'error': 'file parameter required'}), 400
+        
+        sis_dir = os.path.join(SHARED_DIR, 'sis')
+        story_dir = os.path.join(sis_dir, 'stories')
+        
+        # Try both locations
+        for check_dir in [sis_dir, story_dir]:
+            file_path = os.path.join(check_dir, file_name)
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                return jsonify({'success': True, 'content': content})
+        
+        return jsonify({'success': False, 'error': 'File not found'}), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/sis2sis/scene2story', methods=['POST'])
+def api_scene2story():
+    """SceneSIS → StorySIS transformation"""
+    try:
+        data = request.get_json()
+        if not data or 'scenes' not in data:
+            return jsonify({'success': False, 'error': 'scenes array required'}), 400
+        
+        scenes = data.get('scenes', [])
+        if not isinstance(scenes, list) or len(scenes) == 0:
+            return jsonify({'success': False, 'error': 'scenes must be a non-empty array'}), 400
+        
+        # Import and run the transformation
+        from sis2sis import scene2story
+        
+        result = scene2story(
+            scene_sis_list=scenes,
+            api_config=APIConfig()
+        )
+        
+        if result.get('success'):
+            # ProcessingResult.to_dict()の構造に対応
+            # dataキーの中にstory_sisがあるか、直接story_sisキーがあるかを確認
+            story_sis = result.get('story_sis') or result.get('data', {}).get('story_sis', {})
+            prompt = result.get('prompt') or result.get('data', {}).get('prompt', '')
+            
+            # デバッグ用: 返り値の構造をログ出力
+            print(f"DEBUG scene2story result keys: {result.keys()}")
+            print(f"DEBUG story_sis content: {story_sis}")
+            
+            # Save to file
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_dir = os.path.join(SHARED_DIR, 'sis', 'stories')
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, f'story_{timestamp}.json')
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(story_sis, f, indent=2, ensure_ascii=False)
+            
+            return jsonify({
+                'success': True,
+                'story_sis': story_sis,
+                'prompt': prompt,
+                'output_path': output_path,
+                'metadata': result.get('metadata', {})
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Unknown error')
+            }), 500
+            
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@app.route('/api/sis2sis/story2scene_single', methods=['POST'])
+def api_story2scene_single():
+    """StorySIS → 単一SceneSIS transformation"""
+    try:
+        data = request.get_json()
+        if not data or 'story_sis' not in data or 'blueprint' not in data:
+            return jsonify({'success': False, 'error': 'story_sis and blueprint required'}), 400
+        
+        story_sis = data.get('story_sis', {})
+        blueprint = data.get('blueprint', {})
+        blueprint_index = data.get('blueprint_index', 0)
+        
+        if not isinstance(story_sis, dict) or not isinstance(blueprint, dict):
+            return jsonify({'success': False, 'error': 'story_sis and blueprint must be objects'}), 400
+        
+        # Import and run the transformation
+        from sis2sis import story2scene_single
+        
+        result = story2scene_single(
+            story_sis=story_sis,
+            blueprint=blueprint,
+            blueprint_index=blueprint_index,
+            api_config=APIConfig()
+        )
+        
+        if result.get('success'):
+            scene_sis = result.get('scene_sis') or result.get('data', {}).get('scene_sis', {})
+            prompt = result.get('prompt') or result.get('data', {}).get('prompt', '')
+            
+            return jsonify({
+                'success': True,
+                'scene_sis': scene_sis,
+                'prompt': prompt,
+                'blueprint_index': blueprint_index,
+                'metadata': result.get('metadata', {})
+            })
+        else:
+            error_msg = result.get('error', 'Unknown error')
+            # デバッグ用: エラー詳細をログ出力
+            print(f"DEBUG story2scene_single failed: {error_msg}")
+            print(f"DEBUG result keys: {result.keys()}")
+            
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'blueprint_index': blueprint_index
+            }), 500
+            
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@app.route('/api/sis2sis/story2scene', methods=['POST'])
+def api_story2scene():
+    """StorySIS → SceneSIS transformation"""
+    try:
+        data = request.get_json()
+        if not data or 'story_sis' not in data:
+            return jsonify({'success': False, 'error': 'story_sis object required'}), 400
+        
+        story_sis = data.get('story_sis', {})
+        if not isinstance(story_sis, dict):
+            return jsonify({'success': False, 'error': 'story_sis must be an object'}), 400
+        
+        # Import and run the transformation
+        from sis2sis import story2scene
+        
+        result = story2scene(
+            story_sis=story_sis,
+            api_config=APIConfig()
+        )
+        
+        if result.get('success'):
+            # ProcessingResult.to_dict()の構造に対応
+            scenes = result.get('scenes') or result.get('data', {}).get('scenes', [])
+            
+            # デバッグ用: 返り値の構造をログ出力
+            print(f"DEBUG story2scene result keys: {result.keys()}")
+            print(f"DEBUG scenes count: {len(scenes)}")
+            
+            # Save to files
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            output_dir = os.path.join(SHARED_DIR, 'sis', 'scenes', f'story_{timestamp}')
+            os.makedirs(output_dir, exist_ok=True)
+            
+            saved_paths = []
+            for i, scene_data in enumerate(scenes):
+                scene_sis = scene_data.get('scene_sis', {})
+                scene_type = scene_sis.get('scene_type', 'unknown')
+                scene_id = scene_sis.get('scene_id', 'unknown')[:8]
+                output_path = os.path.join(output_dir, f'scene_{i+1:02d}_{scene_type}_{scene_id}.json')
+                
+                with open(output_path, 'w', encoding='utf-8') as f:
+                    json.dump(scene_sis, f, indent=2, ensure_ascii=False)
+                
+                saved_paths.append(output_path)
+            
+            return jsonify({
+                'success': True,
+                'scenes': scenes,
+                'output_dir': output_dir,
+                'saved_paths': saved_paths,
+                'metadata': result.get('metadata', {})
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Unknown error')
+            }), 500
+            
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@app.route('/api/sis2sis/save_scenes', methods=['POST'])
+def api_save_scenes():
+    """生成されたSceneSISをファイルに保存"""
+    try:
+        data = request.get_json()
+        if not data or 'scenes' not in data:
+            return jsonify({'success': False, 'error': 'scenes array required'}), 400
+        
+        scenes = data.get('scenes', [])
+        story_sis = data.get('story_sis', {})
+        
+        if not isinstance(scenes, list) or len(scenes) == 0:
+            return jsonify({'success': False, 'error': 'scenes must be a non-empty array'}), 400
+        
+        # 保存先ディレクトリを作成
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        story_title = story_sis.get('title', 'story').replace(' ', '_')[:30]
+        output_dir = os.path.join(SHARED_DIR, 'sis', 'scenes', f'{story_title}_{timestamp}')
+        os.makedirs(output_dir, exist_ok=True)
+        
+        saved_paths = []
+        for i, scene_data in enumerate(scenes):
+            scene_sis = scene_data.get('scene_sis', {})
+            scene_type = scene_sis.get('scene_type', 'unknown')
+            scene_id = scene_sis.get('scene_id', str(uuid.uuid4()))[:8]
+            output_path = os.path.join(output_dir, f'scene_{i+1:02d}_{scene_type}_{scene_id}.json')
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(scene_sis, f, indent=2, ensure_ascii=False)
+            
+            saved_paths.append(output_path)
+        
+        return jsonify({
+            'success': True,
+            'output_dir': output_dir,
+            'saved_paths': saved_paths,
+            'saved_count': len(saved_paths)
+        })
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
