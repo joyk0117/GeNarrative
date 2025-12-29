@@ -134,9 +134,9 @@ GeNarrative のスコープでは、SISは以下の3種類のオブジェクト�
 
 ### 3.3 story_type 標準値
 
-代表的なパターンと `SceneSIS.scene_type` の対応は次の通りです。
+代表的なパターンと `scene_blueprints[].scene_type` の対応は次の通りです。
 
-| story_type | 概要 | scene_type（SceneSIS.scene_type） |
+| story_type | 概要 | scene_type（scene_blueprints[].scene_type） |
 |---|---|---|
 | three_act | ドラマ型（困難→解決） | setup(1から2シーン) / conflict(1から5シーン) / resolution(1から2シーン) |
 | kishotenketsu | オチ・ひねり型（最後に意味が反転） | ki(1シーン) / sho(1から2シーン) / ten(1シーン) / ketsu(1から2シーン) |
@@ -160,7 +160,6 @@ SceneSIS は 1 シーンを記述する JSON オブジェクトです。
   "scene_id": "123e4567-e89b-12d3-a456-426614174000",
 
   "summary": "Introduction of the girl and the forest.",
-  "scene_type": "ki",
 
   // シーンの意味＋生成方針（多モーダル共通の背景）
   "semantics": {
@@ -199,6 +198,8 @@ SceneSIS は 1 シーンを記述する JSON オブジェクトです。
 
 }
 ```
+
+> **補足**: シーンの役割ラベル（例: ki/sho/ten/ketsu や setup/conflict/resolution）は SceneSIS には保持せず、StorySIS の `scene_blueprints[].scene_type` または外部インデックスで管理します。
 
 ### 4.2 フィールド詳細（抜粋）
 
@@ -328,6 +329,8 @@ MediaSISは、SceneSISの内部を分解した「構成要素（表現単位）�
    - SISの抽出元以外のモーダルの画像/文章/音声/音楽の生成を行い、一つのSceneを生成する
 3. StorySIS を生成
    - story_type を選択して、scene_blueprintsを含むStorySISを生成する
+  - SIS UI や `/api/sis2sis/scene2story` で story_type（三幕構成 / 起承転結 / attempts / catalog / circular）を入力すれば、LLM に任せずその構造で固定できる（空欄なら推定）
+  - さらに各SceneSISに対応する `scene_type`（setup / ki / intro など）をUIのドロップダウンや `scene_type_overrides` パラメータで指定しておくと、生成される `scene_blueprints[]` がそのラベルを確実に引き継ぐ
 4. 残りのSceneSISを生成
    - scene_blueprintsから、残りのSceneSISを生成する
 5. 残りのSCeneを生成

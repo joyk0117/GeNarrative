@@ -97,9 +97,9 @@ Within the scope of GeNarrative, SIS consists of the following three types of ob
 
 ### 3.3 Standard values for `story_type`
 
-Representative patterns and their correspondence to `SceneSIS.scene_type` are as follows.
+Representative patterns and their correspondence to `scene_blueprints[].scene_type` are as follows.
 
-| story_type | Overview | scene_type (SceneSIS.scene_type) |
+| story_type | Overview | scene_type (scene_blueprints[].scene_type) |
 |---|---|---|
 | three_act | Drama pattern (difficulty → resolution) | setup / conflict / resolution |
 | kishotenketsu | Twist/“punchline” pattern (meaning flips at the end) | ki / sho / ten / ketsu |
@@ -124,7 +124,6 @@ The JSON schema examples below are **JSONC (JSON with comments)** for explanatio
   "scene_id": "123e4567-e89b-12d3-a456-426614174000",
 
   "summary": "Introduction of the girl and the forest.",
-  "scene_type": "ki",
 
   // Scene meaning + generation policy (shared background across modalities)
   "semantics": {
@@ -163,6 +162,8 @@ The JSON schema examples below are **JSONC (JSON with comments)** for explanatio
 
 }
 ```
+
+> **Note:** Scene role labels (e.g., ki/sho/ten/ketsu or setup/conflict/resolution) are no longer stored inside SceneSIS. Track them via `scene_blueprints[].scene_type` in StorySIS or an external index.
 
 ### 4.2 Field details (excerpt)
 
@@ -305,7 +306,9 @@ As a rule, the mapping among StorySIS/SceneSIS/MediaSIS (`story_id`, `scene_id`,
    - Define the Scene's semantic background (`semantics.common`) and modality-specific policies (`semantics.text/visual/audio`)
    - Generate MediaSIS for needed modalities (text/visual/audio), and manage the mapping between `scene_id` and `media_id` in an external index (e.g., a DB or separate JSON)
 3. Generate StorySIS
-   - Decide `scene_type` according to `story_type`, and manage Story ↔ Scene mappings in an external index
+  - Decide each `scene_blueprints[].scene_type` according to `story_type`, and manage Story ↔ Scene mappings in an external index
+  - The SIS web UI and `/api/sis2sis/scene2story` now accept an optional `story_type` parameter (three_act / kishotenketsu / attempts / catalog / circular) so you can lock the narrative structure instead of letting the LLM infer it
+  - Each input SceneSIS can also carry an optional `scene_type` assignment (setup / ki / intro, etc.) via the UI or `scene_type_overrides` payload, ensuring generated `scene_blueprints[]` reuse your manual labels
 
 ----
 

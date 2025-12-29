@@ -3353,7 +3353,30 @@ def api_servers_text_generate():
 @app.route("/etc/sis2sis")
 def etc_sis2sis_page():
     """SIS ↔ SIS transformation test page"""
-    return render_template('etc/sis2sis.html')
+    try:
+        from sis2sis import STORY_TYPE_BLUEPRINTS, ALL_SCENE_TYPES
+        story_types = list(STORY_TYPE_BLUEPRINTS.keys())
+        scene_types = ALL_SCENE_TYPES
+        story_type_blueprints = {
+            key: list(value.get('scene_types', []))
+            for key, value in STORY_TYPE_BLUEPRINTS.items()
+        }
+    except Exception:
+        story_type_blueprints = {
+            'three_act': ['setup', 'conflict', 'resolution'],
+            'kishotenketsu': ['ki', 'sho', 'ten', 'ketsu'],
+            'circular': ['home_start', 'away', 'change', 'home_end'],
+            'attempts': ['problem', 'attempt', 'result'],
+            'catalog': ['intro', 'entry', 'outro']
+        }
+        story_types = list(story_type_blueprints.keys())
+        scene_types = sorted({stype for options in story_type_blueprints.values() for stype in options})
+    return render_template(
+        'etc/sis2sis.html',
+        story_types=story_types,
+        scene_types=scene_types,
+        story_type_blueprints=story_type_blueprints
+    )
 
 @app.route('/api/sis2sis/list_scenes')
 def api_list_scene_sis_files():
@@ -3464,13 +3487,41 @@ def api_scene2story():
         scenes = data.get('scenes', [])
         if not isinstance(scenes, list) or len(scenes) == 0:
             return jsonify({'success': False, 'error': 'scenes must be a non-empty array'}), 400
+        raw_story_type = data.get('story_type')
+        requested_story_type = None
+        if raw_story_type is not None:
+            if not isinstance(raw_story_type, str):
+                return jsonify({'success': False, 'error': 'story_type must be a string'}), 400
+            raw_story_type = raw_story_type.strip()
+            if raw_story_type:
+                from sis2sis import STORY_TYPE_BLUEPRINTS
+                allowed_story_types = list(STORY_TYPE_BLUEPRINTS.keys())
+                if raw_story_type not in allowed_story_types:
+                    return jsonify({
+                        'success': False,
+                        'error': f"story_type must be one of {allowed_story_types}"
+                    }), 400
+                requested_story_type = raw_story_type
+
+        raw_scene_type_overrides = data.get('scene_type_overrides')
+        scene_type_overrides = None
+        if raw_scene_type_overrides is not None:
+            from sis2sis import normalize_scene_type_overrides
+            try:
+                scene_type_overrides = normalize_scene_type_overrides(raw_scene_type_overrides, len(scenes))
+            except ValueError as exc:
+                return jsonify({'success': False, 'error': str(exc)}), 400
+            if not any(scene_type_overrides):
+                scene_type_overrides = None
         
         # Import and run the transformation
         from sis2sis import scene2story
         
         result = scene2story(
             scene_sis_list=scenes,
-            api_config=APIConfig()
+            api_config=APIConfig(),
+            requested_story_type=requested_story_type,
+            scene_type_overrides=scene_type_overrides
         )
         
         if result.get('success'):
@@ -3541,12 +3592,14 @@ def api_story2scene_single():
         if result.get('success'):
             scene_sis = result.get('scene_sis') or result.get('data', {}).get('scene_sis', {})
             prompt = result.get('prompt') or result.get('data', {}).get('prompt', '')
+            scene_type_hint = result.get('scene_type_hint') or result.get('data', {}).get('scene_type_hint') or blueprint.get('scene_type')
             
             return jsonify({
                 'success': True,
                 'scene_sis': scene_sis,
                 'prompt': prompt,
                 'blueprint_index': blueprint_index,
+                'scene_type_hint': scene_type_hint,
                 'metadata': result.get('metadata', {})
             })
         else:
@@ -3605,7 +3658,7 @@ def api_story2scene():
             saved_paths = []
             for i, scene_data in enumerate(scenes):
                 scene_sis = scene_data.get('scene_sis', {})
-                scene_type = scene_sis.get('scene_type', 'unknown')
+                scene_type = scene_data.get('scene_type_hint') or 'scene'
                 scene_id = scene_sis.get('scene_id', 'unknown')[:8]
                 output_path = os.path.join(output_dir, f'scene_{i+1:02d}_{scene_type}_{scene_id}.json')
                 
@@ -3658,7 +3711,7 @@ def api_save_scenes():
         saved_paths = []
         for i, scene_data in enumerate(scenes):
             scene_sis = scene_data.get('scene_sis', {})
-            scene_type = scene_sis.get('scene_type', 'unknown')
+            scene_type = scene_data.get('scene_type_hint') or 'scene'
             scene_id = scene_sis.get('scene_id', str(uuid.uuid4()))[:8]
             output_path = os.path.join(output_dir, f'scene_{i+1:02d}_{scene_type}_{scene_id}.json')
             

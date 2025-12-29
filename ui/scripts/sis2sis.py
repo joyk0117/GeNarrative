@@ -27,6 +27,59 @@ from common_base import (
     ModelNotLoadedError, ContentTypeError, ValidationError,
     create_standard_response
 )
+# Story type presets aligned with docs/SIS.md §3.3
+STORY_TYPE_BLUEPRINTS = {
+    "three_act": {
+        "overview": "Drama pattern (difficulty → resolution)",
+        "scene_types": ["setup", "conflict", "resolution"]
+    },
+    "kishotenketsu": {
+        "overview": "Twist/punchline pattern (meaning flips at the end)",
+        "scene_types": ["ki", "sho", "ten", "ketsu"]
+    },
+    "circular": {
+        "overview": "Journey-and-return pattern (leave → change → return)",
+        "scene_types": ["home_start", "away", "change", "home_end"]
+    },
+    "attempts": {
+        "overview": "Multiple-attempts pattern (trial and error)",
+        "scene_types": ["problem", "attempt", "result"]
+    },
+    "catalog": {
+        "overview": "Catalog/introduction pattern (weak ordering)",
+        "scene_types": ["intro", "entry", "outro"]
+    }
+}
+
+ALL_SCENE_TYPES = sorted({stype for cfg in STORY_TYPE_BLUEPRINTS.values() for stype in cfg["scene_types"]})
+
+
+def normalize_scene_type_overrides(overrides: Optional[List[Any]], scene_count: int) -> Optional[List[Optional[str]]]:
+    """Validate and normalize manual scene_type assignments."""
+    if overrides is None:
+        return None
+    if not isinstance(overrides, list):
+        raise ValueError('scene_type_overrides must be an array aligned with scenes')
+    if len(overrides) != scene_count:
+        raise ValueError(f'scene_type_overrides must contain exactly {scene_count} entries')
+    normalized: List[Optional[str]] = []
+    allowed = set(ALL_SCENE_TYPES)
+    for idx, value in enumerate(overrides):
+        if value is None:
+            normalized.append(None)
+            continue
+        if not isinstance(value, str):
+            raise ValueError(f'scene_type_overrides[{idx}] must be a string or null')
+        cleaned = value.strip()
+        if not cleaned:
+            normalized.append(None)
+            continue
+        if cleaned not in allowed:
+            raise ValueError(
+                f'scene_type_overrides[{idx}] must be one of {sorted(allowed)} (got {cleaned})'
+            )
+        normalized.append(cleaned)
+    return normalized
 
 
 # ========================================
@@ -61,9 +114,32 @@ class SISTransformer(ContentProcessor):
         function_name = 'scene2story'
         
         try:
+            requested_story_type = kwargs.get('requested_story_type')
+            if requested_story_type is not None:
+                if not isinstance(requested_story_type, str) or requested_story_type.strip() == '':
+                    requested_story_type = None
+                else:
+                    requested_story_type = requested_story_type.strip()
+                    if requested_story_type not in STORY_TYPE_BLUEPRINTS:
+                        raise ValidationError(
+                            f"story_type must be one of {list(STORY_TYPE_BLUEPRINTS.keys())}"
+                        )
+            manual_scene_types: Optional[List[Optional[str]]] = None
+            manual_scene_type_count = 0
+            if 'scene_type_overrides' in kwargs:
+                try:
+                    manual_scene_types = normalize_scene_type_overrides(
+                        kwargs.get('scene_type_overrides'),
+                        len(scene_sis_list)
+                    )
+                except ValueError as exc:
+                    raise ValidationError(str(exc))
+                manual_scene_type_count = len([st for st in manual_scene_types if st])
             self.logger.info(f"Starting {function_name}", extra={
                 'function': function_name,
-                'scene_count': len(scene_sis_list)
+                'scene_count': len(scene_sis_list),
+                'requested_story_type': requested_story_type,
+                'manual_scene_type_count': manual_scene_type_count
             })
             
             # サーバーとモデルの確認
@@ -73,7 +149,11 @@ class SISTransformer(ContentProcessor):
             story_sis_schema = self._story_sis_schema()
             
             # プロンプト作成
-            prompt = self._create_scenes_to_story_prompt(scene_sis_list)
+            prompt = self._create_scenes_to_story_prompt(
+                scene_sis_list,
+                requested_story_type=requested_story_type,
+                scene_type_overrides=manual_scene_types
+            )
             
             # 計測開始
             req_start = time.time()
@@ -88,6 +168,17 @@ class SISTransformer(ContentProcessor):
             )
             
             req_duration = time.time() - req_start
+            if requested_story_type:
+                story_sis_json['story_type'] = requested_story_type
+
+            if manual_scene_type_count:
+                blueprints = story_sis_json.get('scene_blueprints')
+                if isinstance(blueprints, list):
+                    for idx, override in enumerate(manual_scene_types):
+                        if override and idx < len(blueprints):
+                            bp = blueprints[idx]
+                            if isinstance(bp, dict):
+                                bp['scene_type'] = override
             
             self.logger.info(f"{function_name} completed successfully", extra={
                 'function': function_name,
@@ -96,13 +187,24 @@ class SISTransformer(ContentProcessor):
             
             return ProcessingResult(
                 success=True,
-                data={'story_sis': story_sis_json, 'content': raw_text, 'content_format': 'json', 'prompt': prompt},
+                data={
+                    'story_sis': story_sis_json,
+                    'content': raw_text,
+                    'content_format': 'json',
+                    'prompt': prompt,
+                    'scene_type_overrides': manual_scene_types
+                },
                 error=None,
                 metadata={
                     'function': function_name,
                     'scene_count': len(scene_sis_list),
                     'request_duration_sec': round(req_duration, 4),
-                    'timestamp': datetime.now().isoformat()
+                    'timestamp': datetime.now().isoformat(),
+                    'requested_story_type': requested_story_type,
+                    'story_type_source': 'requested' if requested_story_type else 'auto',
+                    'final_story_type': story_sis_json.get('story_type'),
+                    'scene_type_overrides': manual_scene_types,
+                    'scene_type_source': 'manual' if manual_scene_type_count else 'auto'
                 }
             )
             
@@ -131,7 +233,7 @@ class SISTransformer(ContentProcessor):
                 'function': function_name,
                 'story_id': story_sis.get('story_id', 'unknown'),
                 'blueprint_index': blueprint_index,
-                'scene_type': blueprint.get('scene_type', 'unknown')
+                'blueprint_scene_type': blueprint.get('scene_type', 'unknown')
             })
             
             # サーバーとモデルの確認
@@ -160,6 +262,7 @@ class SISTransformer(ContentProcessor):
             scene_sis_json, applied_defaults = self._ensure_scene_sis_structure(
                 scene_sis_json, story_sis, blueprint
             )
+            scene_type_hint = blueprint.get('scene_type')
             fallback_applied = len(applied_defaults) > 0
             if fallback_applied:
                 self.logger.warning(
@@ -167,6 +270,7 @@ class SISTransformer(ContentProcessor):
                     extra={
                         'function': function_name,
                         'blueprint_index': blueprint_index,
+                        'scene_type_hint': scene_type_hint,
                         'applied_defaults': applied_defaults
                     }
                 )
@@ -184,6 +288,7 @@ class SISTransformer(ContentProcessor):
                     'prompt': prompt,
                     'blueprint_index': blueprint_index,
                     'duration_sec': round(req_duration, 4),
+                    'scene_type_hint': scene_type_hint,
                     'fallback_applied': fallback_applied,
                     'fallback_details': applied_defaults
                 },
@@ -192,7 +297,7 @@ class SISTransformer(ContentProcessor):
                     'function': function_name,
                     'story_id': story_sis.get('story_id', 'unknown'),
                     'blueprint_index': blueprint_index,
-                    'scene_type': blueprint.get('scene_type', 'unknown'),
+                    'scene_type_hint': scene_type_hint,
                     'request_duration_sec': round(req_duration, 4),
                     'timestamp': datetime.now().isoformat(),
                     'fallback_applied': fallback_applied
@@ -236,7 +341,7 @@ class SISTransformer(ContentProcessor):
                 self.logger.info(f"Generating scene {idx+1}/{len(scene_blueprints)}", extra={
                     'function': function_name,
                     'scene_index': idx,
-                    'scene_type': blueprint.get('scene_type', 'unknown')
+                    'scene_type_hint': blueprint.get('scene_type', 'unknown')
                 })
                 
                 # 単一シーン生成を呼び出し
@@ -248,7 +353,8 @@ class SISTransformer(ContentProcessor):
                         'raw_text': result.data.get('raw_text'),
                         'prompt': result.data.get('prompt'),
                         'blueprint_index': idx,
-                        'duration_sec': result.data.get('duration_sec', 0)
+                        'duration_sec': result.data.get('duration_sec', 0),
+                        'scene_type_hint': blueprint.get('scene_type')
                     }
                     generated_scenes.append(scene_data)
                     total_duration += result.data.get('duration_sec', 0)
@@ -293,27 +399,62 @@ class SISTransformer(ContentProcessor):
                 metadata={'function': function_name}
             )
     
-    def _create_scenes_to_story_prompt(self, scene_sis_list: List[Dict[str, Any]]) -> str:
+    def _create_scenes_to_story_prompt(
+        self,
+        scene_sis_list: List[Dict[str, Any]],
+        requested_story_type: Optional[str] = None,
+        scene_type_overrides: Optional[List[Optional[str]]] = None
+    ) -> str:
         """SceneSISリストからStorySIS生成用プロンプトを作成"""
         scenes_json = json.dumps(scene_sis_list, indent=2, ensure_ascii=False)
+        if requested_story_type:
+            story_type_task = (
+                f'1. Use the requested story_type "{requested_story_type}" exactly for StorySIS.story_type '
+                'and align scene_blueprints with that narrative structure'
+            )
+            story_type_requirement = f'StorySIS.story_type MUST be "{requested_story_type}"'
+        else:
+            story_type_task = (
+                '1. Analyze the scenes to determine the appropriate story_type '
+                '(e.g., "three_act", "kishotenketsu", "attempts", "catalog")'
+            )
+            story_type_requirement = 'Pick the story_type that best matches the provided scenes'
+
+        assignments_block = ''
+        role_alignment_task = ''
+        if scene_type_overrides:
+            assignment_lines = []
+            for idx, override in enumerate(scene_type_overrides):
+                if not override:
+                    continue
+                summary = scene_sis_list[idx].get('summary', '') if idx < len(scene_sis_list) else ''
+                trunc_summary = (summary[:80] + '...') if summary and len(summary) > 80 else summary
+                assignment_lines.append(f'- Scene {idx + 1}: {override}' + (f' — {trunc_summary}' if trunc_summary else ''))
+            if assignment_lines:
+                assignments_block = "SCENE ROLE ASSIGNMENTS:\n" + "\n".join(assignment_lines) + "\n\n"
+                role_alignment_task = '\n6. Use the scene role assignments when labeling scene_blueprints. '
+                role_alignment_task += 'Do not rename the provided scene_type values.'
         
         prompt = f"""Analyze the following SceneSIS data and generate a complete StorySIS JSON object.
 
 INPUT SCENES:
 {scenes_json}
 
+{assignments_block}
 TASK:
-1. Analyze the scenes to determine the appropriate story_type (e.g., "three_act", "kishotenketsu", "attempts", "catalog")
+{story_type_task}
 2. Extract common themes and overall story meaning
 3. Determine consistent text/visual/audio style policies across scenes
 4. Generate scene_blueprints that reference the provided scenes
-5. Create a complete StorySIS JSON object
+5. Create a complete StorySIS JSON object{role_alignment_task}
 
 REQUIREMENTS:
 - Include ALL required fields: sis_type, story_id, title, summary, semantics, story_type, scene_blueprints
 - Generate a new UUID for story_id
+- {story_type_requirement}
 - In semantics.common, extract themes and descriptions that apply to the whole story
 - In scene_blueprints, create entries that match the input scenes (use scene_type like "ki", "sho", "ten", "ketsu" or "setup", "conflict", "resolution")
+- Respect the provided scene role assignments whenever they are present
 - Output ONLY valid JSON (no prose, no comments)
 """
         return prompt
@@ -340,13 +481,13 @@ SCENE BLUEPRINT (#{index+1}):
 
 TASK:
 Generate a detailed SceneSIS that:
-1. Matches the scene_type specified in the blueprint
+1. Reflects the narrative intent of the blueprint (respect its scene_type and summary) without emitting a scene_type field
 2. Inherits style policies from the story's semantics
 3. Contains rich semantic information (characters, location, time, weather, objects, descriptions)
 4. Provides specific visual/text/audio generation policies suitable for this scene
 
 REQUIREMENTS:
-- Include ALL required fields: sis_type, scene_id, summary, scene_type, semantics
+- Include ALL required fields: sis_type, scene_id, summary, semantics
 - Generate a new UUID for scene_id
 - In semantics.common, provide detailed scene-specific information
 - Include at least one character with name, traits, and visual description
@@ -385,7 +526,6 @@ REQUIREMENTS:
         default_summary = blueprint.get('summary') or story_sis.get('summary') or 'Scene summary pending.'
         ensure_value(scene, 'sis_type', lambda: 'scene', 'sis_type')
         ensure_value(scene, 'scene_id', lambda: str(uuid.uuid4()), 'scene_id')
-        ensure_value(scene, 'scene_type', lambda: blueprint.get('scene_type', 'unknown'), 'scene_type')
         ensure_value(scene, 'summary', lambda: default_summary, 'summary')
 
         semantics = scene.get('semantics') if isinstance(scene.get('semantics'), dict) else {}
@@ -411,7 +551,7 @@ REQUIREMENTS:
         if semantics_audio is not semantics.get('audio'):
             applied_defaults.append('semantics.audio')
 
-        ensure_value(semantics_common, 'mood', lambda: story_common.get('mood', blueprint.get('scene_type', 'neutral')),
+        ensure_value(semantics_common, 'mood', lambda: story_common.get('mood', 'neutral'),
                      'semantics.common.mood')
         ensure_value(semantics_common, 'location', lambda: story_common.get('location', 'unspecified location'),
                      'semantics.common.location')
@@ -598,7 +738,7 @@ REQUIREMENTS:
                 "semantics": semantics_schema,
                 "story_type": {
                     "type": "string",
-                    "enum": ["three_act", "kishotenketsu", "attempts", "catalog", "circular"],
+                    "enum": list(STORY_TYPE_BLUEPRINTS.keys()),
                     "description": "Story structure type"
                 },
                 "scene_blueprints": {
@@ -654,13 +794,9 @@ REQUIREMENTS:
                     "type": "string",
                     "description": "Brief summary of what happens in this scene"
                 },
-                "scene_type": {
-                    "type": "string",
-                    "description": "Scene type (e.g., 'ki', 'sho', 'ten', 'ketsu', 'setup', 'conflict', 'resolution')"
-                },
                 "semantics": semantics_schema
             },
-            "required": ["sis_type", "scene_id", "summary", "scene_type", "semantics"]
+            "required": ["sis_type", "scene_id", "summary", "semantics"]
         }
 
 
@@ -672,7 +808,9 @@ def scene2story(
     scene_sis_list: List[Dict[str, Any]],
     api_config: Optional[APIConfig] = None,
     processing_config: Optional[ProcessingConfig] = None,
-    logger: Optional[StructuredLogger] = None
+    logger: Optional[StructuredLogger] = None,
+    requested_story_type: Optional[str] = None,
+    scene_type_overrides: Optional[List[Optional[str]]] = None
 ) -> Dict[str, Any]:
     """
     複数のSceneSISからStorySISを生成
@@ -682,12 +820,17 @@ def scene2story(
         api_config: API設定
         processing_config: 処理設定
         logger: ロガー
+        requested_story_type: 固定したいStorySIS.story_type（任意）
     
     Returns:
         統一された戻り値辞書
     """
     transformer = SISTransformer(api_config, processing_config, logger)
-    result = transformer.scenes_to_story(scene_sis_list)
+    result = transformer.scenes_to_story(
+        scene_sis_list,
+        requested_story_type=requested_story_type,
+        scene_type_overrides=scene_type_overrides
+    )
     return result.to_dict()
 
 
@@ -803,6 +946,8 @@ def main():
     # scene2story mode
     parser.add_argument('--scene_files', nargs='+',
                        help='Paths to SceneSIS JSON files (for scene2story mode)')
+    parser.add_argument('--story_type', choices=list(STORY_TYPE_BLUEPRINTS.keys()),
+                       help='Force StorySIS.story_type when running in scene2story mode')
     parser.add_argument('--output_story', default='/app/shared/sis/generated_story_sis.json',
                        help='Output path for generated StorySIS')
     
@@ -839,7 +984,11 @@ def main():
         print(f"✅ Loaded {len(scene_sis_list)} scenes")
         
         print("\n🔄 Generating StorySIS from scenes...")
-        result = scene2story(scene_sis_list, api_config)
+        result = scene2story(
+            scene_sis_list,
+            api_config,
+            requested_story_type=args.story_type
+        )
         
         if result['success']:
             story_sis = result['data']['story_sis']
@@ -880,8 +1029,8 @@ def main():
             for i, scene_data in enumerate(scenes):
                 scene_sis = scene_data['scene_sis']
                 scene_id = scene_sis.get('scene_id', f'scene_{i}')
-                scene_type = scene_sis.get('scene_type', 'unknown')
-                output_path = os.path.join(args.output_dir, f"scene_{i+1:02d}_{scene_type}_{scene_id[:8]}.json")
+                scene_type_hint = scene_data.get('scene_type_hint') or 'scene'
+                output_path = os.path.join(args.output_dir, f"scene_{i+1:02d}_{scene_type_hint}_{scene_id[:8]}.json")
                 save_sis_to_file(scene_sis, output_path)
         else:
             print(f"\n❌ Error: {result.get('error', 'Unknown error')}")

@@ -1,4 +1,7 @@
 {% extends 'base.html' %}
+{% set story_type_options = story_types or ['three_act', 'kishotenketsu', 'attempts', 'catalog', 'circular'] %}
+{% set scene_type_options = scene_types or ['setup', 'conflict', 'resolution', 'ki', 'sho', 'ten', 'ketsu', 'home_start', 'away', 'change', 'home_end', 'problem', 'attempt', 'result', 'intro', 'entry', 'outro'] %}
+{% set story_type_blueprints_map = story_type_blueprints or {} %}
 
 {% block title %}SIS ↔ SIS Transformation Tests{% endblock %}
 
@@ -25,6 +28,17 @@
       <select id="sceneFileSelect" style="min-width:280px;"></select>
       <button id="loadSceneBtn" style="margin-left: 8px;">📂 Load</button>
       <button id="addSceneBtn" style="margin-left: 8px;">➕ Add Scene</button>
+    </div>
+
+    <div style="margin: 16px 0;">
+      <label for="storyTypeSelect">Story type override (optional): </label>
+      <select id="storyTypeSelect" style="min-width:200px;">
+        <option value="">Auto (LLM decides)</option>
+        {% for st in story_type_options %}
+        <option value="{{ st }}">{{ st }}</option>
+        {% endfor %}
+      </select>
+      <span style="margin-left:8px;color:#777;font-size:12px;">Choose to lock StorySIS.story_type.</span>
     </div>
 
     <div id="scenesContainer" style="margin: 16px 0;">
@@ -135,10 +149,37 @@
 }
 .ok { color: #0a7; }
 .ng { color: #c33; }
+.tag {
+  display: inline-block;
+  padding: 2px 6px;
+  margin-left: 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: #eee;
+  color: #555;
+}
+.tag-manual {
+  background: #0a7;
+  color: #fff;
+}
+.scene-role-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.scene-role-row select {
+  min-width: 180px;
+}
+.scene-role-row small {
+  color: #777;
+}
 </style>
 
 <script>
 (function(){
+  const DEFAULT_SCENE_TYPE_OPTIONS = {{ scene_type_options | tojson }};
+  const STORY_TYPE_SCENE_MAP = {{ story_type_blueprints_map | tojson }};
   const modeRadios = document.querySelectorAll('input[name="mode"]');
   const scene2storySection = document.getElementById('scene2storySection');
   const story2sceneSection = document.getElementById('story2sceneSection');
@@ -149,6 +190,7 @@
   const runScene2StoryBtn = document.getElementById('runScene2StoryBtn');
   const scene2storyStatus = document.getElementById('scene2storyStatus');
   const scene2storyResult = document.getElementById('scene2storyResult');
+  const storyTypeSelect = document.getElementById('storyTypeSelect');
   
   const storyFileSelect = document.getElementById('storyFileSelect');
   const loadStoryBtn = document.getElementById('loadStoryBtn');
@@ -158,6 +200,14 @@
   const story2sceneResult = document.getElementById('story2sceneResult');
 
   let sceneCount = 0;
+
+  function getSceneTypeChoices() {
+    const selectedStoryType = storyTypeSelect.value;
+    if (selectedStoryType && Array.isArray(STORY_TYPE_SCENE_MAP[selectedStoryType])) {
+      return STORY_TYPE_SCENE_MAP[selectedStoryType];
+    }
+    return DEFAULT_SCENE_TYPE_OPTIONS;
+  }
 
   // Mode switching
   modeRadios.forEach(radio => {
@@ -173,7 +223,27 @@
   });
 
   // Scene2Story: Add scene input
-  function addSceneInput(content = '') {
+  function buildSceneTypeOptions(selected = '') {
+    const opts = ['<option value="">Auto (LLM decides)</option>'];
+    getSceneTypeChoices().forEach(type => {
+      const selectedAttr = selected === type ? ' selected' : '';
+      opts.push(`<option value="${type}"${selectedAttr}>${type}</option>`);
+    });
+    return opts.join('');
+  }
+
+  function refreshSceneRoleDropdowns() {
+    const allowedSet = new Set(getSceneTypeChoices());
+    document.querySelectorAll('.scene-type-select').forEach(select => {
+      const previous = select.value || '';
+      select.innerHTML = buildSceneTypeOptions(previous);
+      if (previous && !allowedSet.has(previous)) {
+        select.value = '';
+      }
+    });
+  }
+
+  function addSceneInput(content = '', sceneType = '') {
     sceneCount++;
     const sceneItem = document.createElement('div');
     sceneItem.className = 'scene-item';
@@ -183,7 +253,6 @@
       "sis_type": "scene",
       "scene_id": "00000000-0000-0000-0000-000000000000",
       "summary": "Scene summary",
-      "scene_type": "ki",
       "semantics": {
         "common": {
           "mood": "calm",
@@ -205,9 +274,15 @@
         <h4>Scene ${sceneCount}</h4>
         <button class="remove-btn" onclick="removeScene(${sceneCount})">✖ Remove</button>
       </div>
+      <div class="scene-role-row">
+        <label style="margin:0; font-weight: 600;">Scene role:</label>
+        <select class="scene-type-select">${buildSceneTypeOptions(sceneType)}</select>
+        <small>Optional blueprint slot (setup, ki, intro, etc.)</small>
+      </div>
       <textarea rows="15">${defaultContent}</textarea>
     `;
     scenesContainer.appendChild(sceneItem);
+    refreshSceneRoleDropdowns();
   }
 
   window.removeScene = function(id) {
@@ -216,6 +291,10 @@
   };
 
   addSceneBtn.addEventListener('click', () => addSceneInput());
+
+  storyTypeSelect.addEventListener('change', () => {
+    refreshSceneRoleDropdowns();
+  });
 
   // Initialize with one scene
   addSceneInput();
@@ -260,14 +339,16 @@
 
   // Run Scene2Story
   runScene2StoryBtn.addEventListener('click', async () => {
-    const sceneItems = document.querySelectorAll('.scene-item textarea');
-    if (sceneItems.length === 0) {
+    const sceneBlocks = document.querySelectorAll('.scene-item');
+    if (sceneBlocks.length === 0) {
       alert('Please add at least one scene');
       return;
     }
     
     const scenes = [];
-    for (const textarea of sceneItems) {
+    const sceneTypeOverrides = [];
+    for (const block of sceneBlocks) {
+      const textarea = block.querySelector('textarea');
       try {
         const parsed = JSON.parse(textarea.value);
         scenes.push(parsed);
@@ -275,6 +356,9 @@
         alert('Invalid JSON in one of the scenes: ' + e.message);
         return;
       }
+      const select = block.querySelector('.scene-type-select');
+      const value = select && select.value ? select.value : null;
+      sceneTypeOverrides.push(value);
     }
 
     runScene2StoryBtn.disabled = true;
@@ -285,7 +369,11 @@
       const res = await fetch('/api/sis2sis/scene2story', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scenes })
+        body: JSON.stringify({
+          scenes,
+          story_type: storyTypeSelect.value || undefined,
+          scene_type_overrides: sceneTypeOverrides
+        })
       });
       const data = await res.json();
       
@@ -293,6 +381,26 @@
         scene2storyStatus.textContent = 'Done';
         const storySis = data.story_sis || {};
         const prompt = data.prompt || '';
+        const storyTypeSource = (data.metadata && data.metadata.story_type_source === 'requested')
+          ? '<span class="tag tag-manual">manual override</span>'
+          : '';
+        const metadataOverrides = (data.metadata && data.metadata.scene_type_overrides) || [];
+        let sceneRoleHtml = '';
+        if (Array.isArray(metadataOverrides) && metadataOverrides.some(v => !!v)) {
+          const items = metadataOverrides
+            .map((role, idx) => role ? `<li>Scene ${idx + 1}: ${escapeHtml(role)}</li>` : '')
+            .join('');
+          if (items.trim()) {
+            sceneRoleHtml = `
+              <div style="margin-top: 8px;">
+                <strong>Scene role overrides:</strong>
+                <ul style="margin: 4px 0 0 16px; padding: 0;">
+                  ${items}
+                </ul>
+              </div>
+            `;
+          }
+        }
         
         let promptHtml = '';
         if (prompt) {
@@ -308,8 +416,9 @@
           <div class="result-box">
             <h4 class="ok">✅ StorySIS Generated Successfully</h4>
             <div><strong>Title:</strong> ${escapeHtml(storySis.title || 'N/A')}</div>
-            <div><strong>Story Type:</strong> ${escapeHtml(storySis.story_type || 'N/A')}</div>
+            <div><strong>Story Type:</strong> ${escapeHtml(storySis.story_type || 'N/A')} ${storyTypeSource}</div>
             <div><strong>Scenes:</strong> ${(storySis.scene_blueprints || []).length}</div>
+            ${sceneRoleHtml}
             ${promptHtml}
             <div style="margin-top: 12px;"><strong>Full JSON:</strong></div>
             <pre>${escapeHtml(JSON.stringify(storySis, null, 2))}</pre>
@@ -436,13 +545,14 @@
             const sceneData = {
               scene_sis: data.scene_sis,
               prompt: data.prompt,
-              blueprint_index: idx
+              blueprint_index: idx,
+              scene_type_hint: data.scene_type_hint || blueprint.scene_type || null
             };
             generatedScenes.push(sceneData);
             successCount++;
             
             // 即座に画面に追加表示
-            appendSceneToResult(sceneData, idx);
+            appendSceneToResult(sceneData, idx, blueprint);
             story2sceneStatus.textContent = `Generated ${successCount}/${blueprints.length} scenes`;
           } else {
             failCount++;
@@ -478,9 +588,11 @@
     }
   });
 
-  function appendSceneToResult(sceneData, idx) {
+  function appendSceneToResult(sceneData, idx, blueprint) {
     const scene = sceneData.scene_sis || {};
     const prompt = sceneData.prompt || '';
+    const blueprintInfo = blueprint || {};
+    const sceneTypeLabel = sceneData.scene_type_hint || blueprintInfo.scene_type || 'N/A';
     
     let promptHtml = '';
     if (prompt) {
@@ -494,7 +606,7 @@
     
     const sceneHtml = `
       <div class="scene-result-item" data-scene-index="${idx}" style="margin-top: 16px; padding: 16px; border: 1px solid #0a7; border-radius: 6px; background: #f0fff4;">
-        <h5 style="margin-top: 0;">✅ Scene ${idx + 1}: ${escapeHtml(scene.scene_type || 'N/A')}</h5>
+        <h5 style="margin-top: 0;">✅ Scene ${idx + 1}: ${escapeHtml(sceneTypeLabel)}</h5>
         <div><strong>Summary:</strong> ${escapeHtml(scene.summary || 'N/A')}</div>
         ${promptHtml}
         <div style="margin-top: 8px;">
