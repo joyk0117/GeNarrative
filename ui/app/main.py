@@ -3128,6 +3128,8 @@ def generate_scenes_from_story(project_id):
         if not story_sis:
             return jsonify({'success': False, 'error': 'story_sis is required'}), 400
         
+        scenes_needed = data.get('scenes_needed', {})
+        
         # Verify project exists
         project_dir = os.path.join(PROJECTS_DIR, project_id)
         if not os.path.isdir(project_dir):
@@ -3157,40 +3159,52 @@ def generate_scenes_from_story(project_id):
                 print(f"Warning: Could not load existing arrangement: {e}")
                 scenes_by_type = {}
         
-        # Generate scenes from blueprints
+        # Group blueprints by scene_type
+        blueprints_by_type = {}
         for blueprint in scene_blueprints:
             scene_type = blueprint.get('scene_type')
-            summary = blueprint.get('summary', '')
-            
-            if not scene_type:
+            if scene_type:
+                if scene_type not in blueprints_by_type:
+                    blueprints_by_type[scene_type] = []
+                blueprints_by_type[scene_type].append(blueprint)
+        
+        # Generate only needed scenes for each type
+        for scene_type, needed_count in scenes_needed.items():
+            if scene_type not in blueprints_by_type:
                 continue
             
-            # Generate unique scene ID
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            scene_id = f"{timestamp}_{len(created_scenes):03d}"
-            
-            # Create scene directory
-            scene_path = os.path.join(scenes_dir, scene_id)
-            os.makedirs(scene_path, exist_ok=True)
-            
-            # Generate SceneSIS from blueprint
-            scene_sis = {
-                'sis_type': 'scene',
-                'scene_id': scene_id,
-                'scene_type': scene_type,
-                'title': f'Scene {len(created_scenes) + 1}: {scene_type}',
-                'summary': summary,
-                'semantics': {
-                    'common': {
-                        'descriptions': [summary] if summary else [],
-                        'themes': story_sis.get('semantics', {}).get('common', {}).get('themes', []),
-                        'mood': '',
-                        'characters': [],
-                        'location': '',
-                        'time': '',
-                        'weather': '',
-                        'objects': []
-                    },
+            blueprints = blueprints_by_type[scene_type]
+            # Generate up to needed_count scenes from available blueprints
+            for i in range(min(needed_count, len(blueprints))):
+                blueprint = blueprints[i % len(blueprints)]  # Cycle through blueprints if needed
+                summary = blueprint.get('summary', '')
+                
+                # Generate unique scene ID
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                scene_id = f"{timestamp}_{len(created_scenes):03d}"
+                
+                # Create scene directory
+                scene_path = os.path.join(scenes_dir, scene_id)
+                os.makedirs(scene_path, exist_ok=True)
+                
+                # Generate SceneSIS from blueprint
+                scene_sis = {
+                    'sis_type': 'scene',
+                    'scene_id': scene_id,
+                    'scene_type': scene_type,
+                    'title': f'Scene {len(created_scenes) + 1}: {scene_type}',
+                    'summary': summary,
+                    'semantics': {
+                        'common': {
+                            'descriptions': [summary] if summary else [],
+                            'themes': story_sis.get('semantics', {}).get('common', {}).get('themes', []),
+                            'mood': '',
+                            'characters': [],
+                            'location': '',
+                            'time': '',
+                            'weather': '',
+                            'objects': []
+                        },
                     'visual': {
                         'setting': '',
                         'characters': [],
@@ -3208,24 +3222,24 @@ def generate_scenes_from_story(project_id):
                         'pacing': ''
                     }
                 }
-            }
-            
-            # Save SceneSIS
-            sis_file = os.path.join(scene_path, f'sis_structure_{scene_id}.json')
-            with open(sis_file, 'w', encoding='utf-8') as f:
-                json.dump(scene_sis, f, indent=2, ensure_ascii=False)
-            
-            # Save summary as text
-            text_file = os.path.join(scene_path, f'text_{scene_id}.txt')
-            with open(text_file, 'w', encoding='utf-8') as f:
-                f.write(summary if summary else f'Scene {len(created_scenes) + 1}')
-            
-            created_scenes.append(scene_id)
-            
-            # Group by scene_type for arrangement (append to existing scenes)
-            if scene_type not in scenes_by_type:
-                scenes_by_type[scene_type] = []
-            scenes_by_type[scene_type].append(scene_id)
+                }
+                
+                # Save SceneSIS
+                sis_file = os.path.join(scene_path, f'sis_structure_{scene_id}.json')
+                with open(sis_file, 'w', encoding='utf-8') as f:
+                    json.dump(scene_sis, f, indent=2, ensure_ascii=False)
+                
+                # Save summary as text
+                text_file = os.path.join(scene_path, f'text_{scene_id}.txt')
+                with open(text_file, 'w', encoding='utf-8') as f:
+                    f.write(summary if summary else f'Scene {len(created_scenes) + 1}')
+                
+                created_scenes.append(scene_id)
+                
+                # Group by scene_type for arrangement (append to existing scenes)
+                if scene_type not in scenes_by_type:
+                    scenes_by_type[scene_type] = []
+                scenes_by_type[scene_type].append(scene_id)
         
         # Save updated scene arrangement (preserving existing scenes)
         arrangement_data = {

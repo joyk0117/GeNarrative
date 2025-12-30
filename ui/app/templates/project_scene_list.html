@@ -610,8 +610,26 @@
     border-radius: 6px;
     margin-right: 16px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    text-align: center;
+    gap: 8px;
+}
+
+.max-count-container {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+    font-size: 12px;
+}
+
+.max-count-input {
+    width: 60px;
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
     text-align: center;
 }
 
@@ -624,11 +642,30 @@
     min-height: 80px;
     align-items: flex-start;
     align-content: flex-start;
+    transition: background-color 0.3s ease, border 0.3s ease;
 }
 
 .scene-type-drop-zone.drag-over {
     background: #e7f3ff;
     border: 2px dashed #007bff;
+    border-radius: 6px;
+}
+
+.scene-type-drop-zone.under-limit {
+    background-color: #e3f2fd;
+    border: 2px dashed #2196F3;
+    border-radius: 6px;
+}
+
+.scene-type-drop-zone.at-limit {
+    background-color: #fff9c4;
+    border: 2px dashed #fbc02d;
+    border-radius: 6px;
+}
+
+.scene-type-drop-zone.over-limit {
+    background-color: #ffebee;
+    border: 2px dashed #f44336;
     border-radius: 6px;
 }
 
@@ -777,6 +814,24 @@ document.getElementById('storyTypeSelect').addEventListener('change', function()
         label.className = 'scene-type-label';
         label.textContent = sceneType;
         
+        // Add max count input
+        const maxCountContainer = document.createElement('div');
+        maxCountContainer.className = 'max-count-container';
+        
+        const maxCountInput = document.createElement('input');
+        maxCountInput.type = 'number';
+        maxCountInput.className = 'max-count-input';
+        maxCountInput.min = '1';
+        maxCountInput.value = '0';
+        maxCountInput.dataset.sceneType = sceneType;
+        maxCountInput.addEventListener('change', function() {
+            updateLaneColor(sceneType);
+            saveMaxCounts();
+        });
+        
+        maxCountContainer.appendChild(maxCountInput);
+        label.appendChild(maxCountContainer);
+        
         const dropZone = document.createElement('div');
         dropZone.className = 'scene-type-drop-zone';
         dropZone.dataset.sceneType = sceneType;
@@ -918,7 +973,12 @@ function addSceneToLane(dropZone, sceneId) {
     removeBtn.innerHTML = '×';
     removeBtn.onclick = function(e) {
         e.stopPropagation();
+        const sceneType = dropZone.dataset.sceneType;
         miniCard.remove();
+        // Update lane color immediately
+        if (sceneType) {
+            updateLaneColor(sceneType);
+        }
         // Update scene arrangement when a scene is removed
         updateSceneArrangement();
     };
@@ -938,6 +998,12 @@ function addSceneToLane(dropZone, sceneId) {
     setupMiniCardDragEvents(miniCard);
     
     dropZone.appendChild(miniCard);
+    
+    // Update lane color immediately
+    const sceneType = dropZone.dataset.sceneType;
+    if (sceneType) {
+        updateLaneColor(sceneType);
+    }
     
     // Update scene arrangement when a scene is added
     updateSceneArrangement();
@@ -979,6 +1045,9 @@ async function updateSceneArrangement() {
         const sceneMiniCards = dropZone.querySelectorAll('.scene-mini-card');
         
         scenesByType[sceneType] = Array.from(sceneMiniCards).map(card => card.dataset.sceneId);
+        
+        // Update lane color based on current count
+        updateLaneColor(sceneType);
     });
     
     // Save arrangement
@@ -1173,6 +1242,10 @@ function populateLanesFromArrangement(scenesByType) {
         }
     });
     
+    // Load max counts and update colors
+    loadMaxCounts();
+    updateAllLaneColors();
+    
     // Reset flag after restoration is complete
     isRestoringArrangement = false;
 }
@@ -1317,7 +1390,48 @@ async function generateScenesFromStory() {
             return;
         }
         
-        if (!confirm(`This will generate ${storySIS.scene_blueprints.length} new scene(s) in this project. Continue?`)) {
+        // Calculate target counts per scene type
+        const targetCounts = {};
+        const maxCountInputs = document.querySelectorAll('.max-count-input');
+        maxCountInputs.forEach(input => {
+            const sceneType = input.dataset.sceneType;
+            const targetCount = parseInt(input.value) || 0;
+            if (targetCount > 0) {
+                targetCounts[sceneType] = targetCount;
+            }
+        });
+        
+        // Get current counts per scene type
+        const currentCounts = {};
+        const lanes = document.querySelectorAll('.scene-type-lane');
+        lanes.forEach(lane => {
+            const sceneType = lane.dataset.sceneType;
+            const dropZone = lane.querySelector('.scene-type-drop-zone');
+            const currentCount = dropZone.querySelectorAll('.scene-mini-card').length;
+            currentCounts[sceneType] = currentCount;
+        });
+        
+        // Calculate scenes needed per type
+        const scenesNeeded = {};
+        Object.keys(targetCounts).forEach(sceneType => {
+            const needed = targetCounts[sceneType] - (currentCounts[sceneType] || 0);
+            if (needed > 0) {
+                scenesNeeded[sceneType] = needed;
+            }
+        });
+        
+        const totalNeeded = Object.values(scenesNeeded).reduce((sum, count) => sum + count, 0);
+        
+        if (totalNeeded === 0) {
+            alert('All scene types have reached their target count. No scenes need to be generated.');
+            return;
+        }
+        
+        const message = Object.entries(scenesNeeded)
+            .map(([type, count]) => `${type}: ${count}`)
+            .join('\n');
+        
+        if (!confirm(`This will generate ${totalNeeded} new scene(s):\n${message}\n\nContinue?`)) {
             return;
         }
         
@@ -1333,7 +1447,8 @@ async function generateScenesFromStory() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                story_sis: storySIS
+                story_sis: storySIS,
+                scenes_needed: scenesNeeded
             })
         });
         
@@ -1371,6 +1486,62 @@ function updateBulkDeleteButton() {
         selectedCount.textContent = checkedCount;
     } else {
         bulkDeleteBtn.style.display = 'none';
+    }
+}
+
+function updateLaneColor(sceneType) {
+    const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${sceneType}"]`);
+    const maxCountInput = document.querySelector(`.max-count-input[data-scene-type="${sceneType}"]`);
+    
+    if (!dropZone || !maxCountInput) return;
+    
+    const targetCount = parseInt(maxCountInput.value) || 0;
+    const currentCount = dropZone.querySelectorAll('.scene-mini-card').length;
+    
+    // Remove all color classes
+    dropZone.classList.remove('under-limit', 'at-limit', 'over-limit');
+    
+    if (targetCount > 0) {
+        if (currentCount < targetCount) {
+            dropZone.classList.add('under-limit');
+        } else if (currentCount > targetCount) {
+            dropZone.classList.add('over-limit');
+        }
+        // When currentCount === targetCount, no class is added (no color)
+    }
+}
+
+function updateAllLaneColors() {
+    const maxCountInputs = document.querySelectorAll('.max-count-input');
+    maxCountInputs.forEach(input => {
+        updateLaneColor(input.dataset.sceneType);
+    });
+}
+
+function saveMaxCounts() {
+    const maxCounts = {};
+    const maxCountInputs = document.querySelectorAll('.max-count-input');
+    maxCountInputs.forEach(input => {
+        maxCounts[input.dataset.sceneType] = parseInt(input.value) || 0;
+    });
+    localStorage.setItem(`maxCounts_{{ project_id }}`, JSON.stringify(maxCounts));
+}
+
+function loadMaxCounts() {
+    const saved = localStorage.getItem(`maxCounts_{{ project_id }}`);
+    if (saved) {
+        try {
+            const maxCounts = JSON.parse(saved);
+            Object.keys(maxCounts).forEach(sceneType => {
+                const input = document.querySelector(`.max-count-input[data-scene-type="${sceneType}"]`);
+                if (input) {
+                    input.value = maxCounts[sceneType];
+                    updateLaneColor(sceneType);
+                }
+            });
+        } catch (e) {
+            console.error('Failed to load max counts:', e);
+        }
     }
 }
 
