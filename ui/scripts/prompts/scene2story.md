@@ -6,6 +6,9 @@ Analyze the following SceneSIS data and generate a complete StorySIS JSON object
 ${SCENES_JSON}
 
 ${ASSIGNMENTS_BLOCK}
+## Story Type Guide
+${STORY_TYPE_GUIDE}
+
 ## Task
 ${STORY_TYPE_TASK}
 2. Extract common themes and overall story meaning
@@ -16,7 +19,7 @@ ${ROLE_ALIGNMENT_TASK}
 
 ## Requirements
 - Include ALL required fields: sis_type, story_id, title, summary, semantics, story_type, scene_blueprints
-- Generate a new UUID for story_id
+- Do not try to generate or guess a unique story_id (the system will assign it)
 - ${STORY_TYPE_REQUIREMENT}
 - In semantics.common, extract themes and descriptions that apply to the whole story
 - In scene_blueprints, create entries that match the input scenes (use scene_type like "ki", "sho", "ten", "ketsu" or "setup", "conflict", "resolution")

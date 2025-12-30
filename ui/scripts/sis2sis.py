@@ -14,7 +14,6 @@ import sys
 import json
 import argparse
 import time
-import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
@@ -33,23 +32,50 @@ from common_base import (
 STORY_TYPE_BLUEPRINTS = {
     "three_act": {
         "overview": "Drama pattern (difficulty → resolution)",
-        "scene_types": ["setup", "conflict", "resolution"]
+        "scene_types": ["setup", "conflict", "resolution"],
+        "scene_type_descriptions": {
+            "setup": "Introduce characters, setting, and the initial situation.",
+            "conflict": "Escalate problems and obstacles leading to a turning point.",
+            "resolution": "Resolve the main conflict and show the new status quo."
+        }
     },
     "kishotenketsu": {
         "overview": "Twist/punchline pattern (meaning flips at the end)",
-        "scene_types": ["ki", "sho", "ten", "ketsu"]
+        "scene_types": ["ki", "sho", "ten", "ketsu"],
+        "scene_type_descriptions": {
+            "ki": "Introduce the situation and characters without strong conflict.",
+            "sho": "Develop the situation and deepen relationships or context.",
+            "ten": "Introduce an unexpected twist that re-frames earlier scenes.",
+            "ketsu": "Conclude by revealing the new meaning after the twist."
+        }
     },
     "circular": {
         "overview": "Journey-and-return pattern (leave → change → return)",
-        "scene_types": ["home_start", "away", "change", "home_end"]
+        "scene_types": ["home_start", "away", "change", "home_end"],
+        "scene_type_descriptions": {
+            "home_start": "Show the ordinary world before the journey begins.",
+            "away": "Depict the journey into a different place, state, or situation.",
+            "change": "Show events that transform the character or situation.",
+            "home_end": "Return to the starting point, highlighting what has changed."
+        }
     },
     "attempts": {
         "overview": "Multiple-attempts pattern (trial and error)",
-        "scene_types": ["problem", "attempt", "result"]
+        "scene_types": ["problem", "attempt", "result"],
+        "scene_type_descriptions": {
+            "problem": "Define the main problem or goal that must be solved.",
+            "attempt": "Show one or more trials and partial successes or failures.",
+            "result": "Reveal the final outcome of the attempts and their consequences."
+        }
     },
     "catalog": {
         "overview": "Catalog/introduction pattern (weak ordering)",
-        "scene_types": ["intro", "entry", "outro"]
+        "scene_types": ["intro", "entry", "outro"],
+        "scene_type_descriptions": {
+            "intro": "Introduce the theme and explain what will be presented.",
+            "entry": "Present one catalog item, character, or example at a time.",
+            "outro": "Summarise the catalog and restate the overall impression."
+        }
     }
 }
 
@@ -66,6 +92,70 @@ def _load_prompt_template(filename: str) -> Template:
         raise FileNotFoundError(f"Prompt template not found: {template_path}")
     with open(template_path, 'r', encoding='utf-8') as prompt_file:
         return Template(prompt_file.read())
+
+
+def _generate_story_id() -> str:
+    """Generate a story_id without relying on UUID.
+
+    Uses timestamp-based identifier so that the application assigns IDs,
+    not the LLM.
+    """
+    return datetime.now().strftime("story_%Y%m%d_%H%M%S_%f")
+
+
+def _generate_scene_id() -> str:
+    """Generate a scene_id without relying on UUID.
+
+    Uses timestamp-based identifier; final format is an internal detail.
+    """
+    return datetime.now().strftime("scene_%Y%m%d_%H%M%S_%f")
+
+
+def _build_story_type_guide(selected_story_type: Optional[str] = None) -> str:
+    """Create human-readable guidance text for story_type and scene roles.
+
+    If selected_story_type is provided and known, explain only that structure.
+    Otherwise, list all available story_type options briefly.
+    """
+    lines: List[str] = []
+
+    if selected_story_type and selected_story_type in STORY_TYPE_BLUEPRINTS:
+        cfg = STORY_TYPE_BLUEPRINTS[selected_story_type]
+        lines.append(f"Selected story_type: {selected_story_type}")
+        overview = cfg.get('overview')
+        if overview:
+            lines.append(f"Overview: {overview}")
+
+        roles = cfg.get('scene_types', [])
+        role_desc = cfg.get('scene_type_descriptions', {})
+        if roles:
+            lines.append("Scene roles:")
+            for role in roles:
+                desc = role_desc.get(role, "")
+                if desc:
+                    lines.append(f"- {role}: {desc}")
+                else:
+                    lines.append(f"- {role}")
+    else:
+        lines.append("Available story_type options:")
+        for key, cfg in STORY_TYPE_BLUEPRINTS.items():
+            overview = cfg.get('overview', '')
+            roles = cfg.get('scene_types', [])
+            role_desc = cfg.get('scene_type_descriptions', {})
+            role_parts = []
+            for role in roles:
+                desc = role_desc.get(role)
+                if desc:
+                    role_parts.append(f"{role} ({desc})")
+                else:
+                    role_parts.append(role)
+            roles_joined = "; ".join(role_parts) if role_parts else ''
+            if roles_joined:
+                lines.append(f"- {key}: {overview} | Scene roles: {roles_joined}")
+            else:
+                lines.append(f"- {key}: {overview}")
+
+    return "\n".join(lines)
 
 
 def normalize_scene_type_overrides(overrides: Optional[List[Any]], scene_count: int) -> Optional[List[Optional[str]]]:
@@ -185,6 +275,10 @@ class SISTransformer(ContentProcessor):
             if requested_story_type:
                 story_sis_json['story_type'] = requested_story_type
 
+            # story_id は必ずアプリケーション側で付与する
+            # LLM が何か値を返していても上書きする
+            story_sis_json['story_id'] = _generate_story_id()
+
             if manual_scene_type_count:
                 blueprints = story_sis_json.get('scene_blueprints')
                 if isinstance(blueprints, list):
@@ -193,11 +287,13 @@ class SISTransformer(ContentProcessor):
                             bp = blueprints[idx]
                             if isinstance(bp, dict):
                                 bp['scene_type'] = override
-            
+
             self.logger.info(f"{function_name} completed successfully", extra={
                 'function': function_name,
                 'duration_sec': round(req_duration, 4)
             })
+
+            story_type_guide = _build_story_type_guide(requested_story_type)
             
             return ProcessingResult(
                 success=True,
@@ -206,6 +302,7 @@ class SISTransformer(ContentProcessor):
                     'content': raw_text,
                     'content_format': 'json',
                     'prompt': prompt,
+                    'story_type_guide': story_type_guide,
                     'scene_type_overrides': manual_scene_types
                 },
                 error=None,
@@ -217,6 +314,7 @@ class SISTransformer(ContentProcessor):
                     'requested_story_type': requested_story_type,
                     'story_type_source': 'requested' if requested_story_type else 'auto',
                     'final_story_type': story_sis_json.get('story_type'),
+                    'story_type_guide': story_type_guide,
                     'scene_type_overrides': manual_scene_types,
                     'scene_type_source': 'manual' if manual_scene_type_count else 'auto'
                 }
@@ -450,13 +548,16 @@ class SISTransformer(ContentProcessor):
                 role_alignment_task = '6. Use the scene role assignments when labeling scene_blueprints. '
                 role_alignment_task += 'Do not rename the provided scene_type values.'
 
+        story_type_guide = _build_story_type_guide(requested_story_type)
+
         template = _load_prompt_template('scene2story.md')
         prompt = template.safe_substitute(
             SCENES_JSON=scenes_json,
             STORY_TYPE_TASK=story_type_task,
             STORY_TYPE_REQUIREMENT=story_type_requirement,
             ASSIGNMENTS_BLOCK=assignments_block,
-            ROLE_ALIGNMENT_TASK=role_alignment_task
+            ROLE_ALIGNMENT_TASK=role_alignment_task,
+            STORY_TYPE_GUIDE=story_type_guide
         ).strip()
         return prompt
     
@@ -472,10 +573,12 @@ class SISTransformer(ContentProcessor):
         story_json = json.dumps(story_context, indent=2, ensure_ascii=False)
         blueprint_json = json.dumps(blueprint, indent=2, ensure_ascii=False)
         template = _load_prompt_template('story2scene.md')
+        story_type_guide = _build_story_type_guide(story_sis.get('story_type'))
         prompt = template.safe_substitute(
             STORY_CONTEXT_JSON=story_json,
             BLUEPRINT_JSON=blueprint_json,
-            BLUEPRINT_INDEX=index + 1
+            BLUEPRINT_INDEX=index + 1,
+            STORY_TYPE_GUIDE=story_type_guide
         ).strip()
         return prompt
 
@@ -507,7 +610,10 @@ class SISTransformer(ContentProcessor):
 
         default_summary = blueprint.get('summary') or story_sis.get('summary') or 'Scene summary pending.'
         ensure_value(scene, 'sis_type', lambda: 'scene', 'sis_type')
-        ensure_value(scene, 'scene_id', lambda: str(uuid.uuid4()), 'scene_id')
+        # scene_id も必ずアプリケーション側で生成する
+        scene['scene_id'] = _generate_scene_id()
+        if 'scene_id' not in applied_defaults:
+            applied_defaults.append('scene_id')
         ensure_value(scene, 'summary', lambda: default_summary, 'summary')
 
         semantics = scene.get('semantics') if isinstance(scene.get('semantics'), dict) else {}
@@ -707,7 +813,7 @@ class SISTransformer(ContentProcessor):
                 },
                 "story_id": {
                     "type": "string",
-                    "description": "UUID for this story"
+                    "description": "Identifier for this story (assigned by the system)"
                 },
                 "title": {
                     "type": "string",
@@ -770,7 +876,7 @@ class SISTransformer(ContentProcessor):
                 },
                 "scene_id": {
                     "type": "string",
-                    "description": "UUID for this scene"
+                    "description": "Identifier for this scene (assigned by the system)"
                 },
                 "summary": {
                     "type": "string",

@@ -3529,6 +3529,7 @@ def api_scene2story():
             # dataキーの中にstory_sisがあるか、直接story_sisキーがあるかを確認
             story_sis = result.get('story_sis') or result.get('data', {}).get('story_sis', {})
             prompt = result.get('prompt') or result.get('data', {}).get('prompt', '')
+            story_type_guide = result.get('story_type_guide') or result.get('data', {}).get('story_type_guide', '')
             
             # デバッグ用: 返り値の構造をログ出力
             print(f"DEBUG scene2story result keys: {result.keys()}")
@@ -3547,6 +3548,7 @@ def api_scene2story():
                 'success': True,
                 'story_sis': story_sis,
                 'prompt': prompt,
+                'story_type_guide': story_type_guide,
                 'output_path': output_path,
                 'metadata': result.get('metadata', {})
             })

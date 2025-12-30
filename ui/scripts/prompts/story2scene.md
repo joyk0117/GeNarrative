@@ -8,6 +8,9 @@ ${STORY_CONTEXT_JSON}
 ## Scene Blueprint (#${BLUEPRINT_INDEX})
 ${BLUEPRINT_JSON}
 
+## Story Type Guide
+${STORY_TYPE_GUIDE}
+
 ## Task
 1. Reflect the narrative intent of the blueprint (respect its scene_type and summary) without emitting a scene_type field
 2. Inherit style policies from the story's semantics
@@ -16,7 +19,7 @@ ${BLUEPRINT_JSON}
 
 ## Requirements
 - Include ALL required fields: sis_type, scene_id, summary, semantics
-- Generate a new UUID for scene_id
+- Do not try to generate or guess a unique scene_id (the system will assign it)
 - In semantics.common, provide detailed scene-specific information
 - Include at least one character with name, traits, and visual description
 - Include at least one object with name and colors
