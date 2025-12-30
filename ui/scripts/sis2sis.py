@@ -20,6 +20,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
 from functools import lru_cache
 from string import Template
+import copy
 
 # 共通基盤のインポート
 from common_base import (
@@ -112,9 +113,93 @@ def _generate_scene_id() -> str:
     return datetime.now().strftime("scene_%Y%m%d_%H%M%S_%f")
 
 
+def _expand_scene_types_for_story_type(story_type: str, scene_count: int) -> List[str]:
+    """Expand a story_type's canonical scene_types to the requested count while preserving order.
+
+    Policy (simple, deterministic):
+    - If scene_count <= len(base_roles): use the prefix of base_roles.
+    - If scene_count > len(base_roles): repeat the "middle" role so the first/last structure remains.
+      - three_act: setup + conflict*(n-2) + resolution
+      - kishotenketsu: ki + sho*(n-3) + ten + ketsu
+      - circular: home_start + away*(n-3) + change + home_end
+      - attempts: problem + attempt*(n-2) + result
+      - catalog: intro + entry*(n-2) + outro
+    """
+    if story_type not in STORY_TYPE_BLUEPRINTS:
+        raise ValidationError(f"Unknown story_type: {story_type}")
+    if not isinstance(scene_count, int) or scene_count < 1:
+        raise ValidationError("scene_blueprint_count must be a positive integer")
+
+    base_roles = STORY_TYPE_BLUEPRINTS[story_type].get('scene_types', [])
+    if not isinstance(base_roles, list) or not base_roles:
+        raise ValidationError(f"story_type {story_type} has no scene_types defined")
+
+    if scene_count <= len(base_roles):
+        return list(base_roles[:scene_count])
+
+    policies = {
+        'three_act': (['setup'], 'conflict', ['resolution']),
+        'kishotenketsu': (['ki'], 'sho', ['ten', 'ketsu']),
+        'circular': (['home_start'], 'away', ['change', 'home_end']),
+        'attempts': (['problem'], 'attempt', ['result']),
+        'catalog': (['intro'], 'entry', ['outro']),
+    }
+
+    if story_type in policies:
+        prefix, repeat_role, suffix = policies[story_type]
+        # For very small counts, respect canonical order via base_roles.
+        min_structured = len(prefix) + len(suffix)
+        if scene_count <= min_structured:
+            return list(base_roles[:scene_count])
+        middle_count = scene_count - min_structured
+        return list(prefix) + [repeat_role] * middle_count + list(suffix)
+
+    # Fallback: repeat the last role if an unknown story_type is added later.
+    return list(base_roles) + [base_roles[-1]] * (scene_count - len(base_roles))
+
+
+def _expand_scene_types_by_counts(story_type: str, scene_type_counts: Dict[str, int]) -> List[str]:
+    """Expand canonical scene_types by per-role counts while preserving order.
+
+    Example (kishotenketsu): {'ki':1,'sho':2,'ten':1,'ketsu':1} -> ['ki','sho','sho','ten','ketsu']
+
+    Rules:
+    - Keys must be a subset of the canonical roles for the given story_type.
+    - Missing roles default to 1.
+    - Counts must be integers >= 1.
+    """
+    if story_type not in STORY_TYPE_BLUEPRINTS:
+        raise ValidationError(f"Unknown story_type: {story_type}")
+    if not isinstance(scene_type_counts, dict):
+        raise ValidationError("scene_type_counts must be an object")
+
+    base_roles = STORY_TYPE_BLUEPRINTS[story_type].get('scene_types', [])
+    if not isinstance(base_roles, list) or not base_roles:
+        raise ValidationError(f"story_type {story_type} has no scene_types defined")
+
+    allowed = set(base_roles)
+    for key, value in scene_type_counts.items():
+        if key not in allowed:
+            raise ValidationError(
+                f"scene_type_counts contains invalid role '{key}' for story_type '{story_type}'"
+            )
+        if not isinstance(value, int):
+            raise ValidationError(f"scene_type_counts['{key}'] must be an integer")
+        if value < 1:
+            raise ValidationError(f"scene_type_counts['{key}'] must be >= 1")
+
+    expanded: List[str] = []
+    for role in base_roles:
+        count = scene_type_counts.get(role, 1)
+        expanded.extend([role] * count)
+    return expanded
+
+
 def _constrain_story_sis_schema_for_story_type(
     base_schema: Dict[str, Any],
-    story_type: str
+    story_type: str,
+    scene_blueprint_count: Optional[int] = None,
+    scene_type_counts: Optional[Dict[str, int]] = None
 ) -> Dict[str, Any]:
     """Constrain the StorySIS JSON Schema for a selected story_type.
 
@@ -129,9 +214,16 @@ def _constrain_story_sis_schema_for_story_type(
     if story_type not in STORY_TYPE_BLUEPRINTS:
         return base_schema
 
-    expected_roles = STORY_TYPE_BLUEPRINTS[story_type].get('scene_types', [])
-    if not isinstance(expected_roles, list) or not expected_roles:
+    base_roles = STORY_TYPE_BLUEPRINTS[story_type].get('scene_types', [])
+    if not isinstance(base_roles, list) or not base_roles:
         return base_schema
+
+    if scene_type_counts is not None:
+        expected_roles = _expand_scene_types_by_counts(story_type, scene_type_counts)
+    elif scene_blueprint_count is None:
+        expected_roles = list(base_roles)
+    else:
+        expected_roles = _expand_scene_types_for_story_type(story_type, scene_blueprint_count)
 
     schema = copy.deepcopy(base_schema)
     props = schema.get('properties')
@@ -280,6 +372,8 @@ class SISTransformer(ContentProcessor):
         
         try:
             requested_story_type = kwargs.get('requested_story_type')
+            scene_blueprint_count = kwargs.get('scene_blueprint_count')
+            scene_type_counts = kwargs.get('scene_type_counts')
             if requested_story_type is not None:
                 if not isinstance(requested_story_type, str) or requested_story_type.strip() == '':
                     requested_story_type = None
@@ -289,6 +383,9 @@ class SISTransformer(ContentProcessor):
                         raise ValidationError(
                             f"story_type must be one of {list(STORY_TYPE_BLUEPRINTS.keys())}"
                         )
+            if scene_type_counts is not None:
+                if not isinstance(scene_type_counts, dict):
+                    raise ValidationError('scene_type_counts must be an object')
             manual_scene_types: Optional[List[Optional[str]]] = None
             manual_scene_type_count = 0
             if 'scene_type_overrides' in kwargs:
@@ -316,14 +413,18 @@ class SISTransformer(ContentProcessor):
             if requested_story_type:
                 story_sis_schema = _constrain_story_sis_schema_for_story_type(
                     story_sis_schema,
-                    requested_story_type
+                    requested_story_type,
+                    scene_blueprint_count=scene_blueprint_count,
+                    scene_type_counts=scene_type_counts
                 )
             
             # プロンプト作成
             prompt = self._create_scenes_to_story_prompt(
                 scene_sis_list,
                 requested_story_type=requested_story_type,
-                scene_type_overrides=manual_scene_types
+                scene_type_overrides=manual_scene_types,
+                scene_blueprint_count=scene_blueprint_count,
+                scene_type_counts=scene_type_counts
             )
             
             # 計測開始
@@ -584,7 +685,9 @@ class SISTransformer(ContentProcessor):
         self,
         scene_sis_list: List[Dict[str, Any]],
         requested_story_type: Optional[str] = None,
-        scene_type_overrides: Optional[List[Optional[str]]] = None
+        scene_type_overrides: Optional[List[Optional[str]]] = None,
+        scene_blueprint_count: Optional[int] = None,
+        scene_type_counts: Optional[Dict[str, int]] = None
     ) -> str:
         """SceneSISリストからStorySIS生成用プロンプトを作成"""
         scenes_json = json.dumps(scene_sis_list, indent=2, ensure_ascii=False)
@@ -594,6 +697,22 @@ class SISTransformer(ContentProcessor):
                 'and align scene_blueprints with that narrative structure'
             )
             story_type_requirement = f'StorySIS.story_type MUST be "{requested_story_type}"'
+            if isinstance(scene_blueprint_count, int) and scene_blueprint_count > 0:
+                story_type_task += f' and generate exactly {scene_blueprint_count} scene_blueprints'
+                story_type_requirement += f' and StorySIS.scene_blueprints MUST have exactly {scene_blueprint_count} items'
+            if isinstance(scene_type_counts, dict) and scene_type_counts:
+                base_roles = STORY_TYPE_BLUEPRINTS.get(requested_story_type, {}).get('scene_types', [])
+                if isinstance(base_roles, list) and base_roles:
+                    parts = []
+                    total = 0
+                    for role in base_roles:
+                        cnt = scene_type_counts.get(role, 1)
+                        if isinstance(cnt, int) and cnt > 0:
+                            total += cnt
+                            parts.append(f"{role} x{cnt}")
+                    if parts:
+                        story_type_task += ' with these role counts: ' + ', '.join(parts)
+                        story_type_requirement += f' (total {total})'
         else:
             story_type_task = (
                 '1. Analyze the scenes to determine the appropriate story_type '
@@ -967,7 +1086,9 @@ def scene2story(
     processing_config: Optional[ProcessingConfig] = None,
     logger: Optional[StructuredLogger] = None,
     requested_story_type: Optional[str] = None,
-    scene_type_overrides: Optional[List[Optional[str]]] = None
+    scene_type_overrides: Optional[List[Optional[str]]] = None,
+    scene_blueprint_count: Optional[int] = None,
+    scene_type_counts: Optional[Dict[str, int]] = None
 ) -> Dict[str, Any]:
     """
     複数のSceneSISからStorySISを生成
@@ -986,7 +1107,9 @@ def scene2story(
     result = transformer.scenes_to_story(
         scene_sis_list,
         requested_story_type=requested_story_type,
-        scene_type_overrides=scene_type_overrides
+        scene_type_overrides=scene_type_overrides,
+        scene_blueprint_count=scene_blueprint_count,
+        scene_type_counts=scene_type_counts
     )
     return result.to_dict()
 

@@ -38,7 +38,17 @@
         <option value="{{ st }}">{{ st }}</option>
         {% endfor %}
       </select>
+      <span style="margin-left:12px;">
+        <label for="sceneBlueprintCount" style="margin-right:6px;">scene_type count:</label>
+        <input id="sceneBlueprintCount" type="number" min="1" step="1" style="width:90px;" disabled readonly />
+      </span>
       <span style="margin-left:8px;color:#777;font-size:12px;">Choose to lock StorySIS.story_type.</span>
+    </div>
+
+    <div id="sceneTypeCountsRow" style="margin: 8px 0; display: none;">
+      <div style="font-weight:600; margin-bottom:6px;">scene_type counts (optional):</div>
+      <div id="sceneTypeCounts" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;"></div>
+      <div style="color:#777; font-size:12px; margin-top:6px;">Counts apply to StorySIS.scene_blueprints roles in order.</div>
     </div>
 
     <div id="scenesContainer" style="margin: 16px 0;">
@@ -191,6 +201,9 @@
   const scene2storyStatus = document.getElementById('scene2storyStatus');
   const scene2storyResult = document.getElementById('scene2storyResult');
   const storyTypeSelect = document.getElementById('storyTypeSelect');
+  const sceneBlueprintCount = document.getElementById('sceneBlueprintCount');
+  const sceneTypeCountsRow = document.getElementById('sceneTypeCountsRow');
+  const sceneTypeCounts = document.getElementById('sceneTypeCounts');
   
   const storyFileSelect = document.getElementById('storyFileSelect');
   const loadStoryBtn = document.getElementById('loadStoryBtn');
@@ -243,31 +256,48 @@
     });
   }
 
+  function computeCountsTotal() {
+    let total = 0;
+    sceneTypeCounts.querySelectorAll('input[data-role]').forEach(inp => {
+      const v = parseInt(inp.value, 10);
+      if (!Number.isNaN(v) && v > 0) total += v;
+    });
+    return total;
+  }
+
+  function buildSceneTypeCountInputs(selectedStoryType) {
+    sceneTypeCounts.innerHTML = '';
+    const roles = Array.isArray(STORY_TYPE_SCENE_MAP[selectedStoryType]) ? STORY_TYPE_SCENE_MAP[selectedStoryType] : [];
+    roles.forEach(role => {
+      const wrap = document.createElement('span');
+      wrap.style.display = 'inline-flex';
+      wrap.style.alignItems = 'center';
+      wrap.style.gap = '6px';
+      wrap.innerHTML = `
+        <label style="margin:0;">${role}:</label>
+        <input type="number" min="1" step="1" value="1" data-role="${role}" style="width:70px;" />
+      `;
+      sceneTypeCounts.appendChild(wrap);
+    });
+
+    sceneTypeCounts.querySelectorAll('input[data-role]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const total = computeCountsTotal();
+        sceneBlueprintCount.value = total ? total : '';
+      });
+    });
+
+    const total = computeCountsTotal();
+    sceneBlueprintCount.value = total ? total : (roles.length || '');
+  }
+
   function addSceneInput(content = '', sceneType = '') {
     sceneCount++;
     const sceneItem = document.createElement('div');
     sceneItem.className = 'scene-item';
     sceneItem.dataset.sceneId = sceneCount;
     
-    const defaultContent = content || JSON.stringify({
-      "sis_type": "scene",
-      "scene_id": "00000000-0000-0000-0000-000000000000",
-      "summary": "Scene summary",
-      "semantics": {
-        "common": {
-          "mood": "calm",
-          "characters": [{"name": "character", "traits": ["trait"], "visual": {"hair": "brown", "clothes": "casual"}}],
-          "location": "location",
-          "time": "day",
-          "weather": "sunny",
-          "objects": [{"name": "object", "colors": ["color"]}],
-          "descriptions": ["description"]
-        },
-        "text": {"style": "simple", "language": "English", "tone": "gentle", "point_of_view": "third"},
-        "visual": {"style": "watercolor", "composition": "mid-shot", "lighting": "soft", "perspective": "eye-level"},
-        "audio": {"genre": "ambient", "tempo": "slow", "instruments": ["piano"]}
-      }
-    }, null, 2);
+    const defaultContent = content || '';
     
     sceneItem.innerHTML = `
       <div class="scene-item-header">
@@ -294,10 +324,20 @@
 
   storyTypeSelect.addEventListener('change', () => {
     refreshSceneRoleDropdowns();
+    const selected = storyTypeSelect.value;
+    if (!selected) {
+      sceneBlueprintCount.value = '';
+      sceneBlueprintCount.disabled = true;
+      sceneTypeCountsRow.style.display = 'none';
+      sceneTypeCounts.innerHTML = '';
+      return;
+    }
+    sceneBlueprintCount.disabled = false;
+    sceneTypeCountsRow.style.display = 'block';
+    buildSceneTypeCountInputs(selected);
   });
 
-  // Initialize with one scene
-  addSceneInput();
+  // Initialize with no default scenes
 
   // Load scene files list
   async function loadSceneFiles() {
@@ -372,7 +412,21 @@
         body: JSON.stringify({
           scenes,
           story_type: storyTypeSelect.value || undefined,
-          scene_type_overrides: sceneTypeOverrides
+          scene_type_overrides: sceneTypeOverrides,
+          scene_blueprint_count: (storyTypeSelect.value && sceneBlueprintCount.value)
+            ? parseInt(sceneBlueprintCount.value, 10)
+            : undefined,
+          scene_type_counts: storyTypeSelect.value
+            ? (function(){
+                const out = {};
+                sceneTypeCounts.querySelectorAll('input[data-role]').forEach(inp => {
+                  const role = inp.getAttribute('data-role');
+                  const v = parseInt(inp.value, 10);
+                  if (role && !Number.isNaN(v) && v > 0) out[role] = v;
+                });
+                return out;
+              })()
+            : undefined
         })
       });
       const data = await res.json();
@@ -475,29 +529,8 @@
     }
   });
 
-  // Initialize story input with template
-  storyInput.value = JSON.stringify({
-    "sis_type": "story",
-    "story_id": "00000000-0000-0000-0000-000000000000",
-    "title": "Story Title",
-    "summary": "Story summary",
-    "semantics": {
-      "common": {
-        "themes": ["theme1", "theme2"],
-        "descriptions": ["Story description"]
-      },
-      "text": {"language": "English", "tone": "gentle", "point_of_view": "third"},
-      "visual": {"style": "watercolor"},
-      "audio": {"genre": "ambient"}
-    },
-    "story_type": "kishotenketsu",
-    "scene_blueprints": [
-      {"scene_type": "ki", "summary": "Opening scene"},
-      {"scene_type": "sho", "summary": "Development"},
-      {"scene_type": "ten", "summary": "Twist"},
-      {"scene_type": "ketsu", "summary": "Conclusion"}
-    ]
-  }, null, 2);
+  // Initialize story input empty
+  storyInput.value = '';
 
   // Run Story2Scene
   runStory2SceneBtn.addEventListener('click', async () => {

@@ -3516,12 +3516,46 @@ def api_scene2story():
         
         # Import and run the transformation
         from sis2sis import scene2story
+
+        raw_scene_blueprint_count = data.get('scene_blueprint_count')
+        scene_blueprint_count = None
+        if raw_scene_blueprint_count is not None:
+            if not isinstance(raw_scene_blueprint_count, int):
+                return jsonify({'success': False, 'error': 'scene_blueprint_count must be an integer'}), 400
+            if raw_scene_blueprint_count < 1 or raw_scene_blueprint_count > 50:
+                return jsonify({'success': False, 'error': 'scene_blueprint_count must be between 1 and 50'}), 400
+            scene_blueprint_count = raw_scene_blueprint_count
+
+        scene_type_counts = None
+        raw_scene_type_counts = data.get('scene_type_counts')
+        if raw_scene_type_counts is not None:
+            if not isinstance(raw_scene_type_counts, dict):
+                return jsonify({'success': False, 'error': 'scene_type_counts must be an object'}), 400
+            parsed_counts = {}
+            if requested_story_type:
+                from sis2sis import STORY_TYPE_BLUEPRINTS
+                allowed_roles = set(STORY_TYPE_BLUEPRINTS[requested_story_type]['scene_types'])
+                for key in raw_scene_type_counts.keys():
+                    if key not in allowed_roles:
+                        return jsonify({'success': False, 'error': f"scene_type_counts contains invalid role '{key}' for story_type '{requested_story_type}'"}), 400
+            for key, value in raw_scene_type_counts.items():
+                if not isinstance(key, str):
+                    return jsonify({'success': False, 'error': 'scene_type_counts keys must be strings'}), 400
+                if not isinstance(value, int):
+                    return jsonify({'success': False, 'error': f"scene_type_counts['{key}'] must be an integer"}), 400
+                if value < 1 or value > 50:
+                    return jsonify({'success': False, 'error': f"scene_type_counts['{key}'] must be between 1 and 50"}), 400
+                parsed_counts[key] = value
+            if parsed_counts:
+                scene_type_counts = parsed_counts
         
         result = scene2story(
             scene_sis_list=scenes,
             api_config=APIConfig(),
             requested_story_type=requested_story_type,
-            scene_type_overrides=scene_type_overrides
+            scene_type_overrides=scene_type_overrides,
+            scene_blueprint_count=scene_blueprint_count,
+            scene_type_counts=scene_type_counts
         )
         
         if result.get('success'):
