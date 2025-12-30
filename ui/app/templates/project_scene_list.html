@@ -1,0 +1,539 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project_id }} - Scenes - GeNarrative UI{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="project-header">
+        <h2>Project: {{ project_id }}</h2>
+        <a href="/projects" class="btn btn-secondary">← Back to Projects</a>
+    </div>
+    
+    {% if scenes %}
+        <div class="scene-grid">
+            <!-- 新しいシーン作成カード -->
+            <div class="scene-card create-scene-card" onclick="showCreateSceneModal()">
+                <div class="scene-thumbnail create-thumbnail">
+                    <div class="create-icon">+</div>
+                </div>
+                <h3>Create New Scene</h3>
+                <div class="btn btn-primary create-btn">Add Scene</div>
+            </div>
+            
+            {% for scene in scenes %}
+            <div class="scene-card" draggable="true" data-scene-id="{{ scene.id }}">
+                {% if scene.has_image %}
+                <div class="scene-thumbnail">
+                    <img src="/projects/{{ project_id }}/scenes/{{ scene.id }}/file/{{ scene.image_filename }}" 
+                         alt="Scene {{ scene.id }}" 
+                         class="thumbnail-image">
+                </div>
+                {% else %}
+                <div class="scene-thumbnail no-image">
+                    <div class="no-image-placeholder">No Image</div>
+                </div>
+                {% endif %}
+                <h3>{{ scene.id }}</h3>
+                <div class="scene-buttons">
+                    <a href="/projects/{{ project_id }}/{{ scene.id }}" class="btn btn-primary btn-sm">View Details</a>
+                    <button class="btn btn-danger btn-sm delete-scene-btn" 
+                            onclick="deleteScene('{{ scene.id }}', event)" 
+                            title="Delete Scene">Delete</button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="scene-grid">
+            <!-- 新しいシーン作成カード -->
+            <div class="scene-card create-scene-card" onclick="showCreateSceneModal()">
+                <div class="scene-thumbnail create-thumbnail">
+                    <div class="create-icon">+</div>
+                </div>
+                <h3>Create New Scene</h3>
+                <div class="btn btn-primary create-btn">Add Scene</div>
+            </div>
+        </div>
+        <p>No scenes found in this project. Create your first scene using the card above!</p>
+    {% endif %}
+    
+    <!-- Story Creation Area -->
+    <div class="narrative-section">
+        <h2>Create Story</h2>
+        <p>Drag scenes from above to arrange them in your story sequence</p>
+        <div class="narrative-timeline" id="narrativeTimeline">
+            <div class="timeline-placeholder">Drop scenes here to create your story</div>
+        </div>
+        <div class="narrative-controls">
+            <button class="btn btn-success" id="generateNarrative">Generate Story</button>
+            <button class="btn btn-secondary" id="clearNarrative">Clear All</button>
+        </div>
+    </div>
+</div>
+
+<!-- Story Slideshow Section -->
+<div class="narrative-slideshow" id="narrativeSlideshow" style="display: none;">
+    <div class="slideshow-header">
+        <h2>Generated Story</h2>
+        <div class="slideshow-controls">
+            <button class="btn btn-primary" id="saveNarrative" style="display: none;">Save Story</button>
+            <button class="btn btn-secondary" id="closeSlideshow">Close Slideshow</button>
+        </div>
+    </div>
+    
+    <div class="swiper narrative-swiper">
+        <div class="swiper-wrapper" id="narrativeSwiperWrapper">
+            <!-- Slides will be dynamically generated here -->
+        </div>
+        
+        <!-- Navigation buttons -->
+        <div class="swiper-button-next"></div>
+        <div class="swiper-button-prev"></div>
+        
+        <!-- Pagination -->
+        <div class="swiper-pagination"></div>
+        
+        <!-- Progress bar -->
+        <div class="swiper-scrollbar"></div>
+    </div>
+</div>
+
+<!-- Create Scene Modal -->
+<div class="modal-overlay" id="createSceneModal" style="display: none;">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Create New Scene</h3>
+            <button class="modal-close" onclick="hideCreateSceneModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="sceneId">Scene ID:</label>
+                <input type="text" id="sceneId" placeholder="Enter scene ID (e.g., 20250806_140000)" required>
+                <small class="help-text">Leave empty to auto-generate based on current timestamp</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Scene Creation Type:</label>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="creationType" value="empty" checked>
+                        <span>Create Empty Scene</span>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="creationType" value="copy">
+                        <span>Copy from Existing Scene</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="form-group copy-source" id="copySourceGroup" style="display: none;">
+                <label for="sourceScene">Source Scene:</label>
+                <select id="sourceScene">
+                    <option value="">Select a scene to copy</option>
+                    {% for scene in scenes %}
+                    <option value="{{ scene.id }}">{{ scene.id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="hideCreateSceneModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="createNewScene()">Create Scene</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.scene-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.scene-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 18px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    cursor: grab;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.scene-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.scene-card.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.scene-thumbnail {
+    width: 120px;
+    height: 90px;
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+}
+
+.thumbnail-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 6px;
+}
+
+.no-image {
+    background-color: #e9ecef;
+    border: 2px dashed #ced4da;
+}
+
+.no-image-placeholder {
+    color: #6c757d;
+    font-size: 11px;
+    text-align: center;
+}
+
+.scene-card h3 {
+    margin: 0 0 14px 0;
+    color: #333;
+    font-size: 16px;
+    word-break: break-all;
+}
+
+/* Scene Buttons Container */
+.scene-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    width: 100%;
+}
+
+.scene-buttons .btn {
+    flex: 1;
+    font-size: 12px;
+    padding: 6px 12px;
+}
+
+.delete-scene-btn {
+    background-color: #dc3545;
+    border: none;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.delete-scene-btn:hover {
+    background-color: #c82333;
+}
+
+/* Create Scene Card Styles */
+.create-scene-card {
+    border: 2px dashed #007bff;
+    background: #f8f9fa;
+    cursor: pointer;
+}
+
+.create-scene-card:hover {
+    border-color: #0056b3;
+    background: #e7f3ff;
+}
+
+.create-thumbnail {
+    background: #007bff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.create-icon {
+    font-size: 48px;
+    color: white;
+    font-weight: bold;
+}
+
+.create-btn {
+    border: none;
+    background: transparent;
+    color: #007bff;
+    cursor: pointer;
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    padding: 20px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 16px;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 20px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close:hover {
+    color: #333;
+}
+
+.modal-body {
+    padding: 20px 24px;
+}
+
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.help-text {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.radio-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.radio-label input[type="radio"] {
+    width: auto;
+    margin: 0;
+}
+
+/* Narrative Section */
+.narrative-section {
+    margin-top: 40px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.narrative-timeline {
+    min-height: 120px;
+    background: white;
+    border: 2px dashed #ced4da;
+    border-radius: 6px;
+    padding: 15px;
+    margin: 20px 0;
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+}
+
+.timeline-placeholder {
+    color: #6c757d;
+    text-align: center;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.narrative-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+</style>
+
+<script>
+const projectId = "{{ project_id }}";
+
+function showCreateSceneModal() {
+    document.getElementById('createSceneModal').style.display = 'flex';
+}
+
+function hideCreateSceneModal() {
+    document.getElementById('createSceneModal').style.display = 'none';
+    document.getElementById('sceneId').value = '';
+    document.querySelectorAll('input[name="creationType"]')[0].checked = true;
+    document.getElementById('copySourceGroup').style.display = 'none';
+}
+
+async function createNewScene() {
+    let sceneId = document.getElementById('sceneId').value.trim();
+    const creationType = document.querySelector('input[name="creationType"]:checked').value;
+    const sourceScene = document.getElementById('sourceScene').value;
+    
+    // Auto-generate scene ID if empty
+    if (!sceneId) {
+        const now = new Date();
+        sceneId = now.getFullYear().toString() + 
+                  (now.getMonth() + 1).toString().padStart(2, '0') + 
+                  now.getDate().toString().padStart(2, '0') + '_' +
+                  now.getHours().toString().padStart(2, '0') + 
+                  now.getMinutes().toString().padStart(2, '0') + 
+                  now.getSeconds().toString().padStart(2, '0');
+    }
+    
+    if (creationType === 'copy' && !sourceScene) {
+        alert('Please select a source scene to copy');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/projects/${projectId}/scenes/${sceneId}/create`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                creation_type: creationType,
+                source_scene: sourceScene
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Scene created successfully!');
+            location.reload();
+        } else {
+            alert(`Failed to create scene: ${data.error}`);
+        }
+    } catch (error) {
+        alert(`Error creating scene: ${error.message}`);
+    }
+}
+
+async function deleteScene(sceneId, event) {
+    event.stopPropagation();
+    
+    if (!confirm(`Are you sure you want to delete scene "${sceneId}"? This action cannot be undone.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/projects/${projectId}/scenes/${sceneId}/delete`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Scene deleted successfully!');
+            location.reload();
+        } else {
+            alert(`Failed to delete scene: ${data.error}`);
+        }
+    } catch (error) {
+        alert(`Error deleting scene: ${error.message}`);
+    }
+}
+
+// Show/hide copy source group based on creation type
+document.addEventListener('DOMContentLoaded', function() {
+    const creationTypeInputs = document.querySelectorAll('input[name="creationType"]');
+    const copySourceGroup = document.getElementById('copySourceGroup');
+    
+    creationTypeInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            if (this.value === 'copy') {
+                copySourceGroup.style.display = 'block';
+            } else {
+                copySourceGroup.style.display = 'none';
+            }
+        });
+    });
+    
+    // Close modal when clicking outside
+    const modal = document.getElementById('createSceneModal');
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            hideCreateSceneModal();
+        }
+    });
+});
+</script>
+{% endblock %}

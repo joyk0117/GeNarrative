@@ -97,13 +97,34 @@ app = Flask(__name__)
 # Shared folder paths
 SHARED_DIR = "/app/shared"
 SCENE_DIR = "/app/shared/scene"
+PROJECTS_DIR = "/app/shared/projects"
 TEST_DIR = "/app/ui/scripts/test"
+
+
+def find_scene_path(scene_id):
+    """Find scene path in either SCENE_DIR or PROJECTS_DIR. Returns (scene_path, project_id)"""
+    scene_path = os.path.join(SCENE_DIR, scene_id)
+    
+    # First check in SCENE_DIR
+    if os.path.exists(scene_path):
+        return scene_path, None
+    
+    # If not found, search in PROJECTS_DIR
+    if os.path.exists(PROJECTS_DIR):
+        for project in os.listdir(PROJECTS_DIR):
+            project_scenes_dir = os.path.join(PROJECTS_DIR, project, 'scenes')
+            if os.path.exists(project_scenes_dir):
+                potential_scene_path = os.path.join(project_scenes_dir, scene_id)
+                if os.path.exists(potential_scene_path):
+                    return potential_scene_path, project
+    
+    return None, None
 
 
 def load_structured_sis(scene_id):
     """Return latest structured SIS data for a scene if available."""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
-    if not os.path.exists(scene_path):
+    scene_path, _ = find_scene_path(scene_id)
+    if not scene_path:
         return None
 
     structured_files = [
@@ -139,7 +160,9 @@ def regenerate_prompts_from_sis(scene_id, sis_json):
     if not isinstance(sis_json, dict):
         raise ValueError('Structured SIS must be a JSON object.')
 
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
+    if not scene_path:
+        raise RuntimeError(f'Scene {scene_id} not found')
     os.makedirs(scene_path, exist_ok=True)
 
     # Work on a copy so that downstream validation can fill defaults safely.
@@ -452,6 +475,91 @@ def list_test_images():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route("/projects")
+def project_list():
+    """Display project list"""
+    projects = []
+    if os.path.exists(PROJECTS_DIR):
+        for item in os.listdir(PROJECTS_DIR):
+            project_path = os.path.join(PROJECTS_DIR, item)
+            if os.path.isdir(project_path):
+                # Count scenes and story in project
+                scene_count = 0
+                has_story = False
+                
+                scenes_dir = os.path.join(project_path, 'scenes')
+                if os.path.exists(scenes_dir):
+                    scene_count = len([d for d in os.listdir(scenes_dir) if os.path.isdir(os.path.join(scenes_dir, d))])
+                
+                story_dir = os.path.join(project_path, 'story')
+                if os.path.exists(story_dir) and os.listdir(story_dir):
+                    has_story = True
+                
+                project_info = {
+                    'id': item,
+                    'name': item,
+                    'scene_count': scene_count,
+                    'has_story': has_story
+                }
+                projects.append(project_info)
+    
+    # Sort by newest first
+    projects.sort(key=lambda x: x['id'], reverse=True)
+    return render_template('project_list.html', projects=projects)
+
+@app.route("/projects/<project_id>")
+def project_detail(project_id):
+    """Display scenes within a specific project"""
+    project_path = os.path.join(PROJECTS_DIR, project_id)
+    
+    if not os.path.exists(project_path):
+        return "Project not found", 404
+    
+    scenes = []
+    scenes_dir = os.path.join(project_path, 'scenes')
+    
+    if os.path.exists(scenes_dir):
+        for item in os.listdir(scenes_dir):
+            scene_path = os.path.join(scenes_dir, item)
+            if os.path.isdir(scene_path):
+                # Basic scene information
+                scene_info = {
+                    'id': item,
+                    'has_image': False,
+                    'image_filename': None
+                }
+                
+                # Look for image files in scene directory
+                for file in os.listdir(scene_path):
+                    if file.startswith('image_') and file.endswith('.png'):
+                        scene_info['has_image'] = True
+                        scene_info['image_filename'] = file
+                        break
+                
+                scenes.append(scene_info)
+    
+    # Sort by newest first
+    scenes.sort(key=lambda x: x['id'], reverse=True)
+    return render_template('project_scene_list.html', project_id=project_id, scenes=scenes)
+
+@app.route("/projects/<project_id>/create", methods=['POST'])
+def create_project(project_id):
+    """Create a new project directory structure"""
+    try:
+        project_path = os.path.join(PROJECTS_DIR, project_id)
+        
+        if os.path.exists(project_path):
+            return jsonify({'success': False, 'error': 'Project already exists'}), 400
+        
+        # Create project directory structure
+        os.makedirs(project_path, exist_ok=True)
+        os.makedirs(os.path.join(project_path, 'scenes'), exist_ok=True)
+        os.makedirs(os.path.join(project_path, 'story'), exist_ok=True)
+        
+        return jsonify({'success': True, 'project_id': project_id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route("/scene")
 def scene_list():
     """Display scene list"""
@@ -483,9 +591,9 @@ def scene_list():
 @app.route("/scene/<scene_id>")
 def scene_detail(scene_id):
     """Display details of a specific scene"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, project_id = find_scene_path(scene_id)
     
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return "Scene not found", 404
     
     # Collect files
@@ -493,6 +601,7 @@ def scene_detail(scene_id):
     
     scene_data = {
         'id': scene_id,
+        'project_id': project_id,
         'sis_files': [],
         'text_files': [],
         'image_files': [],
@@ -526,13 +635,20 @@ def scene_detail(scene_id):
 @app.route("/scene/<scene_id>/file/<filename>")
 def serve_scene_file(scene_id, filename):
     """Serve scene files"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
+    
+    if not scene_path:
+        return "Scene not found", 404
+    
     return send_from_directory(scene_path, filename)
 
 @app.route("/scene/<scene_id>/sis/<filename>")
 def get_sis_content(scene_id, filename):
     """Return SIS file content in JSON format"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
+    if not scene_path:
+        return jsonify({"error": "Scene not found"}), 404
+    
     file_path = os.path.join(scene_path, filename)
     
     if not os.path.exists(file_path):
@@ -553,9 +669,9 @@ def get_text_content_route(scene_id, filename):
 @app.route('/scene/<scene_id>/data')
 def get_scene_data(scene_id):
     """Return comprehensive scene data for slideshow"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
     
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return jsonify({'error': 'Scene not found'}), 404
     
     try:
@@ -606,9 +722,9 @@ def get_scene_data(scene_id):
 @app.route('/scene/<scene_id>/tts')
 def serve_scene_tts(scene_id):
     """Serve TTS audio file for a scene"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
     
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return "Scene not found", 404
     
     # Look for TTS audio file
@@ -622,9 +738,9 @@ def serve_scene_tts(scene_id):
 @app.route('/scene/<scene_id>/music')
 def serve_scene_music(scene_id):
     """Serve music file for a scene"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
     
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return "Scene not found", 404
     
     # Look for music file
@@ -638,9 +754,9 @@ def serve_scene_music(scene_id):
 @app.route('/scene/<scene_id>/image')
 def serve_scene_image(scene_id):
     """Serve image file for a scene"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
     
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return "Scene not found", 404
     
     # Look for image file
@@ -1208,7 +1324,10 @@ def generate_slides_html(narrative_data):
 
 def get_text_content(scene_id, filename):
     """Return text file content"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
+    if not scene_path:
+        return "Scene not found", 404
+    
     file_path = os.path.join(scene_path, filename)
     
     if not os.path.exists(file_path):
@@ -1221,12 +1340,78 @@ def get_text_content(scene_id, filename):
     except Exception as e:
         return f"Error reading file: {str(e)}", 500
 
+@app.route("/projects/<project_id>/scenes/<scene_id>/upload_image", methods=['POST'])
+def upload_project_image(project_id, scene_id):
+    """Upload and replace image file in project scene"""
+    scene_path = os.path.join(PROJECTS_DIR, project_id, 'scenes', scene_id)
+    
+    if not os.path.exists(scene_path):
+        return jsonify({'success': False, 'error': 'Scene not found'}), 404
+    
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'error': 'No file provided'}), 400
+    
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'success': False, 'error': 'No file selected'}), 400
+    
+    allowed_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
+    file_ext = os.path.splitext(file.filename)[1].lower()
+    if file_ext not in allowed_extensions:
+        return jsonify({'success': False, 'error': 'Invalid file type'}), 400
+    
+    try:
+        # Remove existing image files
+        for existing_file in os.listdir(scene_path):
+            if existing_file.startswith('image_') and existing_file.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
+                os.remove(os.path.join(scene_path, existing_file))
+        
+        # Save new image
+        new_filename = f"image_{scene_id}.png"
+        file_path = os.path.join(scene_path, new_filename)
+        file.save(file_path)
+        
+        return jsonify({
+            'success': True,
+            'filename': new_filename,
+            'message': 'Image uploaded successfully'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route("/projects/<project_id>/scenes/<scene_id>/save_sis", methods=['POST'])
+def save_project_sis(project_id, scene_id):
+    """Save edited SIS content to file in project scene"""
+    scene_path = os.path.join(PROJECTS_DIR, project_id, 'scenes', scene_id)
+    
+    if not os.path.exists(scene_path):
+        return jsonify({'success': False, 'error': 'Scene not found'}), 404
+    
+    try:
+        sis_data = request.get_json()
+        if not sis_data:
+            return jsonify({'success': False, 'error': 'No content provided'}), 400
+        
+        filename = f'sis_structure_{scene_id}.json'
+        file_path = os.path.join(scene_path, filename)
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(sis_data, f, indent=2, ensure_ascii=False)
+        
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'message': 'SIS saved successfully'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route("/scene/<scene_id>/upload_image", methods=['POST'])
 def upload_image(scene_id):
     """Upload and replace image file in scene"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, project_id = find_scene_path(scene_id)
     
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return jsonify({'error': 'Scene not found'}), 404
     
     if 'file' not in request.files:
@@ -1279,9 +1464,9 @@ def upload_image(scene_id):
 @app.route("/scene/<scene_id>/upload_music", methods=['POST'])
 def upload_music(scene_id):
     """Upload and replace music file in scene"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
     
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return jsonify({'error': 'Scene not found'}), 404
     
     if 'file' not in request.files:
@@ -1320,9 +1505,9 @@ def upload_music(scene_id):
 @app.route("/scene/<scene_id>/save_text", methods=['POST'])
 def save_text(scene_id):
     """Save edited text content to file"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
     
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return jsonify({'error': 'Scene not found'}), 404
     
     data = request.get_json()
@@ -1353,9 +1538,9 @@ def save_text(scene_id):
 @app.route("/scene/<scene_id>/save_sis", methods=['POST'])
 def save_sis(scene_id):
     """Save edited SIS content to file"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, project_id = find_scene_path(scene_id)
     
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return jsonify({'error': 'Scene not found'}), 404
     
     data = request.get_json()
@@ -1417,9 +1602,9 @@ def save_sis(scene_id):
 @app.route("/scene/<scene_id>/save_prompt", methods=['POST'])
 def save_prompt(scene_id):
     """Save edited image prompt content to file"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
 
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return jsonify({'error': 'Scene not found'}), 404
 
     data = request.get_json()
@@ -1463,8 +1648,8 @@ def generate_sis(scene_id):
       - LLM出力は raw テキストとして保存・返却し、JSONとしても解釈できれば json_valid=True
       - 構造化JSONが得られた場合のみ各種 prompt を生成
     """
-    scene_path = os.path.join(SCENE_DIR, scene_id)
-    if not os.path.exists(scene_path):
+    scene_path, _ = find_scene_path(scene_id)
+    if not scene_path:
         return jsonify({'error': 'Scene not found'}), 404
 
     # Debug info (軽量)
@@ -1602,8 +1787,8 @@ def generate_sis(scene_id):
 
 @app.route("/scene/<scene_id>/regenerate_prompts", methods=['POST'])
 def regenerate_prompts(scene_id):
-    scene_path = os.path.join(SCENE_DIR, scene_id)
-    if not os.path.exists(scene_path):
+    scene_path, _ = find_scene_path(scene_id)
+    if not scene_path:
         return jsonify({'success': False, 'error': 'Scene not found'}), 404
 
     sis_json = load_structured_sis(scene_id)
@@ -1647,10 +1832,10 @@ def generate_image_from_sis(scene_id):
             print("⏭️ prompt_only mode enabled: will generate prompt and skip SD image generation")
             sys.stdout.flush()
 
-        scene_path = os.path.join(SCENE_DIR, scene_id)
+        scene_path, _ = find_scene_path(scene_id)
         
-        if not os.path.exists(scene_path):
-            print(f"❌ Scene not found: {scene_path}")
+        if not scene_path:
+            print(f"❌ Scene not found: {scene_id}")
             sys.stdout.flush()
             return jsonify({'error': 'Scene not found'}), 404
         
@@ -1772,21 +1957,24 @@ def generate_image_from_sis(scene_id):
                 # 生成された画像でシーンの既存画像を置き換え
                 try:
                     # シーンパスと保存先ファイル名
-                    scene_path = os.path.join(SCENE_DIR, scene_id)
-                    os.makedirs(scene_path, exist_ok=True)
+                    scene_path_save, _ = find_scene_path(scene_id)
+                    if not scene_path_save:
+                        print(f"❌ Scene not found for saving: {scene_id}")
+                        return jsonify({'error': 'Scene not found for saving'}), 404
+                    os.makedirs(scene_path_save_save, exist_ok=True)
 
                     # 既存の画像を削除
-                    for existing_file in os.listdir(scene_path):
+                    for existing_file in os.listdir(scene_path_save):
                         if existing_file.startswith('image_') and existing_file.endswith(('.png', '.jpg', '.jpeg')):
                             try:
-                                os.remove(os.path.join(scene_path, existing_file))
+                                os.remove(os.path.join(scene_path_save, existing_file))
                             except Exception as rm_err:
                                 print(f"⚠️ Failed to remove old image {existing_file}: {rm_err}")
 
                     # 出力画像をシーン標準名でコピー（png前提）
                     target_ext = '.png'
                     replaced_filename = f"image_{scene_id}{target_ext}"
-                    target_path = os.path.join(scene_path, replaced_filename)
+                    target_path = os.path.join(scene_path_save, replaced_filename)
 
                     import shutil
                     shutil.copy2(img_result['image_path'], target_path)
@@ -1866,8 +2054,8 @@ def sd_generate_image(scene_id):
         sampler = data.get('sampler_name') or 'Euler a'
         seed = data.get('seed') if data.get('seed') is not None else -1
 
-        scene_path = os.path.join(SCENE_DIR, scene_id)
-        if not os.path.exists(scene_path):
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
             return jsonify({'success': False, 'error': 'Scene not found'}), 404
 
         sd_uri = 'http://sd:7860'
@@ -1936,8 +2124,8 @@ def generate_text_from_sis(scene_id):
     Response: { success, generated_text?, text_filename?, processing_time?, error? }
     """
     try:
-        scene_path = os.path.join(SCENE_DIR, scene_id)
-        if not os.path.exists(scene_path):
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
             return jsonify({'success': False, 'error': 'Scene not found'}), 404
 
         # Find SIS file
@@ -2014,8 +2202,8 @@ def generate_text_from_sis(scene_id):
 def generate_tts_from_text(scene_id):
     """Regenerate scene TTS audio using the latest text content."""
     try:
-        scene_path = os.path.join(SCENE_DIR, scene_id)
-        if not os.path.exists(scene_path):
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
             return jsonify({'success': False, 'error': 'Scene not found'}), 404
 
         payload = request.get_json(silent=True)
@@ -2098,8 +2286,8 @@ def generate_music_for_scene(scene_id):
     出力: { success, music_filename, music_url }
     """
     try:
-        scene_path = os.path.join(SCENE_DIR, scene_id)
-        if not os.path.exists(scene_path):
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
             return jsonify({'success': False, 'error': 'Scene not found'}), 404
 
         payload = request.get_json(silent=True) or {}
@@ -2301,9 +2489,9 @@ def generate_dummy_sis(content_file, content_type):
 @app.route("/scene/<scene_id>/upload_tts", methods=['POST'])
 def upload_tts(scene_id):
     """Upload and replace TTS file in scene"""
-    scene_path = os.path.join(SCENE_DIR, scene_id)
+    scene_path, _ = find_scene_path(scene_id)
     
-    if not os.path.exists(scene_path):
+    if not scene_path:
         return jsonify({'error': 'Scene not found'}), 404
     
     if 'file' not in request.files:
@@ -2434,13 +2622,223 @@ def create_scene():
     except Exception as e:
         return jsonify({'error': f'Error creating scene: {str(e)}'}), 500
 
+@app.route("/projects/<project_id>/scenes/<scene_id>/create", methods=['POST'])
+def create_project_scene(project_id, scene_id):
+    """Create a new scene within a project"""
+    try:
+        import shutil
+        data = request.get_json()
+        creation_type = data.get('creation_type', 'empty')
+        source_scene = data.get('source_scene')
+        
+        project_path = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.exists(project_path):
+            return jsonify({'success': False, 'error': 'Project not found'}), 404
+        
+        # Create scene directory within project
+        scenes_dir = os.path.join(project_path, 'scenes')
+        os.makedirs(scenes_dir, exist_ok=True)
+        
+        scene_path = os.path.join(scenes_dir, scene_id)
+        if os.path.exists(scene_path):
+            return jsonify({'success': False, 'error': 'Scene with this ID already exists'}), 400
+        
+        os.makedirs(scene_path, exist_ok=True)
+        
+        if creation_type == 'copy' and source_scene:
+            # Copy from existing scene in the same project
+            source_path = os.path.join(scenes_dir, source_scene)
+            if not os.path.exists(source_path):
+                return jsonify({'success': False, 'error': 'Source scene not found'}), 404
+            
+            # Copy files from source scene
+            for file in os.listdir(source_path):
+                source_file_path = os.path.join(source_path, file)
+                if os.path.isfile(source_file_path):
+                    # Generate new filename with new scene ID
+                    if file.startswith('text_'):
+                        new_filename = f"text_{scene_id}.txt"
+                    elif file.startswith('image_'):
+                        ext = os.path.splitext(file)[1]
+                        new_filename = f"image_{scene_id}{ext}"
+                    elif file.startswith('music_'):
+                        ext = os.path.splitext(file)[1]
+                        new_filename = f"music_{scene_id}{ext}"
+                    elif file.startswith('tts_'):
+                        ext = os.path.splitext(file)[1]
+                        new_filename = f"tts_{scene_id}{ext}"
+                    elif file.startswith('sis_structure_'):
+                        new_filename = f"sis_structure_{scene_id}.json"
+                    else:
+                        new_filename = file
+                    
+                    dest_file_path = os.path.join(scene_path, new_filename)
+                    
+                    # Copy file content
+                    if file.endswith('.json'):
+                        # Update JSON content with new scene ID
+                        with open(source_file_path, 'r', encoding='utf-8') as f:
+                            content = json.load(f)
+                        content_str = json.dumps(content, indent=2)
+                        content_str = content_str.replace(source_scene, scene_id)
+                        with open(dest_file_path, 'w', encoding='utf-8') as f:
+                            f.write(content_str)
+                    else:
+                        shutil.copy2(source_file_path, dest_file_path)
+        else:
+            # Create empty scene with default files
+            text_file = os.path.join(scene_path, f"text_{scene_id}.txt")
+            with open(text_file, 'w', encoding='utf-8') as f:
+                f.write(f"Text content for scene {scene_id}")
+            
+            sis_file = os.path.join(scene_path, f"sis_structure_{scene_id}.json")
+            default_sis = {
+                "scene_id": scene_id,
+                "title": f"Scene {scene_id}",
+                "description": "Scene description",
+                "elements": [],
+                "created_at": datetime.now().isoformat()
+            }
+            with open(sis_file, 'w', encoding='utf-8') as f:
+                json.dump(default_sis, f, indent=2, ensure_ascii=False)
+        
+        return jsonify({'success': True, 'scene_id': scene_id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route("/projects/<project_id>/scenes/<scene_id>/delete", methods=['POST'])
+def delete_project_scene(project_id, scene_id):
+    """Delete a scene from a project"""
+    try:
+        import shutil
+        project_path = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.exists(project_path):
+            return jsonify({'success': False, 'error': 'Project not found'}), 404
+        
+        scene_path = os.path.join(project_path, 'scenes', scene_id)
+        if not os.path.exists(scene_path):
+            return jsonify({'success': False, 'error': 'Scene not found'}), 404
+        
+        shutil.rmtree(scene_path)
+        
+        return jsonify({'success': True, 'message': f'Scene {scene_id} deleted successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route("/projects/<project_id>/scenes/<scene_id>/file/<filename>")
+def serve_project_scene_file(project_id, scene_id, filename):
+    """Serve scene files from a project"""
+    scene_path = os.path.join(PROJECTS_DIR, project_id, 'scenes', scene_id)
+    return send_from_directory(scene_path, filename)
+
+@app.route("/projects/<project_id>/<scene_id>")
+def project_scene_detail_alt(project_id, scene_id):
+    """Display details of a specific scene within a project using existing scene_detail.html"""
+    scene_path = os.path.join(PROJECTS_DIR, project_id, 'scenes', scene_id)
+    
+    if not os.path.exists(scene_path):
+        return "Scene not found", 404
+    
+    # Collect files
+    files = os.listdir(scene_path)
+    
+    scene_data = {
+        'id': scene_id,
+        'project_id': project_id,
+        'sis_files': [],
+        'text_files': [],
+        'image_files': [],
+        'music_files': [],
+        'tts_files': [],
+        'prompt_files': []
+    }
+    
+    for file in files:
+        if file.startswith('sis_structure_') and file.endswith('.json'):
+            scene_data['sis_files'].append(file)
+        elif file.startswith('text_') and file.endswith('.txt') and not file.endswith('_prompt.txt'):
+            scene_data['text_files'].append(file)
+        elif file.startswith('image_') and file.endswith('.png'):
+            scene_data['image_files'].append(file)
+        elif file.startswith('music_') and file.endswith('.wav'):
+            scene_data['music_files'].append(file)
+        elif file.startswith('tts_') and file.endswith('.wav'):
+            scene_data['tts_files'].append(file)
+        elif file.endswith('_prompt.txt') and (
+            file.startswith('image_') or file.startswith('sis2image_') or file.startswith('prompt_')
+            or file.startswith('text_') or file.startswith('sis2text_')
+            or file.startswith('music_') or file.startswith('sis2music_')
+        ):
+            scene_data['prompt_files'].append(file)
+    
+    return render_template('scene_detail.html', scene=scene_data)
+
+@app.route("/projects/<project_id>/scenes/<scene_id>")
+def project_scene_detail(project_id, scene_id):
+    """Display details of a specific scene within a project"""
+    scene_path = os.path.join(PROJECTS_DIR, project_id, 'scenes', scene_id)
+    
+    if not os.path.exists(scene_path):
+        return "Scene not found", 404
+    
+    # Collect files
+    files = os.listdir(scene_path)
+    
+    scene_data = {
+        'id': scene_id,
+        'project_id': project_id,
+        'sis_files': [],
+        'text_files': [],
+        'image_files': [],
+        'music_files': [],
+        'tts_files': [],
+        'prompt_files': []
+    }
+    
+    for file in files:
+        if file.startswith('sis_structure_') and file.endswith('.json'):
+            scene_data['sis_files'].append(file)
+        elif file.startswith('text_') and file.endswith('.txt') and not file.endswith('_prompt.txt'):
+            scene_data['text_files'].append(file)
+        elif file.startswith('image_') and file.endswith('.png'):
+            scene_data['image_files'].append(file)
+        elif file.startswith('music_') and file.endswith('.wav'):
+            scene_data['music_files'].append(file)
+        elif file.startswith('tts_') and file.endswith('.wav'):
+            scene_data['tts_files'].append(file)
+        elif file.endswith('_prompt.txt') and (
+            file.startswith('image_') or file.startswith('sis2image_') or file.startswith('prompt_')
+            or file.startswith('text_') or file.startswith('sis2text_')
+            or file.startswith('music_') or file.startswith('sis2music_')
+        ):
+            scene_data['prompt_files'].append(file)
+    
+    return render_template('project_scene_detail.html', scene=scene_data)
+
+@app.route("/projects/<project_id>/delete", methods=['POST'])
+def delete_project(project_id):
+    """Delete a project"""
+    try:
+        import shutil
+        project_path = os.path.join(PROJECTS_DIR, project_id)
+        
+        if not os.path.exists(project_path):
+            return jsonify({'success': False, 'error': 'Project not found'}), 404
+        
+        # Remove the entire project directory and all its contents
+        shutil.rmtree(project_path)
+        
+        return jsonify({'success': True, 'message': f'Project {project_id} deleted successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/scene/<scene_id>/delete', methods=['DELETE'])
 def delete_scene(scene_id):
     """Delete a scene"""
     try:
-        scene_path = os.path.join(SCENE_DIR, scene_id)
+        scene_path, _ = find_scene_path(scene_id)
         
-        if not os.path.exists(scene_path):
+        if not scene_path:
             return jsonify({'error': 'Scene not found'}), 404
         
         # Remove the entire scene directory and all its contents
