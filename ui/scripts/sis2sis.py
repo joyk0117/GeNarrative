@@ -18,6 +18,8 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
+from functools import lru_cache
+from string import Template
 
 # 共通基盤のインポート
 from common_base import (
@@ -52,6 +54,18 @@ STORY_TYPE_BLUEPRINTS = {
 }
 
 ALL_SCENE_TYPES = sorted({stype for cfg in STORY_TYPE_BLUEPRINTS.values() for stype in cfg["scene_types"]})
+
+PROMPT_DIR = Path(__file__).parent / 'prompts'
+
+
+@lru_cache(maxsize=8)
+def _load_prompt_template(filename: str) -> Template:
+    """Load and cache prompt templates stored under ui/scripts/prompts."""
+    template_path = PROMPT_DIR / filename
+    if not template_path.exists():
+        raise FileNotFoundError(f"Prompt template not found: {template_path}")
+    with open(template_path, 'r', encoding='utf-8') as prompt_file:
+        return Template(prompt_file.read())
 
 
 def normalize_scene_type_overrides(overrides: Optional[List[Any]], scene_count: int) -> Optional[List[Optional[str]]]:
@@ -429,34 +443,21 @@ class SISTransformer(ContentProcessor):
                     continue
                 summary = scene_sis_list[idx].get('summary', '') if idx < len(scene_sis_list) else ''
                 trunc_summary = (summary[:80] + '...') if summary and len(summary) > 80 else summary
-                assignment_lines.append(f'- Scene {idx + 1}: {override}' + (f' — {trunc_summary}' if trunc_summary else ''))
+                detail = f' — {trunc_summary}' if trunc_summary else ''
+                assignment_lines.append(f'- Scene {idx + 1}: **{override}**{detail}')
             if assignment_lines:
-                assignments_block = "SCENE ROLE ASSIGNMENTS:\n" + "\n".join(assignment_lines) + "\n\n"
-                role_alignment_task = '\n6. Use the scene role assignments when labeling scene_blueprints. '
+                assignments_block = "## Scene Role Assignments\n" + "\n".join(assignment_lines) + "\n\n"
+                role_alignment_task = '6. Use the scene role assignments when labeling scene_blueprints. '
                 role_alignment_task += 'Do not rename the provided scene_type values.'
-        
-        prompt = f"""Analyze the following SceneSIS data and generate a complete StorySIS JSON object.
 
-INPUT SCENES:
-{scenes_json}
-
-{assignments_block}
-TASK:
-{story_type_task}
-2. Extract common themes and overall story meaning
-3. Determine consistent text/visual/audio style policies across scenes
-4. Generate scene_blueprints that reference the provided scenes
-5. Create a complete StorySIS JSON object{role_alignment_task}
-
-REQUIREMENTS:
-- Include ALL required fields: sis_type, story_id, title, summary, semantics, story_type, scene_blueprints
-- Generate a new UUID for story_id
-- {story_type_requirement}
-- In semantics.common, extract themes and descriptions that apply to the whole story
-- In scene_blueprints, create entries that match the input scenes (use scene_type like "ki", "sho", "ten", "ketsu" or "setup", "conflict", "resolution")
-- Respect the provided scene role assignments whenever they are present
-- Output ONLY valid JSON (no prose, no comments)
-"""
+        template = _load_prompt_template('scene2story.md')
+        prompt = template.safe_substitute(
+            SCENES_JSON=scenes_json,
+            STORY_TYPE_TASK=story_type_task,
+            STORY_TYPE_REQUIREMENT=story_type_requirement,
+            ASSIGNMENTS_BLOCK=assignments_block,
+            ROLE_ALIGNMENT_TASK=role_alignment_task
+        ).strip()
         return prompt
     
     def _create_story_to_scene_prompt(self, story_sis: Dict[str, Any], blueprint: Dict[str, Any], index: int) -> str:
@@ -470,31 +471,12 @@ REQUIREMENTS:
         
         story_json = json.dumps(story_context, indent=2, ensure_ascii=False)
         blueprint_json = json.dumps(blueprint, indent=2, ensure_ascii=False)
-        
-        prompt = f"""Generate a complete SceneSIS JSON object based on the provided story context and scene blueprint.
-
-STORY CONTEXT:
-{story_json}
-
-SCENE BLUEPRINT (#{index+1}):
-{blueprint_json}
-
-TASK:
-Generate a detailed SceneSIS that:
-1. Reflects the narrative intent of the blueprint (respect its scene_type and summary) without emitting a scene_type field
-2. Inherits style policies from the story's semantics
-3. Contains rich semantic information (characters, location, time, weather, objects, descriptions)
-4. Provides specific visual/text/audio generation policies suitable for this scene
-
-REQUIREMENTS:
-- Include ALL required fields: sis_type, scene_id, summary, semantics
-- Generate a new UUID for scene_id
-- In semantics.common, provide detailed scene-specific information
-- Include at least one character with name, traits, and visual description
-- Include at least one object with name and colors
-- Provide specific style guidance in semantics.text/visual/audio
-- Output ONLY valid JSON (no prose, no comments)
-"""
+        template = _load_prompt_template('story2scene.md')
+        prompt = template.safe_substitute(
+            STORY_CONTEXT_JSON=story_json,
+            BLUEPRINT_JSON=blueprint_json,
+            BLUEPRINT_INDEX=index + 1
+        ).strip()
         return prompt
 
     def _ensure_scene_sis_structure(
