@@ -6,7 +6,10 @@
 <div class="container">
     <div class="project-header">
         <h2>Project: {{ project_id }}</h2>
-        <a href="/projects" class="btn btn-secondary">← Back to Projects</a>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="btn btn-danger" id="bulkDeleteBtn" style="display: none;" onclick="bulkDeleteScenes()">🗑️ Delete Selected (<span id="selectedCount">0</span>)</button>
+            <a href="/projects" class="btn btn-secondary">← Back to Projects</a>
+        </div>
     </div>
     
     {% if scenes %}
@@ -22,6 +25,7 @@
             
             {% for scene in scenes %}
             <div class="scene-card" draggable="true" data-scene-id="{{ scene.id }}">
+                <input type="checkbox" class="scene-checkbox" data-scene-id="{{ scene.id }}" onclick="event.stopPropagation(); updateBulkDeleteButton();">
                 {% if scene.has_image %}
                 <div class="scene-thumbnail">
                     <img src="/projects/{{ project_id }}/scenes/{{ scene.id }}/file/{{ scene.image_filename }}" 
@@ -209,6 +213,17 @@
     text-align: center;
     cursor: grab;
     transition: transform 0.2s, box-shadow 0.2s;
+    position: relative;
+}
+
+.scene-card .scene-checkbox {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    z-index: 10;
 }
 
 .scene-card:hover {
@@ -1345,6 +1360,63 @@ async function generateScenesFromStory() {
 
 // Save StorySIS (legacy button handler - redirect to new function)
 
+function updateBulkDeleteButton() {
+    const checkboxes = document.querySelectorAll('.scene-checkbox');
+    const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const selectedCount = document.getElementById('selectedCount');
+    
+    if (checkedCount > 0) {
+        bulkDeleteBtn.style.display = 'inline-block';
+        selectedCount.textContent = checkedCount;
+    } else {
+        bulkDeleteBtn.style.display = 'none';
+    }
+}
+
+async function bulkDeleteScenes() {
+    const checkboxes = document.querySelectorAll('.scene-checkbox:checked');
+    const sceneIds = Array.from(checkboxes).map(cb => cb.dataset.sceneId);
+    
+    if (sceneIds.length === 0) {
+        alert('No scenes selected');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${sceneIds.length} selected scene(s)? This action cannot be undone.`)) {
+        return;
+    }
+    
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const originalText = bulkDeleteBtn.innerHTML;
+    bulkDeleteBtn.disabled = true;
+    bulkDeleteBtn.innerHTML = '🔄 Deleting...';
+    
+    try {
+        const response = await fetch(`/projects/{{ project_id }}/bulk_delete_scenes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ scene_ids: sceneIds })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`Successfully deleted ${data.deleted_count} scene(s)!`);
+            location.reload();
+        } else {
+            alert(`Failed to delete scenes: ${data.error}`);
+            bulkDeleteBtn.disabled = false;
+            bulkDeleteBtn.innerHTML = originalText;
+        }
+    } catch (error) {
+        alert(`Error deleting scenes: ${error.message}`);
+        bulkDeleteBtn.disabled = false;
+        bulkDeleteBtn.innerHTML = originalText;
+    }
+}
 
 function showCreateSceneModal() {
     document.getElementById('createSceneModal').style.display = 'flex';

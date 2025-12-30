@@ -10,6 +10,7 @@ import uuid
 import requests
 import time
 import copy
+import shutil
 from datetime import datetime
 
 # Add dev/scripts to Python path for content2sis_unified import
@@ -3254,6 +3255,88 @@ def generate_scenes_from_story(project_id):
             'scenes_created': created_scenes,
             'message': f'Successfully created {len(created_scenes)} scene(s)'
         })
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@app.route('/projects/<project_id>/bulk_delete_scenes', methods=['POST'])
+def bulk_delete_scenes(project_id):
+    """Bulk delete multiple scenes from a project"""
+    try:
+        data = request.get_json()
+        scene_ids = data.get('scene_ids', [])
+        
+        if not scene_ids:
+            return jsonify({'success': False, 'error': 'No scene IDs provided'}), 400
+        
+        project_scenes_dir = os.path.join(PROJECTS_DIR, project_id, 'scenes')
+        if not os.path.exists(project_scenes_dir):
+            return jsonify({'success': False, 'error': 'Project not found'}), 404
+        
+        deleted_count = 0
+        failed_scenes = []
+        
+        # Delete each scene directory
+        for scene_id in scene_ids:
+            scene_path = os.path.join(project_scenes_dir, scene_id)
+            if os.path.exists(scene_path):
+                try:
+                    shutil.rmtree(scene_path)
+                    deleted_count += 1
+                except Exception as e:
+                    failed_scenes.append({'scene_id': scene_id, 'error': str(e)})
+            else:
+                failed_scenes.append({'scene_id': scene_id, 'error': 'Scene not found'})
+        
+        # Update scene_arrangement.json to remove deleted scenes
+        arrangement_file = os.path.join(PROJECTS_DIR, project_id, 'scene_arrangement.json')
+        if os.path.exists(arrangement_file):
+            try:
+                with open(arrangement_file, 'r', encoding='utf-8') as f:
+                    arrangement_data = json.load(f)
+                
+                # Remove deleted scene IDs from all scene type arrays
+                scenes_by_type = arrangement_data.get('scenes_by_type', {})
+                for scene_type, scene_list in scenes_by_type.items():
+                    scenes_by_type[scene_type] = [s for s in scene_list if s not in scene_ids]
+                
+                arrangement_data['scenes_by_type'] = scenes_by_type
+                arrangement_data['updated_at'] = datetime.now().isoformat()
+                
+                # Write atomically
+                temp_arrangement_file = arrangement_file + '.tmp'
+                try:
+                    with open(temp_arrangement_file, 'w', encoding='utf-8') as f:
+                        json.dump(arrangement_data, f, indent=2, ensure_ascii=False)
+                    
+                    if os.path.exists(arrangement_file):
+                        os.remove(arrangement_file)
+                    os.rename(temp_arrangement_file, arrangement_file)
+                except Exception as e:
+                    if os.path.exists(temp_arrangement_file):
+                        os.remove(temp_arrangement_file)
+                    raise e
+                    
+            except Exception as e:
+                # Log error but don't fail the entire operation
+                print(f"Warning: Failed to update scene_arrangement.json: {str(e)}")
+        
+        response = {
+            'success': True,
+            'deleted_count': deleted_count,
+            'message': f'Successfully deleted {deleted_count} scene(s)'
+        }
+        
+        if failed_scenes:
+            response['failed_scenes'] = failed_scenes
+            response['warning'] = f'{len(failed_scenes)} scene(s) could not be deleted'
+        
+        return jsonify(response)
         
     except Exception as e:
         import traceback
