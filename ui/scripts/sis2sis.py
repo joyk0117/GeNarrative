@@ -14,6 +14,7 @@ import sys
 import json
 import argparse
 import time
+import copy
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
@@ -109,6 +110,66 @@ def _generate_scene_id() -> str:
     Uses timestamp-based identifier; final format is an internal detail.
     """
     return datetime.now().strftime("scene_%Y%m%d_%H%M%S_%f")
+
+
+def _constrain_story_sis_schema_for_story_type(
+    base_schema: Dict[str, Any],
+    story_type: str
+) -> Dict[str, Any]:
+    """Constrain the StorySIS JSON Schema for a selected story_type.
+
+    When story_type is selected, we can tighten the Structured Output schema so that:
+    - story_type is const
+    - scene_blueprints is a fixed-length tuple
+    - each scene_blueprints[i].scene_type is const (slot role)
+
+    NOTE: UI の scene_type_overrides は「入力Sceneの役割ヒント」としてプロンプトにのみ反映し、
+    StorySIS.scene_blueprints のラベル（slot順）は story_type の定義順を必ず維持する。
+    """
+    if story_type not in STORY_TYPE_BLUEPRINTS:
+        return base_schema
+
+    expected_roles = STORY_TYPE_BLUEPRINTS[story_type].get('scene_types', [])
+    if not isinstance(expected_roles, list) or not expected_roles:
+        return base_schema
+
+    schema = copy.deepcopy(base_schema)
+    props = schema.get('properties')
+    if not isinstance(props, dict):
+        return schema
+
+    story_type_prop = props.get('story_type')
+    if isinstance(story_type_prop, dict):
+        story_type_prop['const'] = story_type
+        story_type_prop.setdefault('type', 'string')
+    else:
+        props['story_type'] = {'type': 'string', 'const': story_type}
+
+    sb = props.get('scene_blueprints')
+    if not isinstance(sb, dict):
+        sb = {'type': 'array'}
+        props['scene_blueprints'] = sb
+
+    sb['type'] = 'array'
+    sb['minItems'] = len(expected_roles)
+    sb['maxItems'] = len(expected_roles)
+
+    items: List[Dict[str, Any]] = []
+    for role in expected_roles:
+        items.append({
+            'type': 'object',
+            'properties': {
+                'scene_type': {'type': 'string', 'const': role},
+                'summary': {'type': 'string'}
+            },
+            'required': ['scene_type', 'summary'],
+            'additionalProperties': False
+        })
+
+    sb['items'] = items
+    sb['additionalItems'] = False
+
+    return schema
 
 
 def _build_story_type_guide(selected_story_type: Optional[str] = None) -> str:
@@ -251,6 +312,12 @@ class SISTransformer(ContentProcessor):
             
             # StorySISスキーマの取得
             story_sis_schema = self._story_sis_schema()
+            # story_type が選択されている場合は、Schema側を上書きしてLLM出力を強制する
+            if requested_story_type:
+                story_sis_schema = _constrain_story_sis_schema_for_story_type(
+                    story_sis_schema,
+                    requested_story_type
+                )
             
             # プロンプト作成
             prompt = self._create_scenes_to_story_prompt(
@@ -279,10 +346,12 @@ class SISTransformer(ContentProcessor):
             # LLM が何か値を返していても上書きする
             story_sis_json['story_id'] = _generate_story_id()
 
-            if manual_scene_type_count:
+            # story_type 未指定の場合のみ、手動指定を出力側にも反映する
+            # story_type を選択している場合は、scene_blueprints のラベル順を固定する（B仕様）
+            if (not requested_story_type) and manual_scene_type_count:
                 blueprints = story_sis_json.get('scene_blueprints')
                 if isinstance(blueprints, list):
-                    for idx, override in enumerate(manual_scene_types):
+                    for idx, override in enumerate(manual_scene_types or []):
                         if override and idx < len(blueprints):
                             bp = blueprints[idx]
                             if isinstance(bp, dict):
