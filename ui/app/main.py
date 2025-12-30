@@ -2853,6 +2853,255 @@ def delete_scene(scene_id):
     except Exception as e:
         return jsonify({'error': f'Error deleting scene: {str(e)}'}), 500
 
+@app.route('/projects/<project_id>/generate_story_sis', methods=['POST'])
+def generate_project_story_sis(project_id):
+    """Generate StorySIS from project scenes arranged by scene_type"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        story_type = data.get('story_type')
+        scenes_by_type = data.get('scenes_by_type', {})
+        
+        if not story_type:
+            return jsonify({'success': False, 'error': 'story_type is required'}), 400
+        
+        if not scenes_by_type or not isinstance(scenes_by_type, dict):
+            return jsonify({'success': False, 'error': 'scenes_by_type must be a dictionary'}), 400
+        
+        # Verify project exists
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+        
+        # Load SceneSIS data for each scene
+        scenes_list = []
+        scene_type_overrides = []
+        
+        for scene_type, scene_ids in scenes_by_type.items():
+            for scene_id in scene_ids:
+                # Find scene path
+                scene_path, _ = find_scene_path(scene_id)
+                if not scene_path:
+                    return jsonify({
+                        'success': False,
+                        'error': f'Scene {scene_id} not found'
+                    }), 404
+                
+                # Load SceneSIS (try both naming conventions)
+                sis_file = os.path.join(scene_path, f"sis_structure_{scene_id}.json")
+                if not os.path.exists(sis_file):
+                    # Fallback to alternative naming
+                    sis_file = os.path.join(scene_path, f"{scene_id}_sis.json")
+                    if not os.path.exists(sis_file):
+                        return jsonify({
+                            'success': False,
+                            'error': f'SceneSIS not found for scene {scene_id}'
+                        }), 404
+                
+                with open(sis_file, 'r', encoding='utf-8') as f:
+                    scene_sis = json.load(f)
+                
+                scenes_list.append(scene_sis)
+                scene_type_overrides.append(scene_type)
+        
+        if not scenes_list:
+            return jsonify({
+                'success': False,
+                'error': 'No scenes provided'
+            }), 400
+        
+        # Import and run the transformation
+        from sis2sis import scene2story
+        
+        result = scene2story(
+            scene_sis_list=scenes_list,
+            api_config=APIConfig(),
+            requested_story_type=story_type,
+            scene_type_overrides=scene_type_overrides
+        )
+        
+        if result.get('success'):
+            # Extract story_sis from result
+            story_sis = result.get('story_sis') or result.get('data', {}).get('story_sis', {})
+            
+            if not story_sis:
+                return jsonify({
+                    'success': False,
+                    'error': 'No StorySIS generated'
+                }), 500
+            
+            return jsonify({
+                'success': True,
+                'story_sis': story_sis
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Unknown error during StorySIS generation')
+            }), 500
+            
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        }), 500
+
+@app.route('/projects/<project_id>/save_story_sis', methods=['POST'])
+def save_project_story_sis(project_id):
+    """Save StorySIS to project directory"""
+    try:
+        story_sis = request.get_json()
+        if not story_sis:
+            return jsonify({'success': False, 'error': 'No StorySIS data provided'}), 400
+        
+        # Verify project exists
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+        
+        # Create story directory
+        story_dir = os.path.join(project_dir, 'story')
+        os.makedirs(story_dir, exist_ok=True)
+        
+        # Save StorySIS
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        story_filename = f'story_{timestamp}.json'
+        story_file = os.path.join(story_dir, story_filename)
+        
+        with open(story_file, 'w', encoding='utf-8') as f:
+            json.dump(story_sis, f, indent=2, ensure_ascii=False)
+        
+        return jsonify({
+            'success': True,
+            'file_path': story_file,
+            'filename': story_filename,
+            'message': f'StorySIS saved to {story_filename}'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error saving StorySIS: {str(e)}'
+        }), 500
+
+@app.route('/projects/<project_id>/get_story_sis')
+def get_project_story_sis(project_id):
+    """Get the latest StorySIS from project directory"""
+    try:
+        # Verify project exists
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+        
+        # Get story directory
+        story_dir = os.path.join(project_dir, 'story')
+        if not os.path.isdir(story_dir):
+            return jsonify({'success': True, 'story_sis': None})
+        
+        # Find all story files
+        story_files = [f for f in os.listdir(story_dir) if f.startswith('story_') and f.endswith('.json')]
+        
+        if not story_files:
+            return jsonify({'success': True, 'story_sis': None})
+        
+        # Get the latest file
+        story_files.sort(reverse=True)
+        latest_file = os.path.join(story_dir, story_files[0])
+        
+        with open(latest_file, 'r', encoding='utf-8') as f:
+            story_sis = json.load(f)
+        
+        return jsonify({
+            'success': True,
+            'story_sis': story_sis,
+            'filename': story_files[0]
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error loading StorySIS: {str(e)}'
+        }), 500
+
+@app.route('/projects/<project_id>/save_scene_arrangement', methods=['POST'])
+def save_scene_arrangement(project_id):
+    """Save scene arrangement (scene-to-scene_type mapping) to project directory"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        story_type = data.get('story_type')
+        scenes_by_type = data.get('scenes_by_type', {})
+        
+        if not story_type:
+            return jsonify({'success': False, 'error': 'story_type is required'}), 400
+        
+        # Verify project exists
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+        
+        # Create story directory
+        story_dir = os.path.join(project_dir, 'story')
+        os.makedirs(story_dir, exist_ok=True)
+        
+        # Save scene arrangement
+        arrangement_file = os.path.join(story_dir, 'scene_arrangement.json')
+        arrangement_data = {
+            'story_type': story_type,
+            'scenes_by_type': scenes_by_type,
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        with open(arrangement_file, 'w', encoding='utf-8') as f:
+            json.dump(arrangement_data, f, indent=2, ensure_ascii=False)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Scene arrangement saved successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error saving scene arrangement: {str(e)}'
+        }), 500
+
+@app.route('/projects/<project_id>/get_scene_arrangement')
+def get_scene_arrangement(project_id):
+    """Get scene arrangement from project directory"""
+    try:
+        # Verify project exists
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+        
+        # Get story directory
+        story_dir = os.path.join(project_dir, 'story')
+        arrangement_file = os.path.join(story_dir, 'scene_arrangement.json')
+        
+        if not os.path.exists(arrangement_file):
+            return jsonify({'success': True, 'arrangement': None})
+        
+        with open(arrangement_file, 'r', encoding='utf-8') as f:
+            arrangement_data = json.load(f)
+        
+        return jsonify({
+            'success': True,
+            'arrangement': arrangement_data
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error loading scene arrangement: {str(e)}'
+        }), 500
+
 @app.route("/story/<filename>/generate_video", methods=['POST'])
 def generate_story_video(filename):
     """Generate video from story HTML file and return for download"""

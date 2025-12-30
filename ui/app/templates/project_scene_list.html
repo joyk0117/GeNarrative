@@ -60,14 +60,52 @@
     <!-- Story Creation Area -->
     <div class="narrative-section">
         <h2>Create Story</h2>
-        <p>Drag scenes from above to arrange them in your story sequence</p>
-        <div class="narrative-timeline" id="narrativeTimeline">
-            <div class="timeline-placeholder">Drop scenes here to create your story</div>
+        
+        <!-- Story Type Selection -->
+        <div style="margin: 16px 0;">
+            <label for="storyTypeSelect" style="font-weight: 600; margin-right: 12px;">Story Type:</label>
+            <select id="storyTypeSelect" style="padding: 6px 12px; border-radius: 4px; border: 1px solid #ddd;">
+                <option value="">Select story type...</option>
+                <option value="three_act">Three Act (setup, conflict, resolution)</option>
+                <option value="kishotenketsu">Kishotenketsu (ki, sho, ten, ketsu)</option>
+                <option value="circular">Circular (home_start, away, change, home_end)</option>
+                <option value="attempts">Attempts (problem, attempt, result)</option>
+                <option value="catalog">Catalog (intro, entry, outro)</option>
+            </select>
         </div>
-        <div class="narrative-controls">
-            <button class="btn btn-success" id="generateNarrative">Generate Story</button>
-            <button class="btn btn-secondary" id="clearNarrative">Clear All</button>
+        
+        <!-- Scene Type Lanes -->
+        <div id="sceneTypeLanes" style="display: none; margin-top: 20px;">
+            <p style="color: #666; margin-bottom: 16px;">Drag scenes from above into the appropriate scene type slots below:</p>
+            <div id="lanesContainer"></div>
         </div>
+        
+        <div class="narrative-controls" style="margin-top: 20px;">
+            <button class="btn btn-success" id="generateStorySIS" disabled>Generate StorySIS</button>
+            <button class="btn btn-secondary" id="clearStoryLanes" disabled>Clear All</button>
+        </div>
+        
+        <!-- StorySIS Result Display (Scene-like Design) -->
+        <section id="storySISResult" class="scene-section sis-section" style="display: none; margin-top: 40px; border-top: 2px solid #dee2e6; padding-top: 30px;">
+            <h3>StorySIS (Story Information Structure)</h3>
+            <div class="sis-controls-container">
+                <div class="sis-edit-main-controls">
+                    <button class="btn btn-edit" onclick="toggleStorySISEdit()">✏️ Edit</button>
+                    <button class="btn btn-save" id="btnStorySISSave" onclick="saveStorySIS()" style="display: none;">💾 Save</button>
+                    <button class="btn btn-cancel" id="btnStorySISCancel" onclick="cancelStorySISEdit()" style="display: none;">❌ Cancel</button>
+                    <button class="btn btn-download" onclick="downloadStorySIS()">💾 Download</button>
+                </div>
+                <div class="sis-generation-controls">
+                    <button class="btn btn-generate-sis" onclick="copyStorySISToClipboard()">📋 Copy</button>
+                </div>
+            </div>
+            <div class="sis-container">
+                <h4 id="storySISFilename">StorySIS</h4>
+                <div class="sis-editor">
+                    <textarea id="storySISContent" rows="20" readonly style="width: 100%; min-height: 400px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 14px; border: 1px solid #ddd; border-radius: 4px; padding: 10px; resize: vertical;"></textarea>
+                </div>
+            </div>
+        </section>
     </div>
 </div>
 
@@ -399,6 +437,115 @@
     border-radius: 8px;
 }
 
+/* Scene Section Styles (for StorySIS display) */
+.scene-section {
+    margin-bottom: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 20px;
+    background: #f9f9f9;
+    position: relative;
+}
+
+.scene-section h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+}
+
+.sis-section {
+    margin-top: 40px;
+    border-top: 2px solid #dee2e6;
+    padding-top: 30px;
+}
+
+.sis-container {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.sis-editor textarea {
+    width: 100%;
+    min-height: 400px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    resize: vertical;
+}
+
+.sis-controls-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.sis-edit-main-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.sis-generation-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.btn-edit {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.btn-edit:hover {
+    background-color: #e0a800;
+}
+
+.btn-save {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-save:hover {
+    background-color: #218838;
+}
+
+.btn-cancel {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-cancel:hover {
+    background-color: #5a6268;
+}
+
+.btn-download {
+    background-color: #17a2b8;
+    color: white;
+}
+
+.btn-download:hover {
+    background-color: #138496;
+}
+
+.btn-generate-sis {
+    background-color: #6f42c1;
+    color: white;
+}
+
+.btn-generate-sis:hover {
+    background-color: #5a359a;
+}
+
 .narrative-timeline {
     min-height: 120px;
     background: white;
@@ -425,10 +572,699 @@
     gap: 10px;
     justify-content: center;
 }
+
+/* Story Type Lanes Styles */
+.scene-type-lane {
+    border: 2px dashed #ced4da;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    background: white;
+    min-height: 100px;
+    display: flex;
+    align-items: flex-start;
+}
+
+.scene-type-label {
+    font-weight: 600;
+    color: #495057;
+    min-width: 150px;
+    padding: 8px 16px;
+    background: #e9ecef;
+    border-radius: 6px;
+    margin-right: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.scene-type-drop-zone {
+    flex: 1;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px;
+    min-height: 80px;
+    align-items: flex-start;
+    align-content: flex-start;
+}
+
+.scene-type-drop-zone.drag-over {
+    background: #e7f3ff;
+    border: 2px dashed #007bff;
+    border-radius: 6px;
+}
+
+.scene-mini-card {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 12px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: move;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.scene-mini-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.scene-mini-card.dragging {
+    opacity: 0.5;
+}
+
+.scene-mini-card.dragging-mini {
+    opacity: 0.4;
+    cursor: grabbing;
+    transform: scale(0.95);
+}
+
+.scene-mini-card .scene-thumb {
+    width: 40px;
+    height: 30px;
+    border-radius: 4px;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.scene-mini-card .scene-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.scene-mini-card .scene-name {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.scene-mini-card .remove-from-lane {
+    margin-left: auto;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.scene-mini-card .remove-from-lane:hover {
+    background: #c82333;
+}
 </style>
 
 <script>
 const projectId = "{{ project_id }}";
+
+// Story type definitions
+const STORY_TYPE_BLUEPRINTS = {
+    'three_act': ['setup', 'conflict', 'resolution'],
+    'kishotenketsu': ['ki', 'sho', 'ten', 'ketsu'],
+    'circular': ['home_start', 'away', 'change', 'home_end'],
+    'attempts': ['problem', 'attempt', 'result'],
+    'catalog': ['intro', 'entry', 'outro']
+};
+
+// Scene data storage
+const scenesData = {};
+let currentDraggedScene = null;
+let storySISEditMode = false;
+let originalStorySISContent = '';
+
+// Initialize scenes data from page
+document.addEventListener('DOMContentLoaded', function() {
+    const sceneCards = document.querySelectorAll('.scene-card:not(.create-scene-card)');
+    sceneCards.forEach(card => {
+        const sceneId = card.dataset.sceneId;
+        const imageEl = card.querySelector('.thumbnail-image');
+        scenesData[sceneId] = {
+            id: sceneId,
+            hasImage: card.querySelector('.scene-thumbnail:not(.no-image)') !== null,
+            imageUrl: imageEl ? imageEl.src : null
+        };
+    });
+    
+    // Setup drag events for scene cards
+    setupSceneDragEvents();
+    
+    // Load existing StorySIS if available
+    loadExistingStorySIS();
+});
+
+// Story type selection handler
+document.getElementById('storyTypeSelect').addEventListener('change', function() {
+    const storyType = this.value;
+    const sceneTypeLanes = document.getElementById('sceneTypeLanes');
+    const lanesContainer = document.getElementById('lanesContainer');
+    const generateBtn = document.getElementById('generateStorySIS');
+    const clearBtn = document.getElementById('clearStoryLanes');
+    
+    if (!storyType) {
+        sceneTypeLanes.style.display = 'none';
+        generateBtn.disabled = true;
+        clearBtn.disabled = true;
+        return;
+    }
+    
+    // Show lanes and create scene type lanes
+    sceneTypeLanes.style.display = 'block';
+    generateBtn.disabled = false;
+    clearBtn.disabled = false;
+    
+    const sceneTypes = STORY_TYPE_BLUEPRINTS[storyType] || [];
+    lanesContainer.innerHTML = '';
+    
+    sceneTypes.forEach(sceneType => {
+        const lane = document.createElement('div');
+        lane.className = 'scene-type-lane';
+        lane.dataset.sceneType = sceneType;
+        
+        const label = document.createElement('div');
+        label.className = 'scene-type-label';
+        label.textContent = sceneType;
+        
+        const dropZone = document.createElement('div');
+        dropZone.className = 'scene-type-drop-zone';
+        dropZone.dataset.sceneType = sceneType;
+        
+        // Setup drop zone events
+        setupDropZoneEvents(dropZone);
+        
+        lane.appendChild(label);
+        lane.appendChild(dropZone);
+        lanesContainer.appendChild(lane);
+    });
+});
+
+// Setup drag events for scene cards
+function setupSceneDragEvents() {
+    const sceneCards = document.querySelectorAll('.scene-card:not(.create-scene-card)');
+    sceneCards.forEach(card => {
+        card.draggable = true;
+        
+        card.addEventListener('dragstart', function(e) {
+            currentDraggedScene = card.dataset.sceneId;
+            card.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'copy';
+            e.dataTransfer.setData('text/plain', card.dataset.sceneId);
+        });
+        
+        card.addEventListener('dragend', function(e) {
+            card.classList.remove('dragging');
+            currentDraggedScene = null;
+        });
+    });
+}
+
+// Setup drop zone events
+function setupDropZoneEvents(dropZone) {
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        
+        const source = e.dataTransfer.types.includes('source') ? 'lane' : 'grid';
+        e.dataTransfer.dropEffect = source === 'lane' ? 'move' : 'copy';
+        
+        dropZone.classList.add('drag-over');
+        
+        // Handle dragging within lane for reordering
+        const draggingElement = document.querySelector('.dragging-mini');
+        if (draggingElement && draggingElement.parentElement === dropZone) {
+            const afterElement = getDragAfterElement(dropZone, e.clientY);
+            if (afterElement == null) {
+                dropZone.appendChild(draggingElement);
+            } else {
+                dropZone.insertBefore(draggingElement, afterElement);
+            }
+        }
+    });
+    
+    dropZone.addEventListener('dragleave', function(e) {
+        // Only remove drag-over if leaving the drop zone entirely
+        if (e.target === dropZone) {
+            dropZone.classList.remove('drag-over');
+        }
+    });
+    
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        
+        const sceneId = e.dataTransfer.getData('text/plain');
+        const source = e.dataTransfer.types.includes('source') ? 'lane' : 'grid';
+        
+        if (!sceneId || !scenesData[sceneId]) {
+            return;
+        }
+        
+        if (source === 'lane') {
+            // Moving from another lane or reordering within same lane
+            const draggingElement = document.querySelector('.dragging-mini');
+            if (draggingElement) {
+                // Remove from original location if moving to different lane
+                if (draggingElement.parentElement !== dropZone) {
+                    draggingElement.remove();
+                    addSceneToLane(dropZone, sceneId);
+                } else {
+                    // Just reordering within same lane
+                    updateSceneArrangement();
+                }
+            }
+        } else {
+            // Adding from scene grid
+            addSceneToLane(dropZone, sceneId);
+        }
+    });
+}
+
+// Get element after which the dragged item should be inserted
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.scene-mini-card:not(.dragging-mini)')];
+    
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+// Add scene to lane
+function addSceneToLane(dropZone, sceneId) {
+    // Check if already in this lane
+    if (dropZone.querySelector(`[data-scene-id="${sceneId}"]`)) {
+        return;
+    }
+    
+    const sceneData = scenesData[sceneId];
+    const miniCard = document.createElement('div');
+    miniCard.className = 'scene-mini-card';
+    miniCard.dataset.sceneId = sceneId;
+    miniCard.draggable = true;
+    
+    const thumb = document.createElement('div');
+    thumb.className = 'scene-thumb';
+    if (sceneData.hasImage && sceneData.imageUrl) {
+        const img = document.createElement('img');
+        img.src = sceneData.imageUrl;
+        thumb.appendChild(img);
+    } else {
+        thumb.textContent = '📄';
+    }
+    
+    const name = document.createElement('div');
+    name.className = 'scene-name';
+    name.textContent = sceneId;
+    
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'remove-from-lane';
+    removeBtn.innerHTML = '×';
+    removeBtn.onclick = function(e) {
+        e.stopPropagation();
+        miniCard.remove();
+        // Update scene arrangement when a scene is removed
+        updateSceneArrangement();
+    };
+    
+    miniCard.appendChild(thumb);
+    miniCard.appendChild(name);
+    miniCard.appendChild(removeBtn);
+    
+    // Setup drag events for mini card
+    setupMiniCardDragEvents(miniCard);
+    
+    dropZone.appendChild(miniCard);
+    
+    // Update scene arrangement when a scene is added
+    updateSceneArrangement();
+}
+
+// Setup drag events for mini cards in lanes
+function setupMiniCardDragEvents(miniCard) {
+    miniCard.addEventListener('dragstart', function(e) {
+        miniCard.classList.add('dragging-mini');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', miniCard.dataset.sceneId);
+        e.dataTransfer.setData('source', 'lane');
+    });
+    
+    miniCard.addEventListener('dragend', function(e) {
+        miniCard.classList.remove('dragging-mini');
+    });
+}
+
+// Update scene arrangement (auto-save current state)
+async function updateSceneArrangement() {
+    const storyType = document.getElementById('storyTypeSelect').value;
+    if (!storyType) {
+        return;
+    }
+    
+    // Collect current scene arrangement
+    const lanes = document.querySelectorAll('.scene-type-lane');
+    const scenesByType = {};
+    
+    lanes.forEach(lane => {
+        const sceneType = lane.dataset.sceneType;
+        const dropZone = lane.querySelector('.scene-type-drop-zone');
+        const sceneMiniCards = dropZone.querySelectorAll('.scene-mini-card');
+        
+        scenesByType[sceneType] = Array.from(sceneMiniCards).map(card => card.dataset.sceneId);
+    });
+    
+    // Save arrangement
+    await saveSceneArrangement(storyType, scenesByType);
+}
+
+// Clear all lanes
+document.getElementById('clearStoryLanes').addEventListener('click', async function() {
+    const dropZones = document.querySelectorAll('.scene-type-drop-zone');
+    dropZones.forEach(zone => {
+        zone.innerHTML = '';
+    });
+    document.getElementById('storySISResult').style.display = 'none';
+    
+    // Update scene arrangement when lanes are cleared
+    await updateSceneArrangement();
+});
+
+// Generate StorySIS
+document.getElementById('generateStorySIS').addEventListener('click', async function() {
+    const storyType = document.getElementById('storyTypeSelect').value;
+    if (!storyType) {
+        alert('Please select a story type first');
+        return;
+    }
+    
+    // Collect scenes from lanes
+    const lanes = document.querySelectorAll('.scene-type-lane');
+    const scenesByType = {};
+    
+    lanes.forEach(lane => {
+        const sceneType = lane.dataset.sceneType;
+        const dropZone = lane.querySelector('.scene-type-drop-zone');
+        const sceneMiniCards = dropZone.querySelectorAll('.scene-mini-card');
+        
+        scenesByType[sceneType] = Array.from(sceneMiniCards).map(card => card.dataset.sceneId);
+    });
+    
+    // Check if at least one scene is assigned
+    const totalScenes = Object.values(scenesByType).flat().length;
+    if (totalScenes === 0) {
+        alert('Please assign at least one scene to a lane');
+        return;
+    }
+    
+    try {
+        this.disabled = true;
+        this.textContent = 'Generating...';
+        
+        // Save scene arrangement first
+        await saveSceneArrangement(storyType, scenesByType);
+        
+        const response = await fetch(`/projects/${projectId}/generate_story_sis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                story_type: storyType,
+                scenes_by_type: scenesByType
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayStorySIS(data.story_sis);
+            
+            // Auto-save generated StorySIS
+            await autoSaveStorySIS(data.story_sis);
+        } else {
+            alert(`Failed to generate StorySIS: ${data.error}`);
+        }
+    } catch (error) {
+        alert(`Error generating StorySIS: ${error.message}`);
+    } finally {
+        this.disabled = false;
+        this.textContent = 'Generate StorySIS';
+    }
+});
+
+// Auto-save StorySIS after generation
+async function autoSaveStorySIS(storySIS) {
+    try {
+        const response = await fetch(`/projects/${projectId}/save_story_sis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(storySIS)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            console.log('StorySIS auto-saved successfully');
+            // Update filename display without reloading scene arrangement
+            document.getElementById('storySISFilename').textContent = data.filename || 'StorySIS';
+        } else {
+            console.error('Failed to auto-save StorySIS:', data.error);
+        }
+    } catch (error) {
+        console.error('Error auto-saving StorySIS:', error);
+    }
+}
+
+// Display StorySIS result
+function displayStorySIS(storySIS, filename = null) {
+    const resultDiv = document.getElementById('storySISResult');
+    const contentTextarea = document.getElementById('storySISContent');
+    const filenameH4 = document.getElementById('storySISFilename');
+    
+    contentTextarea.value = JSON.stringify(storySIS, null, 2);
+    if (filename) {
+        filenameH4.textContent = filename;
+    }
+    resultDiv.style.display = 'block';
+    resultDiv.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Load existing StorySIS
+async function loadExistingStorySIS() {
+    try {
+        const response = await fetch(`/projects/${projectId}/get_story_sis`);
+        const data = await response.json();
+        
+        if (data.success && data.story_sis) {
+            displayStorySIS(data.story_sis, data.filename);
+        }
+        
+        // Load scene arrangement separately
+        await loadSceneArrangement();
+    } catch (error) {
+        console.error('Error loading existing StorySIS:', error);
+    }
+}
+
+// Load scene arrangement from separate file
+async function loadSceneArrangement() {
+    try {
+        const response = await fetch(`/projects/${projectId}/get_scene_arrangement`);
+        const data = await response.json();
+        
+        if (data.success && data.arrangement) {
+            restoreStoryTypeAndScenes(data.arrangement);
+        }
+    } catch (error) {
+        console.error('Error loading scene arrangement:', error);
+    }
+}
+
+// Restore story type selection and scene arrangement from arrangement data
+function restoreStoryTypeAndScenes(arrangement) {
+    if (!arrangement || !arrangement.story_type) {
+        return;
+    }
+    
+    const storyTypeSelect = document.getElementById('storyTypeSelect');
+    const storyType = arrangement.story_type;
+    
+    // Set story type
+    storyTypeSelect.value = storyType;
+    
+    // Trigger change event to generate lanes
+    const changeEvent = new Event('change');
+    storyTypeSelect.dispatchEvent(changeEvent);
+    
+    // Wait for lanes to be created, then populate them
+    setTimeout(() => {
+        populateLanesFromArrangement(arrangement.scenes_by_type);
+    }, 100);
+}
+
+// Populate lanes with scenes from arrangement data
+function populateLanesFromArrangement(scenesByType) {
+    if (!scenesByType || typeof scenesByType !== 'object') {
+        return;
+    }
+    
+    // Add scenes to their respective lanes
+    Object.entries(scenesByType).forEach(([sceneType, sceneIds]) => {
+        const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${sceneType}"]`);
+        if (dropZone && Array.isArray(sceneIds)) {
+            sceneIds.forEach(sceneId => {
+                if (scenesData[sceneId]) {
+                    addSceneToLane(dropZone, sceneId);
+                }
+            });
+        }
+    });
+}
+
+// Save scene arrangement before generating StorySIS
+async function saveSceneArrangement(storyType, scenesByType) {
+    try {
+        const response = await fetch(`/projects/${projectId}/save_scene_arrangement`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                story_type: storyType,
+                scenes_by_type: scenesByType
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            console.error('Failed to save scene arrangement:', data.error);
+        }
+    } catch (error) {
+        console.error('Error saving scene arrangement:', error);
+    }
+}
+
+// Toggle StorySIS edit mode
+function toggleStorySISEdit() {
+    const textarea = document.getElementById('storySISContent');
+    const saveBtn = document.getElementById('btnStorySISSave');
+    const cancelBtn = document.getElementById('btnStorySISCancel');
+    const editBtn = document.querySelector('#storySISResult .btn-edit');
+    
+    if (!storySISEditMode) {
+        originalStorySISContent = textarea.value;
+        textarea.readOnly = false;
+        textarea.style.background = '#fff';
+        textarea.focus();
+        
+        saveBtn.style.display = 'inline-block';
+        cancelBtn.style.display = 'inline-block';
+        editBtn.style.display = 'none';
+        
+        storySISEditMode = true;
+    }
+}
+
+// Cancel StorySIS edit
+function cancelStorySISEdit() {
+    const textarea = document.getElementById('storySISContent');
+    const saveBtn = document.getElementById('btnStorySISSave');
+    const cancelBtn = document.getElementById('btnStorySISCancel');
+    const editBtn = document.querySelector('#storySISResult .btn-edit');
+    
+    textarea.value = originalStorySISContent;
+    textarea.readOnly = true;
+    textarea.style.background = '#f8f9fa';
+    
+    saveBtn.style.display = 'none';
+    cancelBtn.style.display = 'none';
+    editBtn.style.display = 'inline-block';
+    
+    storySISEditMode = false;
+}
+
+// Save StorySIS (from edit or generate)
+async function saveStorySIS() {
+    const storySISContent = document.getElementById('storySISContent').value;
+    
+    try {
+        const storySIS = JSON.parse(storySISContent);
+        
+        const response = await fetch(`/projects/${projectId}/save_story_sis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(storySIS)
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('StorySIS saved successfully!');
+            
+            // Update filename display
+            if (data.filename) {
+                document.getElementById('storySISFilename').textContent = data.filename;
+            }
+            
+            if (storySISEditMode) {
+                cancelStorySISEdit();
+            }
+        } else {
+            alert(`Failed to save StorySIS: ${data.error}`);
+        }
+    } catch (error) {
+        alert(`Error saving StorySIS: ${error.message}`);
+    }
+}
+
+// Download StorySIS
+function downloadStorySIS() {
+    const storySISContent = document.getElementById('storySISContent').value;
+    const blob = new Blob([storySISContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `story_${projectId}_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Copy StorySIS to clipboard
+function copyStorySISToClipboard() {
+    const storySISContent = document.getElementById('storySISContent').value;
+    navigator.clipboard.writeText(storySISContent).then(() => {
+        alert('StorySIS copied to clipboard!');
+    }).catch(err => {
+        alert('Failed to copy: ' + err.message);
+    });
+}
+
+// Save StorySIS (legacy button handler - redirect to new function)
+
 
 function showCreateSceneModal() {
     document.getElementById('createSceneModal').style.display = 'flex';
