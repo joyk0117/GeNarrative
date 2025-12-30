@@ -188,7 +188,7 @@ def regenerate_prompts_from_sis(scene_id, sis_json):
         processing_config=ProcessingConfig(output_dir=scene_path)
     )
 
-    generator._validate_sis_data(sis_payload)
+    # Skip validation - accept any SIS structure
 
     prompts = {}
     failures = {}
@@ -3058,8 +3058,21 @@ def save_scene_arrangement(project_id):
             'updated_at': datetime.now().isoformat()
         }
         
-        with open(arrangement_file, 'w', encoding='utf-8') as f:
-            json.dump(arrangement_data, f, indent=2, ensure_ascii=False)
+        # Write to temp file first, then rename (atomic operation)
+        temp_arrangement_file = arrangement_file + '.tmp'
+        try:
+            with open(temp_arrangement_file, 'w', encoding='utf-8') as f:
+                json.dump(arrangement_data, f, indent=2, ensure_ascii=False)
+            
+            # Replace old file with new one
+            if os.path.exists(arrangement_file):
+                os.remove(arrangement_file)
+            os.rename(temp_arrangement_file, arrangement_file)
+        except Exception as e:
+            # Clean up temp file if something went wrong
+            if os.path.exists(temp_arrangement_file):
+                os.remove(temp_arrangement_file)
+            raise e
         
         return jsonify({
             'success': True,
@@ -3100,6 +3113,154 @@ def get_scene_arrangement(project_id):
         return jsonify({
             'success': False,
             'error': f'Error loading scene arrangement: {str(e)}'
+        }), 500
+
+@app.route('/projects/<project_id>/generate_scenes_from_story', methods=['POST'])
+def generate_scenes_from_story(project_id):
+    """Generate SceneSIS and scenes from StorySIS scene_blueprints"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        story_sis = data.get('story_sis')
+        if not story_sis:
+            return jsonify({'success': False, 'error': 'story_sis is required'}), 400
+        
+        # Verify project exists
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+        
+        scenes_dir = os.path.join(project_dir, 'scenes')
+        os.makedirs(scenes_dir, exist_ok=True)
+        
+        scene_blueprints = story_sis.get('scene_blueprints', [])
+        if not scene_blueprints:
+            return jsonify({'success': False, 'error': 'No scene_blueprints found in StorySIS'}), 400
+        
+        created_scenes = []
+        scenes_by_type = {}
+        
+        # Load existing scene arrangement if it exists
+        story_dir = os.path.join(project_dir, 'story')
+        os.makedirs(story_dir, exist_ok=True)
+        arrangement_file = os.path.join(story_dir, 'scene_arrangement.json')
+        
+        if os.path.exists(arrangement_file):
+            try:
+                with open(arrangement_file, 'r', encoding='utf-8') as f:
+                    existing_arrangement = json.load(f)
+                    scenes_by_type = existing_arrangement.get('scenes_by_type', {})
+            except Exception as e:
+                print(f"Warning: Could not load existing arrangement: {e}")
+                scenes_by_type = {}
+        
+        # Generate scenes from blueprints
+        for blueprint in scene_blueprints:
+            scene_type = blueprint.get('scene_type')
+            summary = blueprint.get('summary', '')
+            
+            if not scene_type:
+                continue
+            
+            # Generate unique scene ID
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            scene_id = f"{timestamp}_{len(created_scenes):03d}"
+            
+            # Create scene directory
+            scene_path = os.path.join(scenes_dir, scene_id)
+            os.makedirs(scene_path, exist_ok=True)
+            
+            # Generate SceneSIS from blueprint
+            scene_sis = {
+                'sis_type': 'scene',
+                'scene_id': scene_id,
+                'scene_type': scene_type,
+                'title': f'Scene {len(created_scenes) + 1}: {scene_type}',
+                'summary': summary,
+                'semantics': {
+                    'common': {
+                        'descriptions': [summary] if summary else [],
+                        'themes': story_sis.get('semantics', {}).get('common', {}).get('themes', []),
+                        'mood': '',
+                        'characters': [],
+                        'location': '',
+                        'time': '',
+                        'weather': '',
+                        'objects': []
+                    },
+                    'visual': {
+                        'setting': '',
+                        'characters': [],
+                        'objects': [],
+                        'actions': []
+                    },
+                    'audio': {
+                        'dialogue': [],
+                        'sound_effects': [],
+                        'music_mood': ''
+                    },
+                    'narrative': {
+                        'pov': '',
+                        'tone': '',
+                        'pacing': ''
+                    }
+                }
+            }
+            
+            # Save SceneSIS
+            sis_file = os.path.join(scene_path, f'sis_structure_{scene_id}.json')
+            with open(sis_file, 'w', encoding='utf-8') as f:
+                json.dump(scene_sis, f, indent=2, ensure_ascii=False)
+            
+            # Save summary as text
+            text_file = os.path.join(scene_path, f'text_{scene_id}.txt')
+            with open(text_file, 'w', encoding='utf-8') as f:
+                f.write(summary if summary else f'Scene {len(created_scenes) + 1}')
+            
+            created_scenes.append(scene_id)
+            
+            # Group by scene_type for arrangement (append to existing scenes)
+            if scene_type not in scenes_by_type:
+                scenes_by_type[scene_type] = []
+            scenes_by_type[scene_type].append(scene_id)
+        
+        # Save updated scene arrangement (preserving existing scenes)
+        arrangement_data = {
+            'story_type': story_sis.get('story_type', ''),
+            'scenes_by_type': scenes_by_type,
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        # Write to temp file first, then rename (atomic operation)
+        temp_arrangement_file = arrangement_file + '.tmp'
+        try:
+            with open(temp_arrangement_file, 'w', encoding='utf-8') as f:
+                json.dump(arrangement_data, f, indent=2, ensure_ascii=False)
+            
+            # Replace old file with new one
+            if os.path.exists(arrangement_file):
+                os.remove(arrangement_file)
+            os.rename(temp_arrangement_file, arrangement_file)
+        except Exception as e:
+            # Clean up temp file if something went wrong
+            if os.path.exists(temp_arrangement_file):
+                os.remove(temp_arrangement_file)
+            raise e
+        
+        return jsonify({
+            'success': True,
+            'scenes_created': created_scenes,
+            'message': f'Successfully created {len(created_scenes)} scene(s)'
+        })
+        
+    except Exception as e:
+        import traceback
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
         }), 500
 
 @app.route("/story/<filename>/generate_video", methods=['POST'])

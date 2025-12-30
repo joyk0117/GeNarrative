@@ -96,6 +96,7 @@
                     <button class="btn btn-download" onclick="downloadStorySIS()">💾 Download</button>
                 </div>
                 <div class="sis-generation-controls">
+                    <button class="btn btn-generate-sis" onclick="generateScenesFromStory()">🎬 Generate Scenes</button>
                     <button class="btn btn-generate-sis" onclick="copyStorySISToClipboard()">📋 Copy</button>
                 </div>
             </div>
@@ -627,11 +628,13 @@
     align-items: center;
     gap: 8px;
     transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+    user-select: none;
 }
 
 .scene-mini-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    cursor: pointer;
 }
 
 .scene-mini-card.dragging {
@@ -705,6 +708,7 @@ const scenesData = {};
 let currentDraggedScene = null;
 let storySISEditMode = false;
 let originalStorySISContent = '';
+let isRestoringArrangement = false;  // Flag to prevent auto-save during restoration
 
 // Initialize scenes data from page
 document.addEventListener('DOMContentLoaded', function() {
@@ -908,6 +912,13 @@ function addSceneToLane(dropZone, sceneId) {
     miniCard.appendChild(name);
     miniCard.appendChild(removeBtn);
     
+    // Add double-click event to open scene detail
+    miniCard.addEventListener('dblclick', function(e) {
+        e.stopPropagation();
+        // Open scene detail page
+        window.location.href = `/projects/${projectId}/${sceneId}`;
+    });
+    
     // Setup drag events for mini card
     setupMiniCardDragEvents(miniCard);
     
@@ -933,6 +944,11 @@ function setupMiniCardDragEvents(miniCard) {
 
 // Update scene arrangement (auto-save current state)
 async function updateSceneArrangement() {
+    // Skip auto-save during restoration
+    if (isRestoringArrangement) {
+        return;
+    }
+    
     const storyType = document.getElementById('storyTypeSelect').value;
     if (!storyType) {
         return;
@@ -1127,6 +1143,9 @@ function populateLanesFromArrangement(scenesByType) {
         return;
     }
     
+    // Set flag to prevent auto-save during restoration
+    isRestoringArrangement = true;
+    
     // Add scenes to their respective lanes
     Object.entries(scenesByType).forEach(([sceneType, sceneIds]) => {
         const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${sceneType}"]`);
@@ -1138,6 +1157,9 @@ function populateLanesFromArrangement(scenesByType) {
             });
         }
     });
+    
+    // Reset flag after restoration is complete
+    isRestoringArrangement = false;
 }
 
 // Save scene arrangement before generating StorySIS
@@ -1261,6 +1283,64 @@ function copyStorySISToClipboard() {
     }).catch(err => {
         alert('Failed to copy: ' + err.message);
     });
+}
+
+// Generate Scenes from StorySIS
+async function generateScenesFromStory() {
+    const storySISContent = document.getElementById('storySISContent').value;
+    
+    if (!storySISContent) {
+        alert('No StorySIS available. Please generate a StorySIS first.');
+        return;
+    }
+    
+    try {
+        const storySIS = JSON.parse(storySISContent);
+        
+        if (!storySIS.scene_blueprints || storySIS.scene_blueprints.length === 0) {
+            alert('No scene blueprints found in StorySIS');
+            return;
+        }
+        
+        if (!confirm(`This will generate ${storySIS.scene_blueprints.length} new scene(s) in this project. Continue?`)) {
+            return;
+        }
+        
+        // Show loading state
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Generating Scenes...';
+        
+        const response = await fetch(`/projects/${projectId}/generate_scenes_from_story`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                story_sis: storySIS
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`Successfully generated ${data.scenes_created.length} scene(s)!`);
+            
+            // Reload the page to show new scenes
+            location.reload();
+        } else {
+            alert(`Failed to generate scenes: ${data.error}`);
+        }
+        
+        btn.disabled = false;
+        btn.textContent = originalText;
+        
+    } catch (error) {
+        alert(`Error generating scenes: ${error.message}`);
+        event.target.disabled = false;
+        event.target.textContent = '🎬 Generate Scenes';
+    }
 }
 
 // Save StorySIS (legacy button handler - redirect to new function)
