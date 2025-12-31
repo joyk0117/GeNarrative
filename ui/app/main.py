@@ -3129,6 +3129,10 @@ def generate_scenes_from_story(project_id):
             return jsonify({'success': False, 'error': 'story_sis is required'}), 400
         
         scenes_needed = data.get('scenes_needed', {})
+        print(f"[DEBUG] scenes_needed received: {scenes_needed}")
+        
+        if not scenes_needed:
+            return jsonify({'success': False, 'error': 'No scenes needed. All scene types have reached their target count.'}), 400
         
         # Verify project exists
         project_dir = os.path.join(PROJECTS_DIR, project_id)
@@ -3169,15 +3173,20 @@ def generate_scenes_from_story(project_id):
                 blueprints_by_type[scene_type].append(blueprint)
         
         # Generate only needed scenes for each type
+        from sis2sis import story2scene_single
+        
+        print(f"[DEBUG] Starting scene generation loop. blueprints_by_type keys: {list(blueprints_by_type.keys())}")
+        
         for scene_type, needed_count in scenes_needed.items():
+            print(f"[DEBUG] Processing scene_type: {scene_type}, needed_count: {needed_count}")
             if scene_type not in blueprints_by_type:
+                print(f"[DEBUG] Warning: scene_type {scene_type} not found in blueprints_by_type")
                 continue
             
             blueprints = blueprints_by_type[scene_type]
             # Generate up to needed_count scenes from available blueprints
             for i in range(min(needed_count, len(blueprints))):
                 blueprint = blueprints[i % len(blueprints)]  # Cycle through blueprints if needed
-                summary = blueprint.get('summary', '')
                 
                 # Generate unique scene ID
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -3187,52 +3196,116 @@ def generate_scenes_from_story(project_id):
                 scene_path = os.path.join(scenes_dir, scene_id)
                 os.makedirs(scene_path, exist_ok=True)
                 
-                # Generate SceneSIS from blueprint
-                scene_sis = {
-                    'sis_type': 'scene',
-                    'scene_id': scene_id,
-                    'scene_type': scene_type,
-                    'title': f'Scene {len(created_scenes) + 1}: {scene_type}',
-                    'summary': summary,
-                    'semantics': {
-                        'common': {
-                            'descriptions': [summary] if summary else [],
-                            'themes': story_sis.get('semantics', {}).get('common', {}).get('themes', []),
-                            'mood': '',
+                # Use LLM to generate SceneSIS from StorySIS
+                try:
+                    print(f"[DEBUG] Generating SceneSIS for scene_type: {scene_type} using LLM")
+                    result = story2scene_single(
+                        story_sis=story_sis,
+                        blueprint=blueprint,
+                        blueprint_index=i,
+                        api_config=APIConfig()
+                    )
+                    
+                    print(f"[DEBUG] story2scene_single result: success={result.get('success')}")
+                    
+                    if result.get('success'):
+                        scene_sis = result.get('scene_sis', {})
+                        # Update scene_id
+                        scene_sis['scene_id'] = scene_id
+                        print(f"[DEBUG] Successfully generated SceneSIS with LLM for {scene_id}")
+                    else:
+                        # Fallback: create basic SceneSIS if LLM fails
+                        print(f"Warning: LLM generation failed for {scene_type}, using fallback")
+                        summary = blueprint.get('summary', '')
+                        scene_sis = {
+                            'sis_type': 'scene',
+                            'scene_id': scene_id,
+                            'scene_type': scene_type,
+                            'title': f'Scene {len(created_scenes) + 1}: {scene_type}',
+                            'summary': summary,
+                            'semantics': {
+                                'common': {
+                                    'descriptions': [summary] if summary else [],
+                                    'themes': story_sis.get('semantics', {}).get('common', {}).get('themes', []),
+                                    'mood': '',
+                                    'characters': [],
+                                    'location': '',
+                                    'time': '',
+                                    'weather': '',
+                                    'objects': []
+                                },
+                            'visual': {
+                                'setting': '',
+                                'characters': [],
+                                'objects': [],
+                                'actions': []
+                            },
+                            'audio': {
+                                'dialogue': [],
+                                'sound_effects': [],
+                                'music_mood': ''
+                            },
+                            'narrative': {
+                                'pov': '',
+                                'tone': '',
+                                'pacing': ''
+                            }
+                        }
+                        }
+                except Exception as e:
+                    print(f"Error generating SceneSIS with LLM: {str(e)}")
+                    # Fallback: create basic SceneSIS
+                    summary = blueprint.get('summary', '')
+                    scene_sis = {
+                        'sis_type': 'scene',
+                        'scene_id': scene_id,
+                        'scene_type': scene_type,
+                        'title': f'Scene {len(created_scenes) + 1}: {scene_type}',
+                        'summary': summary,
+                        'semantics': {
+                            'common': {
+                                'descriptions': [summary] if summary else [],
+                                'themes': story_sis.get('semantics', {}).get('common', {}).get('themes', []),
+                                'mood': '',
+                                'characters': [],
+                                'location': '',
+                                'time': '',
+                                'weather': '',
+                                'objects': []
+                            },
+                        'visual': {
+                            'setting': '',
                             'characters': [],
-                            'location': '',
-                            'time': '',
-                            'weather': '',
-                            'objects': []
+                            'objects': [],
+                            'actions': []
                         },
-                    'visual': {
-                        'setting': '',
-                        'characters': [],
-                        'objects': [],
-                        'actions': []
-                    },
-                    'audio': {
-                        'dialogue': [],
-                        'sound_effects': [],
-                        'music_mood': ''
-                    },
-                    'narrative': {
-                        'pov': '',
-                        'tone': '',
-                        'pacing': ''
+                        'audio': {
+                            'dialogue': [],
+                            'sound_effects': [],
+                            'music_mood': ''
+                        },
+                        'narrative': {
+                            'pov': '',
+                            'tone': '',
+                            'pacing': ''
+                        }
                     }
-                }
-                }
+                    }
                 
                 # Save SceneSIS
                 sis_file = os.path.join(scene_path, f'sis_structure_{scene_id}.json')
                 with open(sis_file, 'w', encoding='utf-8') as f:
                     json.dump(scene_sis, f, indent=2, ensure_ascii=False)
                 
-                # Save summary as text
+                # Save summary as text (extract from SceneSIS)
+                summary = scene_sis.get('summary', '')
+                if not summary:
+                    descriptions = scene_sis.get('semantics', {}).get('common', {}).get('descriptions', [])
+                    summary = descriptions[0] if descriptions else f'Scene {len(created_scenes) + 1}'
+                
                 text_file = os.path.join(scene_path, f'text_{scene_id}.txt')
                 with open(text_file, 'w', encoding='utf-8') as f:
-                    f.write(summary if summary else f'Scene {len(created_scenes) + 1}')
+                    f.write(summary)
                 
                 created_scenes.append(scene_id)
                 

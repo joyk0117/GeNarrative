@@ -669,6 +669,21 @@
     border-radius: 6px;
 }
 
+.scene-loading-spinner {
+    width: 120px;
+    height: 120px;
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #2196F3;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 .scene-mini-card {
     border: 1px solid #ddd;
     border-radius: 6px;
@@ -1434,6 +1449,18 @@ async function generateScenesFromStory() {
         if (!confirm(`This will generate ${totalNeeded} new scene(s):\n${message}\n\nContinue?`)) {
             return;
         }
+        
+        // Add loading spinners to lanes
+        Object.entries(scenesNeeded).forEach(([sceneType, count]) => {
+            const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${sceneType}"]`);
+            if (dropZone) {
+                for (let i = 0; i < count; i++) {
+                    const spinner = document.createElement('div');
+                    spinner.className = 'scene-loading-spinner';
+                    dropZone.appendChild(spinner);
+                }
+            }
+        });
         
         // Show loading state
         const btn = event.target;
