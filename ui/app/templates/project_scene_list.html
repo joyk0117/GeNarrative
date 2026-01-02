@@ -837,7 +837,7 @@ document.getElementById('storyTypeSelect').addEventListener('change', function()
         maxCountInput.type = 'number';
         maxCountInput.className = 'max-count-input';
         maxCountInput.min = '1';
-        maxCountInput.value = '0';
+        maxCountInput.value = '1';
         maxCountInput.dataset.sceneType = sceneType;
         maxCountInput.addEventListener('change', function() {
             updateLaneColor(sceneType);
