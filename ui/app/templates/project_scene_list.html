@@ -38,6 +38,11 @@
                 </div>
                 {% endif %}
                 <h3>{{ scene.id }}</h3>
+                <div class="scene-status-icons">
+                    {% if scene.has_image %}<span class="status-icon has-content" title="Has Image">🖼️</span>{% else %}<span class="status-icon no-content" title="No Image">🖼️</span>{% endif %}
+                    {% if scene.has_text %}<span class="status-icon has-content" title="Has Text">📝</span>{% else %}<span class="status-icon no-content" title="No Text">📝</span>{% endif %}
+                    {% if scene.has_music %}<span class="status-icon has-content" title="Has Music">🎵</span>{% else %}<span class="status-icon no-content" title="No Music">🎵</span>{% endif %}
+                </div>
                 <div class="scene-buttons">
                     <a href="/projects/{{ project_id }}/{{ scene.id }}" class="btn btn-primary btn-sm">View Details</a>
                     <button class="btn btn-danger btn-sm delete-scene-btn" 
@@ -266,10 +271,32 @@
 }
 
 .scene-card h3 {
-    margin: 0 0 14px 0;
+    margin: 0 0 8px 0;
     color: #333;
     font-size: 16px;
     word-break: break-all;
+}
+
+/* Scene Status Icons */
+.scene-status-icons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 10px;
+}
+
+.status-icon {
+    font-size: 18px;
+    transition: opacity 0.2s;
+}
+
+.status-icon.has-content {
+    opacity: 1;
+}
+
+.status-icon.no-content {
+    opacity: 0.25;
+    filter: grayscale(100%);
 }
 
 /* Scene Buttons Container */

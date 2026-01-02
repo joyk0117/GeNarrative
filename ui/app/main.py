@@ -527,15 +527,23 @@ def project_detail(project_id):
                 scene_info = {
                     'id': item,
                     'has_image': False,
-                    'image_filename': None
+                    'image_filename': None,
+                    'has_text': False,
+                    'has_music': False
                 }
                 
-                # Look for image files in scene directory
+                # Look for files in scene directory
                 for file in os.listdir(scene_path):
+                    # Check for image files
                     if file.startswith('image_') and file.endswith('.png'):
                         scene_info['has_image'] = True
                         scene_info['image_filename'] = file
-                        break
+                    # Check for text files
+                    elif file.startswith('text_') and file.endswith('.txt'):
+                        scene_info['has_text'] = True
+                    # Check for music files
+                    elif file.startswith('music_') and (file.endswith('.mp3') or file.endswith('.wav')):
+                        scene_info['has_music'] = True
                 
                 scenes.append(scene_info)
     
