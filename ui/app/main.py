@@ -3263,16 +3263,6 @@ def generate_scenes_from_story(project_id):
                 with open(sis_file, 'w', encoding='utf-8') as f:
                     json.dump(scene_sis, f, indent=2, ensure_ascii=False)
                 
-                # Save summary as text (extract from SceneSIS)
-                summary = scene_sis.get('summary', '')
-                if not summary:
-                    descriptions = scene_sis.get('semantics', {}).get('common', {}).get('descriptions', [])
-                    summary = descriptions[0] if descriptions else f'Scene {len(created_scenes) + 1}'
-                
-                text_file = os.path.join(scene_path, f'text_{scene_id}.txt')
-                with open(text_file, 'w', encoding='utf-8') as f:
-                    f.write(summary)
-                
                 # Generate prompts from SceneSIS (equivalent to Update Prompts button)
                 try:
                     print(f"[DEBUG] Generating prompts for scene {scene_id}")
