@@ -3336,27 +3336,19 @@ def generate_scenes_from_story(project_id):
                                 f.write(generated_text)
                             print(f"[DEBUG] Text generated successfully for {scene_id}")
                             
-                            # Auto-generate TTS
+                            # Auto-generate TTS (directly call TTS server)
                             try:
                                 print(f"[DEBUG] Auto-generating TTS for scene {scene_id}")
-                                tts_result = generate_content(
-                                    sis_data=scene_sis,
-                                    content_type='tts',
-                                    api_config=api_config,
-                                    processing_config=ProcessingConfig(output_dir='/app/shared'),
-                                    generation_config=GenerationConfig(),
-                                    custom_timestamp=datetime.now().strftime("%Y%m%d_%H%M%S"),
-                                    test_case_name=f"scene_{scene_id}",
-                                    text_content=generated_text
-                                )
-                                if isinstance(tts_result, dict) and tts_result.get('success'):
-                                    tts_path = tts_result.get('audio_path')
-                                    if tts_path and os.path.exists(tts_path):
-                                        import shutil
-                                        tts_filename = f"speech_{scene_id}.wav"
-                                        tts_dest = os.path.join(scene_path, tts_filename)
-                                        shutil.copy(tts_path, tts_dest)
-                                        print(f"[DEBUG] TTS generated successfully for {scene_id}")
+                                tts_params = {'text': generated_text}
+                                tts_resp = requests.get("http://tts:5002/api/tts", params=tts_params, timeout=(5, 90))
+                                if tts_resp.status_code == 200:
+                                    tts_filename = f"tts_{scene_id}.wav"
+                                    tts_path = os.path.join(scene_path, tts_filename)
+                                    with open(tts_path, 'wb') as f:
+                                        f.write(tts_resp.content)
+                                    print(f"[DEBUG] TTS generated successfully for {scene_id}")
+                                else:
+                                    print(f"[WARNING] TTS generation failed for {scene_id}: HTTP {tts_resp.status_code}")
                             except Exception as e:
                                 print(f"[WARNING] Failed to auto-generate TTS for {scene_id}: {str(e)}")
                     else:
