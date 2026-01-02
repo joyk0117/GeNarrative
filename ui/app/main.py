@@ -2774,48 +2774,6 @@ def project_scene_detail_alt(project_id, scene_id):
     
     return render_template('scene_detail.html', scene=scene_data)
 
-@app.route("/projects/<project_id>/scenes/<scene_id>")
-def project_scene_detail(project_id, scene_id):
-    """Display details of a specific scene within a project"""
-    scene_path = os.path.join(PROJECTS_DIR, project_id, 'scenes', scene_id)
-    
-    if not os.path.exists(scene_path):
-        return "Scene not found", 404
-    
-    # Collect files
-    files = os.listdir(scene_path)
-    
-    scene_data = {
-        'id': scene_id,
-        'project_id': project_id,
-        'sis_files': [],
-        'text_files': [],
-        'image_files': [],
-        'music_files': [],
-        'tts_files': [],
-        'prompt_files': []
-    }
-    
-    for file in files:
-        if file.startswith('sis_structure_') and file.endswith('.json'):
-            scene_data['sis_files'].append(file)
-        elif file.startswith('text_') and file.endswith('.txt') and not file.endswith('_prompt.txt'):
-            scene_data['text_files'].append(file)
-        elif file.startswith('image_') and file.endswith('.png'):
-            scene_data['image_files'].append(file)
-        elif file.startswith('music_') and file.endswith('.wav'):
-            scene_data['music_files'].append(file)
-        elif file.startswith('tts_') and file.endswith('.wav'):
-            scene_data['tts_files'].append(file)
-        elif file.endswith('_prompt.txt') and (
-            file.startswith('image_') or file.startswith('sis2image_') or file.startswith('prompt_')
-            or file.startswith('text_') or file.startswith('sis2text_')
-            or file.startswith('music_') or file.startswith('sis2music_')
-        ):
-            scene_data['prompt_files'].append(file)
-    
-    return render_template('project_scene_detail.html', scene=scene_data)
-
 @app.route("/projects/<project_id>/delete", methods=['POST'])
 def delete_project(project_id):
     """Delete a project"""
