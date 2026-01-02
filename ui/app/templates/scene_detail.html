@@ -1514,7 +1514,9 @@ async function generateTextFromSIS(index, filename) {
             editorEl.value = data.generated_text;
         }
 
-        await regenerateSceneTTS(index, filename, data.generated_text || '');
+        // Use the returned text_filename from the server response
+        const actualFilename = data.text_filename || filename || `text_${sceneId}.txt`;
+        await regenerateSceneTTS(index, actualFilename, data.generated_text || '');
 
         showSISGenerationProgress('✅ Text generated from SIS and saved.', 'success');
     } catch (e) {

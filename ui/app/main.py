@@ -3264,6 +3264,7 @@ def generate_scenes_from_story(project_id):
                     json.dump(scene_sis, f, indent=2, ensure_ascii=False)
                 
                 # Generate prompts from SceneSIS (equivalent to Update Prompts button)
+                prompts = {}
                 try:
                     print(f"[DEBUG] Generating prompts for scene {scene_id}")
                     prompts, failures = regenerate_prompts_from_sis(scene_id, scene_sis)
@@ -3271,6 +3272,121 @@ def generate_scenes_from_story(project_id):
                         print(f"[WARNING] Some prompts failed to generate for {scene_id}: {failures}")
                 except Exception as e:
                     print(f"[WARNING] Failed to generate prompts for scene {scene_id}: {str(e)}")
+                
+                # Auto-generate Image (equivalent to Image Generate button)
+                if prompts.get('image', {}).get('text'):
+                    try:
+                        print(f"[DEBUG] Auto-generating image for scene {scene_id}")
+                        image_prompt = prompts['image']['text']
+                        sd_uri = 'http://sd:7860'
+                        sd_payload = {
+                            'prompt': image_prompt,
+                            'negative_prompt': 'low quality, blurry, distorted, watermark, text',
+                            'width': 512,
+                            'height': 512,
+                            'steps': 20,
+                            'cfg_scale': 7.0,
+                            'sampler_name': 'Euler a',
+                            'seed': -1,
+                            'batch_size': 1,
+                            'n_iter': 1,
+                        }
+                        sd_resp = requests.post(f"{sd_uri}/sdapi/v1/txt2img", json=sd_payload, timeout=(10, 300))
+                        if sd_resp.status_code == 200:
+                            sd_result = sd_resp.json() or {}
+                            images = sd_result.get('images') or []
+                            if images:
+                                import base64 as _b64
+                                img_bytes = _b64.b64decode(images[0])
+                                img_filename = f"image_{scene_id}.png"
+                                img_path = os.path.join(scene_path, img_filename)
+                                with open(img_path, 'wb') as f:
+                                    f.write(img_bytes)
+                                print(f"[DEBUG] Image generated successfully for {scene_id}")
+                        else:
+                            print(f"[WARNING] Image generation failed for {scene_id}: HTTP {sd_resp.status_code}")
+                    except Exception as e:
+                        print(f"[WARNING] Failed to auto-generate image for {scene_id}: {str(e)}")
+                
+                # Auto-generate Text & TTS (equivalent to Text & Speech Generate button)
+                try:
+                    print(f"[DEBUG] Auto-generating text for scene {scene_id}")
+                    api_config = APIConfig(
+                        unsloth_uri='http://unsloth:5007',
+                        sd_uri='http://sd:7860',
+                        music_uri='http://music:5003',
+                        tts_uri='http://tts:5002',
+                        timeout=120
+                    )
+                    text_result = generate_content(
+                        sis_data=scene_sis,
+                        content_type='text',
+                        api_config=api_config,
+                        processing_config=ProcessingConfig(output_dir='/app/shared'),
+                        generation_config=GenerationConfig(),
+                        custom_timestamp=datetime.now().strftime("%Y%m%d_%H%M%S"),
+                        test_case_name=f"scene_{scene_id}"
+                    )
+                    if isinstance(text_result, dict) and text_result.get('success'):
+                        generated_text = text_result.get('generated_text')
+                        if generated_text:
+                            text_filename = f"text_{scene_id}.txt"
+                            text_path = os.path.join(scene_path, text_filename)
+                            with open(text_path, 'w', encoding='utf-8') as f:
+                                f.write(generated_text)
+                            print(f"[DEBUG] Text generated successfully for {scene_id}")
+                            
+                            # Auto-generate TTS
+                            try:
+                                print(f"[DEBUG] Auto-generating TTS for scene {scene_id}")
+                                tts_result = generate_content(
+                                    sis_data=scene_sis,
+                                    content_type='tts',
+                                    api_config=api_config,
+                                    processing_config=ProcessingConfig(output_dir='/app/shared'),
+                                    generation_config=GenerationConfig(),
+                                    custom_timestamp=datetime.now().strftime("%Y%m%d_%H%M%S"),
+                                    test_case_name=f"scene_{scene_id}",
+                                    text_content=generated_text
+                                )
+                                if isinstance(tts_result, dict) and tts_result.get('success'):
+                                    tts_path = tts_result.get('audio_path')
+                                    if tts_path and os.path.exists(tts_path):
+                                        import shutil
+                                        tts_filename = f"speech_{scene_id}.wav"
+                                        tts_dest = os.path.join(scene_path, tts_filename)
+                                        shutil.copy(tts_path, tts_dest)
+                                        print(f"[DEBUG] TTS generated successfully for {scene_id}")
+                            except Exception as e:
+                                print(f"[WARNING] Failed to auto-generate TTS for {scene_id}: {str(e)}")
+                    else:
+                        print(f"[WARNING] Text generation failed for {scene_id}")
+                except Exception as e:
+                    print(f"[WARNING] Failed to auto-generate text for {scene_id}: {str(e)}")
+                
+                # Auto-generate Music (equivalent to Music Generate button)
+                if prompts.get('music', {}).get('text'):
+                    try:
+                        print(f"[DEBUG] Auto-generating music for scene {scene_id}")
+                        music_prompt = prompts['music']['text']
+                        music_resp = requests.post(
+                            "http://music:5003/generate",
+                            json={'prompt': music_prompt, 'duration': 8},
+                            timeout=(10, 120)
+                        )
+                        if music_resp.status_code == 200:
+                            music_result = music_resp.json() or {}
+                            music_src_path = music_result.get('path')
+                            if music_src_path and os.path.exists(music_src_path):
+                                import shutil
+                                music_filename = f"music_{scene_id}.wav"
+                                music_dest = os.path.join(scene_path, music_filename)
+                                shutil.copy(music_src_path, music_dest)
+                                print(f"[DEBUG] Music generated successfully for {scene_id}")
+                        else:
+                            print(f"[WARNING] Music generation failed for {scene_id}: HTTP {music_resp.status_code}")
+                    except Exception as e:
+                        print(f"[WARNING] Failed to auto-generate music for {scene_id}: {str(e)}")
                 
                 created_scenes.append(scene_id)
                 
