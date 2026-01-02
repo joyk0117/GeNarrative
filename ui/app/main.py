@@ -3273,6 +3273,15 @@ def generate_scenes_from_story(project_id):
                 with open(text_file, 'w', encoding='utf-8') as f:
                     f.write(summary)
                 
+                # Generate prompts from SceneSIS (equivalent to Update Prompts button)
+                try:
+                    print(f"[DEBUG] Generating prompts for scene {scene_id}")
+                    prompts, failures = regenerate_prompts_from_sis(scene_id, scene_sis)
+                    if failures:
+                        print(f"[WARNING] Some prompts failed to generate for {scene_id}: {failures}")
+                except Exception as e:
+                    print(f"[WARNING] Failed to generate prompts for scene {scene_id}: {str(e)}")
+                
                 created_scenes.append(scene_id)
                 
                 # Group by scene_type for arrangement (append to existing scenes)
