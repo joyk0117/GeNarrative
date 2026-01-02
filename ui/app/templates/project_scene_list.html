@@ -765,6 +765,26 @@
     font-weight: 500;
 }
 
+.scene-mini-status-icons {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.mini-status-icon {
+    font-size: 14px;
+    transition: opacity 0.2s;
+}
+
+.mini-status-icon.has-content {
+    opacity: 1;
+}
+
+.mini-status-icon.no-content {
+    opacity: 0.25;
+    filter: grayscale(100%);
+}
+
 .scene-mini-card .remove-from-lane {
     margin-left: auto;
     background: #dc3545;
@@ -810,10 +830,14 @@ document.addEventListener('DOMContentLoaded', function() {
     sceneCards.forEach(card => {
         const sceneId = card.dataset.sceneId;
         const imageEl = card.querySelector('.thumbnail-image');
+        const statusIcons = card.querySelectorAll('.status-icon');
+        
         scenesData[sceneId] = {
             id: sceneId,
             hasImage: card.querySelector('.scene-thumbnail:not(.no-image)') !== null,
-            imageUrl: imageEl ? imageEl.src : null
+            imageUrl: imageEl ? imageEl.src : null,
+            hasText: statusIcons.length >= 2 && statusIcons[1].classList.contains('has-content'),
+            hasMusic: statusIcons.length >= 3 && statusIcons[2].classList.contains('has-content')
         };
     });
     
@@ -1010,6 +1034,29 @@ function addSceneToLane(dropZone, sceneId) {
     name.className = 'scene-name';
     name.textContent = sceneId;
     
+    // Add status icons to mini card
+    const statusIcons = document.createElement('div');
+    statusIcons.className = 'scene-mini-status-icons';
+    
+    const imageIcon = document.createElement('span');
+    imageIcon.className = sceneData.hasImage ? 'mini-status-icon has-content' : 'mini-status-icon no-content';
+    imageIcon.textContent = '🖼️';
+    imageIcon.title = sceneData.hasImage ? 'Has Image' : 'No Image';
+    
+    const textIcon = document.createElement('span');
+    textIcon.className = sceneData.hasText ? 'mini-status-icon has-content' : 'mini-status-icon no-content';
+    textIcon.textContent = '📝';
+    textIcon.title = sceneData.hasText ? 'Has Text' : 'No Text';
+    
+    const musicIcon = document.createElement('span');
+    musicIcon.className = sceneData.hasMusic ? 'mini-status-icon has-content' : 'mini-status-icon no-content';
+    musicIcon.textContent = '🎵';
+    musicIcon.title = sceneData.hasMusic ? 'Has Music' : 'No Music';
+    
+    statusIcons.appendChild(imageIcon);
+    statusIcons.appendChild(textIcon);
+    statusIcons.appendChild(musicIcon);
+    
     const removeBtn = document.createElement('button');
     removeBtn.className = 'remove-from-lane';
     removeBtn.innerHTML = '×';
@@ -1027,6 +1074,7 @@ function addSceneToLane(dropZone, sceneId) {
     
     miniCard.appendChild(thumb);
     miniCard.appendChild(name);
+    miniCard.appendChild(statusIcons);
     miniCard.appendChild(removeBtn);
     
     // Add double-click event to open scene detail
