@@ -13,6 +13,9 @@
     {% endif %}
     
     <h2>Scene: {{ scene.id }}</h2>
+
+    {# text_*.txt が無い空シーンでも Generate/Save UI を表示するための表示用リスト #}
+    {% set display_text_files = scene.text_files if scene.text_files else ['text_' ~ scene.id ~ '.txt'] %}
     
     <!-- メインコンテンツエリア：画像（左）とテキスト+音楽（右） -->
     <div class="main-content">
@@ -154,10 +157,9 @@
         <!-- 右側：テキスト+Speechと音楽 -->
         <div class="right-panel">
             <!-- 右側上部：テキスト+Speech -->
-            {% if scene.text_files %}
             <section class="scene-section text-section">
                 <h3>Text & Speech</h3>
-                {% for text_file in scene.text_files %}
+                {% for text_file in display_text_files %}
                 <div class="text-container" data-file="{{ text_file }}">
                     <h4>{{ text_file }}</h4>
                     <div class="text-edit-controls">
@@ -229,21 +231,13 @@
                 </div>
                 {% endfor %}
                 <!-- Text Prompt セクションは削除済み -->
-            </section>
-            {% else %}
-            <section class="scene-section text-section">
-                <h3>Text & TTS</h3>
-                <div class="text-edit-controls">
-                    <button class="btn btn-edit" onclick="createNewText()">
-                        ✏️ Create New Text
-                    </button>
+                {% if not scene.text_files %}
+                <div class="no-content-small" style="margin-top: 10px;">
+                    Text file does not exist yet. Use “🚀 Generate” or “💾 Save” to create it.
                 </div>
-                <div class="no-content">
-                    No text file available. You can create new text using the button above.
-                </div>
-                <!-- Text Prompt セクションは削除済み（テキスト未作成時も同様） -->
+                {% endif %}
             </section>
-            {% endif %}
+
 
             
             
@@ -1041,7 +1035,7 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endfor %}
     
     // テキストファイルを読み込み
-    {% for text_file in scene.text_files %}
+    {% for text_file in display_text_files %}
     loadTextFile('{{ scene.id }}', '{{ text_file }}', {{ loop.index }});
     {% endfor %}
 
@@ -1091,13 +1085,18 @@ function loadSISFile(sceneId, filename, index) {
 
 function loadTextFile(sceneId, filename, index) {
     fetch(`/scene/${sceneId}/text/${filename}`)
-        .then(response => response.text())
+        .then(async (response) => {
+            // text_*.txt がまだ無い場合は空として扱う（Generate/Saveで作成される）
+            if (response.status === 404) return '';
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return response.text();
+        })
         .then(data => {
             document.getElementById(`text-${index}`).textContent = data;
         })
         .catch(error => {
             console.error('Error loading text file:', error);
-            document.getElementById(`text-${index}`).textContent = 'エラー: ファイルを読み込めませんでした';
+            document.getElementById(`text-${index}`).textContent = '';
         });
 }
 

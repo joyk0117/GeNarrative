@@ -569,34 +569,6 @@ def create_project(project_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route("/scene")
-def scene_list():
-    """Display scene list"""
-    scenes = []
-    if os.path.exists(SCENE_DIR):
-        for item in os.listdir(SCENE_DIR):
-            scene_path = os.path.join(SCENE_DIR, item)
-            if os.path.isdir(scene_path):
-                # Basic scene information
-                scene_info = {
-                    'id': item,
-                    'has_image': False,
-                    'image_filename': None
-                }
-                
-                # Look for image files in scene directory
-                for file in os.listdir(scene_path):
-                    if file.startswith('image_') and file.endswith('.png'):
-                        scene_info['has_image'] = True
-                        scene_info['image_filename'] = file
-                        break
-                
-                scenes.append(scene_info)
-    
-    # Sort by newest first
-    scenes.sort(key=lambda x: x['id'], reverse=True)
-    return render_template('scene_list.html', scenes=scenes)
-
 @app.route("/scene/<scene_id>")
 def scene_detail(scene_id):
     """Display details of a specific scene"""
@@ -688,7 +660,7 @@ def get_scene_data(scene_id):
             'id': scene_id,
             'hasImage': False,
             'image': None,
-            'text': 'No text content available for this scene.',
+            'text': '',
             'hasTTS': False,
             'hasMusic': False
         }
@@ -2599,10 +2571,7 @@ def create_scene():
                         shutil.copy2(source_file_path, dest_file_path)
         else:
             # Create empty scene with default files
-            # デフォルトでテキストファイルを作成
-            text_file = os.path.join(scene_path, f"text_{scene_id}.txt")
-            with open(text_file, 'w', encoding='utf-8') as f:
-                f.write(f"Text content for scene {scene_id}")
+            # 空シーン作成時は text_*.txt を作成しない（必要になったら保存時に生成）
             
             # デフォルトでSISファイルを作成
             sis_file = os.path.join(scene_path, f"sis_structure_{scene_id}.json")
@@ -2695,9 +2664,7 @@ def create_project_scene(project_id, scene_id):
                         shutil.copy2(source_file_path, dest_file_path)
         else:
             # Create empty scene with default files
-            text_file = os.path.join(scene_path, f"text_{scene_id}.txt")
-            with open(text_file, 'w', encoding='utf-8') as f:
-                f.write(f"Text content for scene {scene_id}")
+            # 空シーン作成時は text_*.txt を作成しない（必要になったら保存時に生成）
             
             sis_file = os.path.join(scene_path, f"sis_structure_{scene_id}.json")
             default_sis = {
