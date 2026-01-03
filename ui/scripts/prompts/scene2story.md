@@ -25,3 +25,7 @@ ${ROLE_ALIGNMENT_TASK}
 - In scene_blueprints, create entries that match the input scenes (use scene_type like "ki", "sho", "ten", "ketsu" or "setup", "conflict", "resolution")
 - Respect the provided scene role assignments whenever they are present
 - Output ONLY valid JSON (no prose, no comments)
+
+## Conciseness rules for scene_blueprints
+- scene_blueprints are design notes: do NOT copy long scene text, dialogue, or lists from the input
+- Prefer only: (a) 1–2 sentence logline/summary, (b) scene_type/role, (c) the key change (before → after). Omit fine details.
