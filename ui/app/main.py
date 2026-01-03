@@ -878,13 +878,14 @@ def generate_narrative_html(narrative_data, title):
     for scene_data in narrative_data:
         processed_scene = scene_data.copy()
         scene_id = scene_data.get('id')
+        scene_path, _ = find_scene_path(scene_id) if scene_id else (None, None)
+        scene_files = os.listdir(scene_path) if scene_path and os.path.exists(scene_path) else []
         
-        if scene_id and scene_data.get('hasImage') and scene_data.get('image'):
+        if scene_path and scene_data.get('hasImage') and scene_data.get('image'):
             # Embed image as base64
-            image_path = os.path.join(SCENE_DIR, scene_id)
-            for file in os.listdir(image_path):
+            for file in scene_files:
                 if file.startswith('image_') and file.endswith('.png'):
-                    img_file_path = os.path.join(image_path, file)
+                    img_file_path = os.path.join(scene_path, file)
                     if os.path.exists(img_file_path):
                         with open(img_file_path, 'rb') as img_file:
                             img_data = base64.b64encode(img_file.read()).decode('utf-8')
@@ -892,11 +893,10 @@ def generate_narrative_html(narrative_data, title):
                     break
         
         # Embed TTS audio as base64
-        if scene_id and scene_data.get('hasTTS'):
-            tts_path = os.path.join(SCENE_DIR, scene_id)
-            for file in os.listdir(tts_path):
+        if scene_path and scene_data.get('hasTTS'):
+            for file in scene_files:
                 if file.startswith('tts_') and file.endswith(('.wav', '.mp3')):
-                    tts_file_path = os.path.join(tts_path, file)
+                    tts_file_path = os.path.join(scene_path, file)
                     if os.path.exists(tts_file_path):
                         with open(tts_file_path, 'rb') as tts_file:
                             tts_data = base64.b64encode(tts_file.read()).decode('utf-8')
@@ -905,11 +905,10 @@ def generate_narrative_html(narrative_data, title):
                     break
         
         # Embed music as base64
-        if scene_id and scene_data.get('hasMusic'):
-            music_path = os.path.join(SCENE_DIR, scene_id)
-            for file in os.listdir(music_path):
+        if scene_path and scene_data.get('hasMusic'):
+            for file in scene_files:
                 if file.startswith('music_') and file.endswith(('.wav', '.mp3')):
-                    music_file_path = os.path.join(music_path, file)
+                    music_file_path = os.path.join(scene_path, file)
                     if os.path.exists(music_file_path):
                         with open(music_file_path, 'rb') as music_file:
                             music_data = base64.b64encode(music_file.read()).decode('utf-8')

@@ -91,6 +91,7 @@
         
         <div class="narrative-controls" style="margin-top: 20px;">
             <button class="btn btn-success" id="generateStorySIS" disabled>Generate StorySIS</button>
+            <button class="btn btn-primary" id="generateNarrativeFromLanes" disabled>Generate Story</button>
             <button class="btn btn-secondary" id="clearStoryLanes" disabled>Clear All</button>
         </div>
         
@@ -803,6 +804,169 @@
 .scene-mini-card .remove-from-lane:hover {
     background: #c82333;
 }
+
+/* Story Slideshow Styles (aligned with scene list) */
+.narrative-slideshow {
+    margin-top: 40px;
+    padding: 20px;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    background-color: #f8f9fa;
+}
+
+.slideshow-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.slideshow-header h2 {
+    color: #333;
+    margin: 0;
+}
+
+.slideshow-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.narrative-swiper {
+    width: 100%;
+    height: 600px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.narrative-slide {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    background: white;
+    padding: 40px;
+    position: relative;
+    gap: 40px;
+    min-height: 500px;
+}
+
+.slide-content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 40px;
+    width: 100%;
+    max-width: 1000px;
+}
+
+.slide-image-container {
+    flex: 0 0 400px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.slide-text-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.slide-text {
+    font-size: 18px;
+    line-height: 1.6;
+    color: #333;
+    max-height: 400px;
+    overflow-y: auto;
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+    text-align: left;
+    margin: 0;
+}
+
+.slide-scene-info {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background-color: rgba(0,0,0,0.7);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.slide-number {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: rgba(0,123,255,0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.narrative-swiper .swiper-button-next,
+.narrative-swiper .swiper-button-prev {
+    color: #007bff;
+    background-color: rgba(255,255,255,0.9);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.narrative-swiper .swiper-button-next:after,
+.narrative-swiper .swiper-button-prev:after {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.narrative-swiper .swiper-pagination-bullet {
+    background-color: #007bff;
+    opacity: 0.7;
+}
+
+.narrative-swiper .swiper-pagination-bullet-active {
+    opacity: 1;
+}
+
+.narrative-swiper .swiper-scrollbar {
+    background-color: rgba(0,0,0,0.1);
+}
+
+.narrative-swiper .swiper-scrollbar-drag {
+    background-color: #007bff;
+}
+
+.slide-image {
+    width: 100%;
+    max-width: 400px;
+    height: auto;
+    max-height: 400px;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.slide-image.no-image {
+    width: 400px;
+    height: 300px;
+    background-color: #e9ecef;
+    border: 2px dashed #ced4da;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    font-size: 18px;
+}
 </style>
 
 <script>
@@ -823,6 +987,8 @@ let currentDraggedScene = null;
 let storySISEditMode = false;
 let originalStorySISContent = '';
 let isRestoringArrangement = false;  // Flag to prevent auto-save during restoration
+let narrativeScenes = [];
+let currentNarrativeData = [];
 
 // Initialize scenes data from page
 document.addEventListener('DOMContentLoaded', function() {
@@ -909,6 +1075,8 @@ document.getElementById('storyTypeSelect').addEventListener('change', function()
         lane.appendChild(dropZone);
         lanesContainer.appendChild(lane);
     });
+
+    updateNarrativeControls();
 });
 
 // Setup drag events for scene cards
@@ -1142,6 +1310,8 @@ async function updateSceneArrangement() {
     
     // Save arrangement
     await saveSceneArrangement(storyType, scenesByType);
+
+    updateNarrativeControls();
 }
 
 // Clear all lanes
@@ -1151,6 +1321,15 @@ document.getElementById('clearStoryLanes').addEventListener('click', async funct
         zone.innerHTML = '';
     });
     document.getElementById('storySISResult').style.display = 'none';
+    document.getElementById('narrativeSlideshow').style.display = 'none';
+    if (window.narrativeSwiper) {
+        window.narrativeSwiper.destroy(true, true);
+        window.narrativeSwiper = null;
+    }
+    stopAllAudio();
+    narrativeScenes = [];
+    currentNarrativeData = [];
+    updateNarrativeControls();
     
     // Update scene arrangement when lanes are cleared
     await updateSceneArrangement();
@@ -1338,6 +1517,7 @@ function populateLanesFromArrangement(scenesByType) {
     
     // Reset flag after restoration is complete
     isRestoringArrangement = false;
+    updateNarrativeControls();
 }
 
 // Save scene arrangement before generating StorySIS
@@ -1572,6 +1752,367 @@ async function generateScenesFromStory() {
         alert(`Error generating scenes: ${error.message}`);
         event.target.disabled = false;
         event.target.textContent = '🎬 Generate Scenes';
+    }
+}
+
+// Generate story slideshow from lanes
+document.addEventListener('DOMContentLoaded', function() {
+    const generateBtn = document.getElementById('generateNarrativeFromLanes');
+    const saveBtn = document.getElementById('saveNarrative');
+    const closeBtn = document.getElementById('closeSlideshow');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', generateNarrativeFromLanes);
+    }
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveNarrativeFromLanes);
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            stopAllAudio();
+            const container = document.getElementById('narrativeSlideshow');
+            container.style.display = 'none';
+            if (window.narrativeSwiper) {
+                window.narrativeSwiper.destroy(true, true);
+                window.narrativeSwiper = null;
+            }
+        });
+    }
+    updateNarrativeControls();
+});
+
+function collectScenesFromLanes() {
+    const storyType = document.getElementById('storyTypeSelect').value;
+    if (!storyType) {
+        return [];
+    }
+    const sceneTypes = STORY_TYPE_BLUEPRINTS[storyType] || [];
+    const scenes = [];
+    sceneTypes.forEach(type => {
+        const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${type}"]`);
+        if (dropZone) {
+            dropZone.querySelectorAll('.scene-mini-card').forEach(card => {
+                scenes.push(card.dataset.sceneId);
+            });
+        }
+    });
+    return scenes;
+}
+
+function updateNarrativeControls() {
+    const scenes = collectScenesFromLanes();
+    const generateBtn = document.getElementById('generateNarrativeFromLanes');
+    if (generateBtn) {
+        generateBtn.disabled = scenes.length === 0;
+    }
+    const saveBtn = document.getElementById('saveNarrative');
+    if (saveBtn) {
+        saveBtn.style.display = currentNarrativeData.length > 0 ? 'inline-block' : 'none';
+    }
+}
+
+async function generateNarrativeFromLanes() {
+    const scenes = collectScenesFromLanes();
+    if (scenes.length === 0) {
+        alert('Please assign scenes to lanes before generating a story.');
+        return;
+    }
+    narrativeScenes = scenes.map((id, idx) => ({ id: id, instanceId: `${id}_${idx}` }));
+    await generateNarrativeSlideshowFromLanes();
+}
+
+async function generateNarrativeSlideshowFromLanes() {
+    const slideshowContainer = document.getElementById('narrativeSlideshow');
+    const swiperWrapper = document.getElementById('narrativeSwiperWrapper');
+    if (!slideshowContainer || !swiperWrapper) {
+        return;
+    }
+    swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="narrative-slide"><h3>Generating slides...</h3></div></div>';
+    slideshowContainer.style.display = 'block';
+    slideshowContainer.scrollIntoView({ behavior: 'smooth' });
+    currentNarrativeData = [];
+    try {
+        for (let i = 0; i < narrativeScenes.length; i++) {
+            const scene = narrativeScenes[i];
+            await generateSlideForScene(scene, i + 1);
+        }
+        initializeNarrativeSwiper();
+        updateNarrativeControls();
+    } catch (error) {
+        console.error('Error generating narrative:', error);
+        swiperWrapper.innerHTML = '<div class="swiper-slide"><div class="narrative-slide"><h3>Error generating slideshow</h3></div></div>';
+    }
+}
+
+async function generateSlideForScene(scene, slideNumber) {
+    const swiperWrapper = document.getElementById('narrativeSwiperWrapper');
+    const total = narrativeScenes.length;
+    if (!swiperWrapper) {
+        return;
+    }
+    try {
+        const sceneData = await fetchSceneData(scene.id);
+        currentNarrativeData.push(sceneData);
+        const slide = document.createElement('div');
+        slide.className = 'swiper-slide';
+        slide.innerHTML = createSlideHTML(sceneData, slideNumber, scene.id, total);
+        if (slideNumber === 1) {
+            swiperWrapper.innerHTML = '';
+        }
+        swiperWrapper.appendChild(slide);
+    } catch (error) {
+        console.error(`Error generating slide for scene ${scene.id}:`, error);
+        const slide = document.createElement('div');
+        slide.className = 'swiper-slide';
+        slide.innerHTML = `
+            <div class="narrative-slide">
+                <div class="slide-scene-info">Scene ${scene.id}</div>
+                <div class="slide-number">${slideNumber} / ${total}</div>
+                <div class="slide-content">
+                    <div class="slide-text-container">
+                        <div class="slide-text">Failed to load content for scene ${scene.id}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        if (slideNumber === 1) {
+            swiperWrapper.innerHTML = '';
+        }
+        swiperWrapper.appendChild(slide);
+    }
+}
+
+async function fetchSceneData(sceneId) {
+    const endpoints = [
+        `/projects/${projectId}/${sceneId}/data`,
+        `/scene/${sceneId}/data`
+    ];
+    for (const url of endpoints) {
+        try {
+            const response = await fetch(url);
+            if (response.ok) {
+                const data = await response.json();
+                return {
+                    id: sceneId,
+                    image: data.image || data.image_url || data.imageUrl || `/projects/${projectId}/${sceneId}/file/image.png`,
+                    text: data.text || data.content || data.description || '',
+                    hasImage: data.hasImage ?? data.has_image ?? Boolean(data.image || data.image_url || data.imageUrl),
+                    hasTTS: data.hasTTS ?? data.has_tts ?? false,
+                    hasMusic: data.hasMusic ?? data.has_music ?? false
+                };
+            }
+        } catch (err) {
+            console.warn(`Failed to fetch from ${url}:`, err);
+        }
+    }
+    return {
+        id: sceneId,
+        image: `/projects/${projectId}/${sceneId}/file/image.png`,
+        text: `Content for scene ${sceneId} is unavailable.`,
+        hasImage: false,
+        hasTTS: false,
+        hasMusic: false
+    };
+}
+
+function createSlideHTML(sceneData, slideNumber, sceneId, totalCount) {
+    const imageHTML = sceneData.hasImage ? 
+        `<img src="${sceneData.image}" alt="Scene ${sceneId}" class="slide-image" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+         <div class="slide-image no-image" style="display: none;">No Image Available</div>` :
+        `<div class="slide-image no-image">No Image Available</div>`;
+    return `
+        <div class="narrative-slide" data-scene-id="${sceneId}" data-has-tts="${sceneData.hasTTS}" data-has-music="${sceneData.hasMusic}">
+            <div class="slide-scene-info">Scene ${sceneId}</div>
+            <div class="slide-number">${slideNumber} / ${totalCount}</div>
+            <div class="slide-content">
+                <div class="slide-image-container">
+                    ${imageHTML}
+                </div>
+                <div class="slide-text-container">
+                    <div class="slide-text">${sceneData.text || ''}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function initializeNarrativeSwiper() {
+    if (window.narrativeSwiper) {
+        window.narrativeSwiper.destroy(true, true);
+    }
+    window.narrativeSwiper = new Swiper('.narrative-swiper', {
+        direction: 'horizontal',
+        loop: false,
+        speed: 600,
+        navigation: {
+            nextEl: '.swiper-button-next',
+            prevEl: '.swiper-button-prev',
+        },
+        pagination: {
+            el: '.swiper-pagination',
+            clickable: true,
+            type: 'bullets',
+        },
+        scrollbar: {
+            el: '.swiper-scrollbar',
+            draggable: true,
+        },
+        keyboard: {
+            enabled: true,
+        },
+        mousewheel: {
+            enabled: true,
+        },
+        on: {
+            slideChange: function () {
+                playSlideAudio(this.activeIndex);
+            },
+            init: function () {
+                setTimeout(() => {
+                    playSlideAudio(0);
+                }, 500);
+            }
+        }
+    });
+}
+
+async function playSlideAudio(slideIndex) {
+    stopAllAudio();
+    const slides = document.querySelectorAll('.narrative-slide');
+    if (!slides || slideIndex >= slides.length) {
+        return;
+    }
+    const currentSlide = slides[slideIndex];
+    const sceneId = currentSlide.dataset.sceneId;
+    const hasTTS = currentSlide.dataset.hasTts === 'true';
+    const hasMusic = currentSlide.dataset.hasMusic === 'true';
+    if (hasTTS) {
+        await playTTSAudio(sceneId);
+    }
+    if (hasMusic) {
+        const delay = hasTTS ? 1000 : 0;
+        setTimeout(() => {
+            playMusicAudio(sceneId);
+        }, delay);
+    }
+}
+
+async function resolveAudioUrl(kind, sceneId) {
+    const candidates = [
+        `/projects/${projectId}/${sceneId}/${kind}`,
+        `/scene/${sceneId}/${kind}`
+    ];
+    for (const url of candidates) {
+        try {
+            const res = await fetch(url, { method: 'HEAD' });
+            if (res.ok) {
+                return url;
+            }
+        } catch (err) {
+            console.warn(`Audio check failed for ${url}:`, err);
+        }
+    }
+    return null;
+}
+
+async function playTTSAudio(sceneId) {
+    try {
+        const ttsUrl = await resolveAudioUrl('tts', sceneId);
+        if (!ttsUrl) {
+            console.warn(`No TTS found for scene ${sceneId}`);
+            return;
+        }
+        const audio = new Audio(ttsUrl);
+        audio.volume = 0.8;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(err => console.error(`TTS play failed for scene ${sceneId}:`, err));
+        }
+        window.currentTTSAudio = audio;
+    } catch (error) {
+        console.error('Error creating TTS audio:', error);
+    }
+}
+
+async function playMusicAudio(sceneId) {
+    try {
+        const musicUrl = await resolveAudioUrl('music', sceneId);
+        if (!musicUrl) {
+            console.warn(`No Music found for scene ${sceneId}`);
+            return;
+        }
+        const audio = new Audio(musicUrl);
+        audio.volume = 0.3;
+        audio.loop = true;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(err => console.error(`Music play failed for scene ${sceneId}:`, err));
+        }
+        window.currentMusicAudio = audio;
+    } catch (error) {
+        console.error('Error creating Music audio:', error);
+    }
+}
+
+function stopAllAudio() {
+    if (window.currentTTSAudio) {
+        window.currentTTSAudio.pause();
+        window.currentTTSAudio.currentTime = 0;
+        window.currentTTSAudio = null;
+    }
+    if (window.currentMusicAudio) {
+        window.currentMusicAudio.pause();
+        window.currentMusicAudio.currentTime = 0;
+        window.currentMusicAudio = null;
+    }
+    if (window.currentAudio) {
+        window.currentAudio.pause();
+        window.currentAudio.currentTime = 0;
+        window.currentAudio = null;
+    }
+}
+
+async function saveNarrativeFromLanes() {
+    if (!currentNarrativeData || currentNarrativeData.length === 0) {
+        alert('No narrative data to save. Generate a story first.');
+        return;
+    }
+    const defaultTitle = `Narrative_${projectId}_${new Date().toISOString().slice(0,19).replace(/:/g, '')}`;
+    const title = prompt('Enter a title for your narrative:', defaultTitle);
+    if (!title) {
+        return;
+    }
+    const saveBtn = document.getElementById('saveNarrative');
+    try {
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+        }
+        const response = await fetch('/story/save', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                narrative: currentNarrativeData,
+                title: title
+            })
+        });
+        const result = await response.json();
+        if (result.success) {
+            alert(`Narrative saved successfully!\nFile: ${result.filename}`);
+            // 保存後はストーリー一覧へ移動し、新規追加を強調表示
+            window.location.href = `/story?highlight=${encodeURIComponent(result.filename)}`;
+        } else {
+            alert(`Error saving narrative: ${result.error}`);
+        }
+    } catch (error) {
+        console.error('Error saving narrative:', error);
+        alert('Error saving narrative. Please try again.');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Story';
+        }
     }
 }
 
