@@ -327,6 +327,7 @@ MediaSISは、SceneSISの内部を分解した「構成要素（表現単位）�
    - 既存の素材（画像/文章）からSceneSISを抽出
 2. Sceneの生成
    - SISの抽出元以外のモーダルの画像/文章/音声/音楽の生成を行い、一つのSceneを生成する
+   - 必要に応じて、各モーダル用のプロンプトを生成するためのメタプロンプトを利用する
 3. StorySIS を生成
    - story_type を選択して、scene_blueprintsを含むStorySISを生成する
   - SIS UI や `/api/sis2sis/scene2story` で story_type（三幕構成 / 起承転結 / attempts / catalog / circular）を入力すれば、LLM に任せずその構造で固定できる（空欄なら推定）
