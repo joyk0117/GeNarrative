@@ -20,6 +20,7 @@ import requests
 import time
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple
+from pathlib import Path
 
 # 共通基盤のインポート
 from common_base import (
@@ -119,7 +120,7 @@ class SISExtractor(ContentProcessor):
         )
     
     def _process_image(self, image_path: str, **kwargs) -> ProcessingResult:
-        """画像ファイルの処理（Structured Output を使用）"""
+        """画像ファイルの処理（Structured Output を使用、完全なSceneSISスキーマに準拠）"""
         # 画像をbase64エンコード
         image_base64 = self._load_and_encode_image(image_path)
         if not image_base64:
@@ -128,30 +129,32 @@ class SISExtractor(ContentProcessor):
                 error_code='IMAGE_ENCODING_FAILED'
             )
 
-        # プロンプト（Structured Output の description みを利用）
-        sis_schema = self._sis_schema()
+        # 完全なSceneSISスキーマを取得
+        scene_sis_schema = self._scene_sis_schema()
         prompt_parts = [
-            "Analyze the attached image and produce a JSON object that matches the provided schema.",
-            "Rely only on the schema descriptions for field meanings.",
-            "Return ONLY a JSON object (no prose, no comments)."
+            "Analyze the attached image and produce a complete SceneSIS JSON that matches the provided schema.",
+            "Include all required fields: sis_type='scene', scene_id, summary, and semantics.",
+            "For semantics, include: common (mood, characters with visual details, location, time, weather, objects with colors, descriptions), text, visual, and audio.",
+            "Return ONLY a valid JSON object (no prose, no comments)."
         ]
         sis_prompt = "\n\n".join(prompt_parts)
         # 計測開始
         req_start = time.time()
 
         # Structured Output 呼び出し
-        # NOTE: Ollama の /api/chat では images 配列要素に純粋な base64 文字列を渡す必要があり、
-        #       data:image/png;base64, のような Data URI プレフィックスを付与すると
-        #       "illegal base64 data at input byte 4" エラーになるため除去する。
         sis_json, raw_text = self._ollama_chat_structured(
             messages=[
-                {'role': 'system', 'content': 'You are a precise JSON generator. Output only valid JSON that matches the schema.'},
+                {'role': 'system', 'content': 'You are a precise JSON generator for SceneSIS structure. Output only valid JSON that matches the schema.'},
                 {'role': 'user', 'content': sis_prompt}
             ],
-            schema=sis_schema,
+            schema=scene_sis_schema,
             images=[image_base64]
         )
         req_duration = time.time() - req_start
+
+        # scene_idをアプリケーション側で生成（sis2sis.pyと同様）
+        sis_json['scene_id'] = self._generate_scene_id()
+        sis_json['sis_type'] = 'scene'
 
         return ProcessingResult(
             success=True,
@@ -168,7 +171,7 @@ class SISExtractor(ContentProcessor):
         )
     
     def _process_text(self, text_path: str, **kwargs) -> ProcessingResult:
-        """テキスト→SIS（Structured Output を使用）"""
+        """テキスト→SIS（Structured Output を使用、完全なSceneSISスキーマに準拠）"""
         # テキスト内容の読み込み
         text_content = self._load_text_content(text_path)
         if not text_content:
@@ -177,23 +180,28 @@ class SISExtractor(ContentProcessor):
                 error_code='TEXT_LOADING_FAILED'
             )
 
-        # プロンプト（Structured Output の description みを利用）
-        sis_schema = self._sis_schema()
+        # 完全なSceneSISスキーマを取得
+        scene_sis_schema = self._scene_sis_schema()
         prompt_parts = [
-            "Analyze the following text and produce a JSON object that matches the provided schema.",
-            "Rely only on the schema descriptions for field meanings.",
+            "Analyze the following text and produce a complete SceneSIS JSON that matches the provided schema.",
+            "Include all required fields: sis_type='scene', scene_id, summary, and semantics.",
+            "For semantics, include: common (mood, characters with visual details, location, time, weather, objects with colors, descriptions), text, visual, and audio.",
             f"Text:\n{json.dumps(text_content)}",
-            "Return ONLY a JSON object (no prose, no comments)."
+            "Return ONLY a valid JSON object (no prose, no comments)."
         ]
         sis_prompt = "\n\n".join(prompt_parts)
 
         sis_json, raw_text = self._ollama_chat_structured(
             messages=[
-                {'role': 'system', 'content': 'You are a precise JSON generator. Output only valid JSON that matches the schema.'},
+                {'role': 'system', 'content': 'You are a precise JSON generator for SceneSIS structure. Output only valid JSON that matches the schema.'},
                 {'role': 'user', 'content': sis_prompt}
             ],
-            schema=sis_schema
+            schema=scene_sis_schema
         )
+
+        # scene_idをアプリケーション側で生成（sis2sis.pyと同様）
+        sis_json['scene_id'] = self._generate_scene_id()
+        sis_json['sis_type'] = 'scene'
 
         return ProcessingResult(
             success=True,
@@ -290,29 +298,51 @@ class SISExtractor(ContentProcessor):
         except json.JSONDecodeError as e:
             raise ValidationError(f'Structured output is not valid JSON: {e}', error_code='STRUCTURED_JSON_INVALID')
 
-    def _sis_schema(self) -> Dict[str, Any]:
-        """外部 JSON Schema ファイルを読み込み。失敗時は簡易スキーマにフォールバック"""
-        schema_path = os.path.join(os.path.dirname(__file__), 'schemas', 'SceneSIS_semantics.json')
-        try:
+    def _scene_sis_schema(self) -> Dict[str, Any]:
+        """完全なSceneSISのJSONスキーマを返す（sis2sis.pyと同じ構造）"""
+        # SceneSIS_semantics.jsonを読み込む
+        schema_path = Path(__file__).parent / 'schemas' / 'SceneSIS_semantics.json'
+        
+        if schema_path.exists():
             with open(schema_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            # フォールバック（簡易版）
-            return {
+                semantics_schema = json.load(f)
+        else:
+            # フォールバックスキーマ
+            semantics_schema = {
                 "type": "object",
                 "properties": {
-                    "common": {
-                        "type": "object",
-                        "properties": {
-                            "mood": {"type": "string"},
-                            "characters": {"type": "array"},
-                            "location": {"type": "string"}
-                        }
-                    }
+                    "common": {"type": "object"},
+                    "text": {"type": "object"},
+                    "visual": {"type": "object"},
+                    "audio": {"type": "object"}
                 },
-                "required": ["common"],
-                "additionalProperties": True
+                "required": ["common", "text", "visual", "audio"]
             }
+        
+        return {
+            "type": "object",
+            "properties": {
+                "sis_type": {
+                    "type": "string",
+                    "const": "scene",
+                    "description": "Must be 'scene'"
+                },
+                "scene_id": {
+                    "type": "string",
+                    "description": "Identifier for this scene (assigned by the system)"
+                },
+                "summary": {
+                    "type": "string",
+                    "description": "Brief summary of what happens in this scene"
+                },
+                "semantics": semantics_schema
+            },
+            "required": ["sis_type", "scene_id", "summary", "semantics"]
+        }
+
+    def _generate_scene_id(self) -> str:
+        """scene_idを生成（sis2sis.pyと同じ形式）"""
+        return datetime.now().strftime("scene_%Y%m%d_%H%M%S_%f")
 
     
 

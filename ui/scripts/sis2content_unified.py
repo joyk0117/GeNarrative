@@ -63,6 +63,9 @@ class ContentGenerator(ContentProcessor):
                 'sis_summary': sis_data.get('summary', 'N/A')[:100]
             })
             
+            # SIS データの正規化（semanticsフィールドがある場合は展開）
+            sis_data = self._normalize_sis_data(sis_data)
+            
             # SIS データの検証
             self._validate_sis_data(sis_data)
             
@@ -139,6 +142,43 @@ class ContentGenerator(ContentProcessor):
                 'content_type': content_type,
                 'sis_summary': sis_data.get('summary', 'N/A')[:100] if isinstance(sis_data, dict) else 'Invalid SIS'
             })
+    
+    def _normalize_sis_data(self, sis_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        SIS データの正規化
+        - semantics フィールドがある場合は、その中身をトップレベルに展開
+        - scene_id, sis_type, summary などのメタデータは保持
+        """
+        if not isinstance(sis_data, dict):
+            return sis_data
+        
+        # semantics フィールドが存在する場合
+        if 'semantics' in sis_data and isinstance(sis_data['semantics'], dict):
+            self.logger.logger.info("🔄 Normalizing SIS data: extracting 'semantics' field to top level")
+            
+            # semantics の中身を取り出す
+            semantics = sis_data['semantics']
+            
+            # 新しい正規化されたデータを作成
+            normalized = {
+                'common': semantics.get('common', {}),
+                'text': semantics.get('text', {}),
+                'visual': semantics.get('visual', {}),
+                'audio': semantics.get('audio', {})
+            }
+            
+            # メタデータを保持（あれば）
+            if 'scene_id' in sis_data:
+                normalized['scene_id'] = sis_data['scene_id']
+            if 'sis_type' in sis_data:
+                normalized['sis_type'] = sis_data['sis_type']
+            if 'summary' in sis_data:
+                normalized['summary'] = sis_data['summary']
+            
+            return normalized
+        
+        # semantics フィールドがない場合はそのまま返す
+        return sis_data
     
     def _validate_sis_data(self, sis_data: Dict[str, Any]) -> None:
         """SIS データの検証"""

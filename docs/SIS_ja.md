@@ -40,7 +40,7 @@ GeNarrative のスコープでは、SISは以下の3種類のオブジェクト�
 - シーンレベルの生成方針（text / visual / audio）
   - 再利用性のため、SceneSIS には story_id は含めない（同一Sceneを複数Storyで使い回す）。
 
-### MediaSIS（下位：表現の単位）
+### MediaSIS（下位：表現の単位）：検討中で未使用
 
 - SceneSIS の内部をさらに分解する**「シーン構成要素（表現単位）」**を表すオブジェクト。
 - 例：ショット（構図）、台詞、ナレーション、字幕、効果音、BGMセグメント、小物（object）など。
@@ -62,26 +62,63 @@ GeNarrative のスコープでは、SISは以下の3種類のオブジェクト�
   "sis_type": "story",
   "story_id": "123e4567-e89b-12d3-a456-426614174000",
 
-  "title": "The Girl and the Forest",
-  "summary": "A curious girl explores a mysterious forest.",
-  "story_type": "kishotenketsu", // 例: "kishotenketsu" | "three_act" | "attempts" | "circular" | "catalog"
+  "title": "The Girl and the Sun",
+  "summary": "A girl befriends the sun and learns to share its light.",
 
   // 作品全体の意味構造（テーマ・スタイル方針）
   "semantics": {
     // 作品全体の共通の意味情報
     "common": {
       "themes": ["trust", "learning"],
-      "descriptions": [
-        "A gentle story about a girl learning to trust the forest and herself.",
-        "Focuses on emotional growth rather than fast-paced action."
-      ]
     },
-
     // 作品全体のスタイル方針（任意）
     "text":  {"language": "English", "tone": "gentle", "point_of_view": "third"},
     "visual": {"style": "watercolor"},
     "audio": {"genre": "ambient"}
   },
+
+  "story_type": "three_act", // 例: "kishotenketsu" | "three_act" | "attempts" | "circular" | "catalog"
+
+  // Storyのシーン設計図
+  "scene_blueprints": [
+    {
+      "scene_type": "setup",
+      "descriptions": [
+        "主人公と舞台（日だまりの町/丘）を紹介し、日常の中に『太陽』への憧れを置く。",
+        "太陽の光がもたらす安心や喜びを描きつつ、『影』や『曇り』への小さな不安も示す。"
+      ]
+    },
+    {
+      "scene_type": "setup",
+      "descriptions": [
+        "主人公が太陽に話しかけたり、光を追いかけたりして『関係の芽』が生まれる。",
+        "後半の対立に効く『大切な約束（光を独り占めしない）』や『小さな工夫（鏡/帽子など）』を伏線として置く。"
+      ]
+    },
+    {
+      "scene_type": "conflict",
+      "descriptions": [
+        "雲が広がり、太陽が隠れてしまう。主人公は焦って光を取り戻そうとするが、空回りする。",
+        "『光を求める気持ち』と『周りへの思いやり』がぶつかり、誤解や後悔が生まれる。"
+      ]
+    },
+    {
+      "scene_type": "resolution",
+      "descriptions": [
+        "主人公は、太陽は『戻ってくるもの』であり、光は『分け合えるもの』だと理解する。",
+        "小さな行動（友だちに寄り添う/影の場所を見つけるなど）で場が和らぎ、雲間から光が差す。"
+      ]
+    },
+    {
+      "scene_type": "resolution",
+      "descriptions": [
+        "解決後の余韻として、同じ日常が少し違って見える（光と影の両方を受け入れる）場面を短く入れる。",
+        "主人公の学び（分かち合い/信頼）が言語化され、太陽との関係がやさしく定着する締め方にする。"
+      ]
+    }
+  ],
+
+
 
 }
 ```
@@ -97,15 +134,14 @@ GeNarrative のスコープでは、SISは以下の3種類のオブジェクト�
 
 ### 3.3 story_type 標準値
 
-代表的なパターンと `SceneSIS.scene_type` の対応は次の通りです。
+代表的なパターンと `scene_blueprints[].scene_type` の対応は次の通りです。
 
-| story_type | 概要 | scene_type（SceneSIS.scene_type） |
+| story_type | 概要 | scene_type（scene_blueprints[].scene_type） |
 |---|---|---|
-| three_act | ドラマ型（困難→解決） | setup / conflict / resolution |
-| kishotenketsu | オチ・ひねり型（最後に意味が反転） | ki / sho / ten / ketsu |
-| circular | 旅して帰る型（行って変わって戻る） | home_start / away / change / home_end |
-| attempts | 複数回チャレンジ型（試行錯誤） | problem / attempt（反復） / result |
-| catalog | 図鑑・紹介型（順番が薄い） | intro / entry（反復） / outro |
+| three_act | ドラマ型（困難→解決） | setup(1から2シーン) / conflict(1から5シーン) / resolution(1から2シーン) |
+| kishotenketsu | オチ・ひねり型（最後に意味が反転） | ki(1シーン) / sho(1から2シーン) / ten(1シーン) / ketsu(1から2シーン) |
+| attempts | 複数回チャレンジ型（試行錯誤） | problem(1シーン) / attempt（反復）(2から5シーン) / result(1シーン) |
+| catalog | 図鑑・紹介型（順番が薄い） | intro(1シーン) / entry（反復）(3から10シーン) / outro(1シーン) |
 
 ---
 
@@ -124,7 +160,6 @@ SceneSIS は 1 シーンを記述する JSON オブジェクトです。
   "scene_id": "123e4567-e89b-12d3-a456-426614174000",
 
   "summary": "Introduction of the girl and the forest.",
-  "scene_type": "ki",
 
   // シーンの意味＋生成方針（多モーダル共通の背景）
   "semantics": {
@@ -163,6 +198,8 @@ SceneSIS は 1 シーンを記述する JSON オブジェクトです。
 
 }
 ```
+
+> **補足**: シーンの役割ラベル（例: ki/sho/ten/ketsu や setup/conflict/resolution）は SceneSIS には保持せず、StorySIS の `scene_blueprints[].scene_type` または外部インデックスで管理します。
 
 ### 4.2 フィールド詳細（抜粋）
 
@@ -284,29 +321,25 @@ MediaSISは、SceneSISの内部を分解した「構成要素（表現単位）�
 
 ----
 
-## 🛠 7. 保存形式
+## 🧪 7. 生成ワークフロー（推奨）
 
-- StorySIS: `story.json`（単一の StorySIS オブジェクトを格納する JSON）
-- SceneSIS: `story_scenes.json` / `story_scenes.jsonl`（複数 SceneSIS を格納する場合は JSON / JSONL いずれも可）
-- MediaSIS: `story_media.json` / `story_media.jsonl`（複数 MediaSIS を格納する場合は JSON / JSONL いずれも可）
-
-StorySIS / SceneSIS / MediaSIS 同士の紐づけ（`story_id`・`scene_id`・`media_id` 間の対応）は、別ファイルやデータベースなどの **外部インデックスで管理する** ことを基本とします。
-
-----
-
-## 🧪 8. LLM生成ワークフロー（推奨）
-
-1. MediaSIS を用意（任意）
-   - 既存の素材（画像/文章/音など）から抽出して作る、または人手で作る
-2. SceneSIS を生成
-   - Scene の意味背景（`semantics.common`）と、モーダル別の方針（`semantics.text/visual/audio`）を定義
-   - 必要なモーダル（text/visual/audio）の MediaSIS を生成し、`scene_id` と `media_id` の対応を外部インデックス（例：DB や別 JSON）で管理
+1. SceneSIS を生成
+   - 既存の素材（画像/文章）からSceneSISを抽出
+2. Sceneの生成
+   - SISの抽出元以外のモーダルの画像/文章/音声/音楽の生成を行い、一つのSceneを生成する
+   - 必要に応じて、各モーダル用のプロンプトを生成するためのメタプロンプトを利用する
 3. StorySIS を生成
-   - story_type に従い scene_type を決定し、外部インデックス上で Story ↔ Scene の対応を管理
+   - story_type を選択して、scene_blueprintsを含むStorySISを生成する
+  - SIS UI や `/api/sis2sis/scene2story` で story_type（三幕構成 / 起承転結 / attempts / catalog / circular）を入力すれば、LLM に任せずその構造で固定できる（空欄なら推定）
+  - さらに各SceneSISに対応する `scene_type`（setup / ki / intro など）をUIのドロップダウンや `scene_type_overrides` パラメータで指定しておくと、生成される `scene_blueprints[]` がそのラベルを確実に引き継ぐ
+4. 残りのSceneSISを生成
+   - scene_blueprintsから、残りのSceneSISを生成する
+5. 残りのSCeneを生成
+   - SceneSISから残りのSceneを生成する
 
 ----
 
-## 🔗 9. 関連概念（Inspirations / Related Concepts）
+## 🔗 8. 関連概念（Inspirations / Related Concepts）
 
 SIS は独自の仕様ですが、設計思想として以下の既存概念と共通点があります。  
 ※ここで挙げるのは **参考（アナロジー）**であり、SIS がこれらへの準拠や互換性を保証するものではありません。
@@ -326,14 +359,14 @@ SIS の `provenance` は、素材（assets）や生成器（generator）など�
 SIS は人手編集を前提とするため、スキーマに基づくバリデーション（必須項目・型・列挙値など）を導入すると、破損や表記揺れを抑えられます。  
 将来的に SIS のスキーマ進化（後方互換）やツール連携（フォームUI生成など）を行う際の基盤として、JSON Schema は有用です。
 
-## 🧭 10. SIS以外の方式との比較（参考）
+## 🧭 9. SIS以外の方式との比較（参考）
 
 SISは「モーダル間の連携のための“中間表現”」という位置づけですが、同じ目的は別の設計でも達成できます。
 ここでは代表的な代替アプローチと、SISとの違いを整理します。
 
 ---
 
-### 10.1 各方式の概要
+### 9.1 各方式の概要
 
 #### A) SIS（明示スキーマJSON）
 - **概要**：画像・テキスト・音楽などの生成をつなぐために、意味情報を **明示的なスキーマ（JSON）**として保持し、必要に応じて人間が編集できるようにする方式。
@@ -367,7 +400,7 @@ SISは「モーダル間の連携のための“中間表現”」という位�
 
 ---
 
-### 10.2 バランス比較表（〇/△/×）
+### 9.2 バランス比較表（〇/△/×）
 
 - **〇**：得意 / そのまま実現しやすい  
 - **△**：条件次第 / 工夫や追加設計で対応可能  
@@ -384,7 +417,7 @@ SISは「モーダル間の連携のための“中間表現”」という位�
 
 ---
 
-### 10.3 運用指針：SIS＋自然言語descriptionのハイブリッド（推奨）
+### 9.3 運用指針：SIS＋自然言語descriptionのハイブリッド（推奨）
 
 実運用では、**SIS（骨格）＋ description（肉付け）** の併用が扱いやすいです。
 
@@ -412,7 +445,7 @@ SISは「モーダル間の連携のための“中間表現”」という位�
 
 ※上記以外は、まず description に寄せてから必要に応じて昇格（description → SISフィールド化）する。
 
-## 🎉 11. まとめ
+## 🎉 10. まとめ
 
 本仕様は以下を満たします：
 

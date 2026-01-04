@@ -149,6 +149,9 @@ class ProcessingResult:
             elif 'generated_text' in self.data or 'content' in self.data:
                 result.update(self.data)
                 result['generation_time'] = self.metadata.get('processing_time')
+            # SIS変換の場合（story_sis, scenesなど）
+            elif 'story_sis' in self.data or 'scenes' in self.data or 'scene_sis' in self.data:
+                result.update(self.data)
             else:
                 # dataが直接SISデータの場合（従来互換性）
                 result['sis_data'] = self.data
@@ -207,6 +210,22 @@ class StructuredLogger:
             'details': details or {},
             'timestamp': datetime.now().isoformat()
         })
+    
+    def info(self, message: str, extra: Dict[str, Any] = None):
+        """汎用情報ログ"""
+        self.logger.info(message, extra=extra or {})
+    
+    def error(self, message: str, extra: Dict[str, Any] = None):
+        """汎用エラーログ"""
+        self.logger.error(message, extra=extra or {})
+    
+    def warning(self, message: str, extra: Dict[str, Any] = None):
+        """汎用警告ログ"""
+        self.logger.warning(message, extra=extra or {})
+    
+    def debug(self, message: str, extra: Dict[str, Any] = None):
+        """汎用デバッグログ"""
+        self.logger.debug(message, extra=extra or {})
 
 
 # ========================================

@@ -132,7 +132,6 @@ class SceneSIS(BaseModel):
     sis_type: Literal["scene"] = "scene"
     scene_id: Optional[str] = None
     summary: Optional[str] = None
-    scene_type: Optional[str] = None
     semantics: SceneSemantics
 
 
