@@ -3165,6 +3165,8 @@ def generate_project_story_sis(project_id):
         data = request.get_json()
         if not data:
             return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+        output_mode = (data.get('output_mode') or 'return').strip().lower()
         
         story_type = data.get('story_type')
         scenes_by_type = data.get('scenes_by_type', {})
@@ -3236,11 +3238,30 @@ def generate_project_story_sis(project_id):
                     'success': False,
                     'error': 'No StorySIS generated'
                 }), 500
-            
-            return jsonify({
+
+            response_payload = {
                 'success': True,
-                'story_sis': story_sis
-            })
+                'story_sis': story_sis,
+                'output_mode': output_mode,
+            }
+
+            # Candidate mode: persist generated StorySIS as a temporary file.
+            # This avoids overwriting or auto-saving the main StorySIS until user confirms.
+            if output_mode == 'candidate':
+                story_dir = os.path.join(project_dir, 'story')
+                os.makedirs(story_dir, exist_ok=True)
+
+                candidate_filename = 'story_candidate.json'
+                candidate_path = os.path.join(story_dir, candidate_filename)
+
+                with open(candidate_path, 'w', encoding='utf-8') as f:
+                    json.dump(story_sis, f, indent=2, ensure_ascii=False)
+
+                response_payload.update({
+                    'candidate_filename': candidate_filename,
+                })
+
+            return jsonify(response_payload)
         else:
             return jsonify({
                 'success': False,
@@ -3292,6 +3313,84 @@ def save_project_story_sis(project_id):
             'success': False,
             'error': f'Error saving StorySIS: {str(e)}'
         }), 500
+
+
+@app.route('/projects/<project_id>/save_generated_story_sis', methods=['POST'])
+def save_generated_project_story_sis(project_id):
+    """Finalize (save) a generated StorySIS candidate into a timestamped story_*.json file."""
+    try:
+        data = request.get_json(silent=True) or {}
+        candidate_filename = (data.get('candidate_filename') or 'story_candidate.json').strip()
+
+        # Verify project exists
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+
+        story_dir = os.path.join(project_dir, 'story')
+        if not os.path.isdir(story_dir):
+            return jsonify({'success': False, 'error': 'Story directory not found'}), 404
+
+        candidate_path = os.path.join(story_dir, candidate_filename)
+        if not os.path.isfile(candidate_path):
+            return jsonify({'success': False, 'error': 'Candidate StorySIS not found'}), 404
+
+        with open(candidate_path, 'r', encoding='utf-8') as f:
+            story_sis = json.load(f)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        story_filename = f'story_{timestamp}.json'
+        story_file = os.path.join(story_dir, story_filename)
+
+        with open(story_file, 'w', encoding='utf-8') as f:
+            json.dump(story_sis, f, indent=2, ensure_ascii=False)
+
+        # Remove candidate after finalizing
+        try:
+            os.remove(candidate_path)
+        except Exception:
+            pass
+
+        return jsonify({
+            'success': True,
+            'filename': story_filename,
+            'story_sis': story_sis,
+            'message': f'StorySIS saved to {story_filename}'
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Error saving generated StorySIS: {str(e)}'
+        }), 500
+
+
+@app.route('/projects/<project_id>/discard_generated_story_sis', methods=['POST'])
+def discard_generated_project_story_sis(project_id):
+    """Discard (delete) a generated StorySIS candidate file."""
+    try:
+        data = request.get_json(silent=True) or {}
+        candidate_filename = (data.get('candidate_filename') or 'story_candidate.json').strip()
+
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+
+        story_dir = os.path.join(project_dir, 'story')
+        if not os.path.isdir(story_dir):
+            return jsonify({'success': True, 'message': 'No story directory; nothing to discard'})
+
+        candidate_path = os.path.join(story_dir, candidate_filename)
+        if os.path.isfile(candidate_path):
+            try:
+                os.remove(candidate_path)
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Failed to delete candidate: {str(e)}'}), 500
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Error discarding generated StorySIS: {str(e)}'}), 500
 
 @app.route('/projects/<project_id>/get_story_sis')
 def get_project_story_sis(project_id):

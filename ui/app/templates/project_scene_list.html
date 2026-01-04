@@ -103,6 +103,8 @@
                     <button class="btn btn-edit" onclick="toggleStorySISEdit()">✏️ Edit</button>
                     <button class="btn btn-save" id="btnStorySISSave" onclick="saveStorySIS()" style="display: none;">💾 Save</button>
                     <button class="btn btn-cancel" id="btnStorySISCancel" onclick="cancelStorySISEdit()" style="display: none;">❌ Cancel</button>
+                    <button class="btn btn-save" id="btnStorySISGeneratedSave" onclick="saveGeneratedStorySIS()" style="display: none;">💾 Save</button>
+                    <button class="btn btn-cancel" id="btnStorySISGeneratedCancel" onclick="cancelGeneratedStorySIS()" style="display: none;">❌ Cancel</button>
                     <button class="btn btn-download" onclick="downloadStorySIS()">💾 Download</button>
                 </div>
                 <div class="sis-generation-controls">
@@ -112,8 +114,29 @@
             </div>
             <div class="sis-container">
                 <h4 id="storySISFilename">StorySIS</h4>
-                <div class="sis-editor">
+                <div class="sis-editor" id="storySISSingleEditor">
                     <textarea id="storySISContent" rows="20" readonly style="width: 100%; min-height: 400px; font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace; font-size: 14px; border: 1px solid #ddd; border-radius: 4px; padding: 10px; resize: vertical;"></textarea>
+                </div>
+
+                <!-- Compare (Original vs Generated) -->
+                <div class="story-sis-compare" id="storySISCompareContainer" style="display: none;">
+                    <div class="swiper story-sis-compare-swiper" id="storySISCompareSwiper">
+                        <div class="swiper-wrapper">
+                            <div class="swiper-slide">
+                                <h4 class="story-sis-compare-title">Original</h4>
+                                <textarea id="storySISOriginalCompare" class="story-sis-compare-textarea" rows="20" readonly></textarea>
+                            </div>
+                            <div class="swiper-slide">
+                                <h4 class="story-sis-compare-title">Generated</h4>
+                                <textarea id="storySISGeneratedCompare" class="story-sis-compare-textarea" rows="20" readonly></textarea>
+                            </div>
+                        </div>
+
+                        <div class="story-sis-compare-next"></div>
+                        <div class="story-sis-compare-prev"></div>
+                        <div class="story-sis-compare-pagination"></div>
+                        <div class="story-sis-compare-scrollbar"></div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -521,6 +544,70 @@
     border-radius: 4px;
     padding: 10px;
     resize: vertical;
+}
+
+.story-sis-compare {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.story-sis-compare-swiper {
+    width: 100%;
+}
+
+.story-sis-compare-title {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.story-sis-compare-textarea {
+    width: 100%;
+    min-height: 400px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    resize: vertical;
+    box-sizing: border-box;
+    background: #fff;
+}
+
+.story-sis-compare-next,
+.story-sis-compare-prev {
+    color: #007bff;
+    background-color: rgba(255,255,255,0.9);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+}
+
+.story-sis-compare-next { right: 10px; }
+.story-sis-compare-prev { left: 10px; }
+
+.story-sis-compare-next:after,
+.story-sis-compare-prev:after {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.story-sis-compare-pagination {
+    position: relative;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.story-sis-compare-scrollbar {
+    position: relative;
+    margin-top: 10px;
 }
 
 .sis-controls-container {
@@ -986,6 +1073,9 @@ const scenesData = {};
 let currentDraggedScene = null;
 let storySISEditMode = false;
 let originalStorySISContent = '';
+let pendingGeneratedStorySISContent = null;
+let pendingStorySISCandidateFilename = null;
+let storySISCompareSwiper = null;
 let isRestoringArrangement = false;  // Flag to prevent auto-save during restoration
 let narrativeScenes = [];
 let currentNarrativeData = [];
@@ -1337,6 +1427,10 @@ document.getElementById('clearStoryLanes').addEventListener('click', async funct
 
 // Generate StorySIS
 document.getElementById('generateStorySIS').addEventListener('click', async function() {
+    if (storySISEditMode) {
+        alert('Please finish editing (Save/Cancel) before generating.');
+        return;
+    }
     const storyType = document.getElementById('storyTypeSelect').value;
     if (!storyType) {
         alert('Please select a story type first');
@@ -1376,17 +1470,16 @@ document.getElementById('generateStorySIS').addEventListener('click', async func
             },
             body: JSON.stringify({
                 story_type: storyType,
-                scenes_by_type: scenesByType
+                scenes_by_type: scenesByType,
+                output_mode: 'candidate'
             })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            displayStorySIS(data.story_sis);
-            
-            // Auto-save generated StorySIS
-            await autoSaveStorySIS(data.story_sis);
+            setPendingGeneratedStorySIS(data.story_sis, data.candidate_filename);
+            displayGeneratedStorySISCandidate();
         } else {
             alert(`Failed to generate StorySIS: ${data.error}`);
         }
@@ -1397,6 +1490,165 @@ document.getElementById('generateStorySIS').addEventListener('click', async func
         this.textContent = 'Generate StorySIS';
     }
 });
+
+function setPendingGeneratedStorySIS(storySIS, candidateFilename) {
+    pendingGeneratedStorySISContent = storySIS || null;
+    pendingStorySISCandidateFilename = candidateFilename || 'story_candidate.json';
+}
+
+function displayGeneratedStorySISCandidate() {
+    if (!pendingGeneratedStorySISContent) {
+        return;
+    }
+
+    const originalTextarea = document.getElementById('storySISContent');
+    const originalCompareTextarea = document.getElementById('storySISOriginalCompare');
+    const generatedCompareTextarea = document.getElementById('storySISGeneratedCompare');
+
+    const originalText = originalTextarea?.value || '';
+    const generatedText = JSON.stringify(pendingGeneratedStorySISContent, null, 2);
+
+    originalCompareTextarea.value = originalText;
+    generatedCompareTextarea.value = generatedText;
+
+    showStorySISCompareSwiper();
+}
+
+function showStorySISCompareSwiper() {
+    const singleEditor = document.getElementById('storySISSingleEditor');
+    const compareContainer = document.getElementById('storySISCompareContainer');
+    const genSaveBtn = document.getElementById('btnStorySISGeneratedSave');
+    const genCancelBtn = document.getElementById('btnStorySISGeneratedCancel');
+
+    const editBtn = document.querySelector('#storySISResult .btn-edit');
+    const editSaveBtn = document.getElementById('btnStorySISSave');
+    const editCancelBtn = document.getElementById('btnStorySISCancel');
+
+    if (singleEditor) singleEditor.style.display = 'none';
+    if (compareContainer) compareContainer.style.display = 'block';
+
+    if (genSaveBtn) genSaveBtn.style.display = 'inline-block';
+    if (genCancelBtn) genCancelBtn.style.display = 'inline-block';
+
+    if (editBtn) editBtn.style.display = 'none';
+    if (editSaveBtn) editSaveBtn.style.display = 'none';
+    if (editCancelBtn) editCancelBtn.style.display = 'none';
+
+    if (storySISCompareSwiper) {
+        storySISCompareSwiper.destroy(true, true);
+        storySISCompareSwiper = null;
+    }
+
+    storySISCompareSwiper = new Swiper('#storySISCompareSwiper', {
+        direction: 'horizontal',
+        loop: false,
+        speed: 600,
+        initialSlide: 1,
+        navigation: {
+            nextEl: '.story-sis-compare-next',
+            prevEl: '.story-sis-compare-prev',
+        },
+        pagination: {
+            el: '.story-sis-compare-pagination',
+            clickable: true,
+            type: 'bullets',
+        },
+        scrollbar: {
+            el: '.story-sis-compare-scrollbar',
+            draggable: true,
+        },
+        keyboard: {
+            enabled: true,
+        },
+        mousewheel: {
+            enabled: true,
+        },
+    });
+}
+
+function restoreStorySISFromCompare() {
+    const singleEditor = document.getElementById('storySISSingleEditor');
+    const compareContainer = document.getElementById('storySISCompareContainer');
+    const genSaveBtn = document.getElementById('btnStorySISGeneratedSave');
+    const genCancelBtn = document.getElementById('btnStorySISGeneratedCancel');
+
+    const editBtn = document.querySelector('#storySISResult .btn-edit');
+
+    if (compareContainer) compareContainer.style.display = 'none';
+    if (singleEditor) singleEditor.style.display = 'block';
+
+    if (genSaveBtn) genSaveBtn.style.display = 'none';
+    if (genCancelBtn) genCancelBtn.style.display = 'none';
+
+    if (editBtn) editBtn.style.display = 'inline-block';
+
+    if (storySISCompareSwiper) {
+        storySISCompareSwiper.destroy(true, true);
+        storySISCompareSwiper = null;
+    }
+
+    pendingGeneratedStorySISContent = null;
+    pendingStorySISCandidateFilename = null;
+}
+
+async function saveGeneratedStorySIS() {
+    if (!pendingStorySISCandidateFilename) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/projects/${projectId}/save_generated_story_sis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                candidate_filename: pendingStorySISCandidateFilename
+            })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            alert(`Failed to save generated StorySIS: ${data.error}`);
+            return;
+        }
+
+        displayStorySIS(data.story_sis, data.filename);
+        restoreStorySISFromCompare();
+        alert('StorySIS saved successfully!');
+    } catch (error) {
+        alert(`Error saving generated StorySIS: ${error.message}`);
+    }
+}
+
+async function cancelGeneratedStorySIS() {
+    if (!pendingStorySISCandidateFilename) {
+        restoreStorySISFromCompare();
+        return;
+    }
+
+    try {
+        const response = await fetch(`/projects/${projectId}/discard_generated_story_sis`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                candidate_filename: pendingStorySISCandidateFilename
+            })
+        });
+
+        const data = await response.json();
+        if (!data.success) {
+            alert(`Failed to discard generated StorySIS: ${data.error}`);
+            return;
+        }
+
+        restoreStorySISFromCompare();
+    } catch (error) {
+        alert(`Error discarding generated StorySIS: ${error.message}`);
+    }
+}
 
 // Auto-save StorySIS after generation
 async function autoSaveStorySIS(storySIS) {
@@ -1446,6 +1698,9 @@ async function loadExistingStorySIS() {
         if (data.success && data.story_sis) {
             displayStorySIS(data.story_sis, data.filename);
         }
+
+        // Ensure compare UI is hidden on load
+        restoreStorySISFromCompare();
         
         // Load scene arrangement separately
         await loadSceneArrangement();
