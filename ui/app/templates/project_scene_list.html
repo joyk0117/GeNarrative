@@ -704,6 +704,29 @@
     justify-content: center;
 }
 
+/* Button variants (override global hero styles on white pages) */
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+    border: none;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+    transform: translateY(-2px);
+}
+
+.btn:disabled,
+.btn[disabled] {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.btn:disabled:hover,
+.btn[disabled]:hover {
+    transform: none;
+}
+
 /* Story Type Lanes Styles */
 .scene-type-lane {
     border: 2px dashed #ced4da;
