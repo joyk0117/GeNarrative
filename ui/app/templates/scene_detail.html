@@ -35,6 +35,12 @@
                     <button class="btn btn-generate-sis" id="btn-generate-replace" onclick="generateAndReplaceImage()">
                         Genarate
                     </button>
+                    <button class="btn btn-save" id="btn-image-save" onclick="saveGeneratedImage()" style="display:none;">
+                        💾 Save
+                    </button>
+                    <button class="btn btn-cancel" id="btn-image-cancel" onclick="cancelGeneratedImage()" style="display:none;">
+                        ❌ Cancel
+                    </button>
                     
                 </div>
                 <div class="image-gallery">
@@ -102,6 +108,12 @@
                     <button class="btn btn-generate-sis" id="btn-generate-replace" onclick="generateAndReplaceImage()">
                         Genarate
                     </button>
+                    <button class="btn btn-save" id="btn-image-save" onclick="saveGeneratedImage()" style="display:none;">
+                        💾 Save
+                    </button>
+                    <button class="btn btn-cancel" id="btn-image-cancel" onclick="cancelGeneratedImage()" style="display:none;">
+                        ❌ Cancel
+                    </button>
                     
                 </div>
                 <div class="no-content">
@@ -168,6 +180,12 @@
                         </button>
                         <button class="btn btn-generate-sis" onclick="generateTextFromSIS({{ loop.index }}, '{{ text_file }}')">
                             🚀 Generate
+                        </button>
+                        <button class="btn btn-save" id="btn-text-generated-save-{{ loop.index }}" onclick="saveGeneratedTextAndSpeech({{ loop.index }}, '{{ text_file }}')" style="display:none;">
+                            💾 Save
+                        </button>
+                        <button class="btn btn-cancel" id="btn-text-generated-cancel-{{ loop.index }}" onclick="cancelGeneratedTextAndSpeech({{ loop.index }}, '{{ text_file }}')" style="display:none;">
+                            ❌ Cancel
                         </button>
                         <button class="btn btn-save" onclick="saveText({{ loop.index }}, '{{ text_file }}')" style="display: none;">
                             💾 Save
@@ -256,6 +274,12 @@
                     <button class="btn btn-generate-sis" id="btn-generate-music" onclick="generateSceneMusic()">
                         Generate
                     </button>
+                    <button class="btn btn-save" id="btn-music-save" onclick="saveGeneratedMusic()" style="display:none;">
+                        💾 Save
+                    </button>
+                    <button class="btn btn-cancel" id="btn-music-cancel" onclick="cancelGeneratedMusic()" style="display:none;">
+                        ❌ Cancel
+                    </button>
                 </div>
                 <div class="music-controls">
                     {% for music_file in scene.music_files %}
@@ -308,6 +332,12 @@
                     </button>
                     <button class="btn btn-generate-sis" id="btn-generate-music" onclick="generateSceneMusic()">
                         Generate
+                    </button>
+                    <button class="btn btn-save" id="btn-music-save" onclick="saveGeneratedMusic()" style="display:none;">
+                        💾 Save
+                    </button>
+                    <button class="btn btn-cancel" id="btn-music-cancel" onclick="cancelGeneratedMusic()" style="display:none;">
+                        ❌ Cancel
                     </button>
                 </div>
                 <div class="no-content">
@@ -535,8 +565,107 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
+/* Image compare (Swiper) should not change the original display area size */
+.image-compare-swiper {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.image-compare-swiper .swiper-slide {
+    display: flex;
+}
+
+.image-compare-swiper .image-container {
+    width: 100%;
+}
+
+.image-compare-swiper .scene-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
 .audio-controls, .music-controls {
     margin-top: 15px;
+}
+
+.music-compare-swiper {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.music-compare-swiper .swiper-slide {
+    padding: 8px 0;
+    width: 100% !important;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.music-compare-swiper .swiper-wrapper {
+    width: 100%;
+}
+
+.music-compare-swiper .audio-player {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.music-compare-swiper .player-controls {
+    min-width: 0;
+}
+
+.music-compare-swiper .file-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.text-compare-swiper,
+.tts-compare-swiper {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.text-compare-swiper .swiper-slide,
+.tts-compare-swiper .swiper-slide {
+    width: 100% !important;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.text-compare-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 12px;
+    margin: 0;
+}
+
+/* Ensure audio controls remain visible inside Swiper compare (TTS) */
+.tts-compare-swiper .play-pause-btn {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Ensure audio controls remain visible inside Swiper compare */
+.music-compare-swiper .play-pause-btn {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+.music-compare-swiper .play-icon,
+.music-compare-swiper .pause-icon {
+    display: inline;
+    visibility: visible;
+    opacity: 1;
 }
 
 .audio-player {
@@ -1490,7 +1619,7 @@ async function generateTextFromSIS(index, filename) {
         const res = await fetch(`/scene/${sceneId}/generate_text`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
+            body: JSON.stringify({ output_mode: 'candidate', text_filename: filename })
         });
 
         if (!res.ok) {
@@ -1501,23 +1630,11 @@ async function generateTextFromSIS(index, filename) {
             throw new Error(data.error || 'Generation failed');
         }
 
-        // 生成テキストをUIに反映
-        const textEl = document.getElementById(`text-${index}`);
-        if (textEl && data.generated_text) {
-            textEl.textContent = data.generated_text;
-        }
+        displayGeneratedTextCandidate(index, filename, data.generated_text || '', data.candidate_filename || '');
+        // Generate TTS as candidate from the generated text and show compare
+        await generateTTSCandidateForGeneratedText(index, filename, data.generated_text || '');
 
-        // エディタ表示中なら内容も更新
-        const editorEl = document.getElementById(`text-editor-${index}`);
-        if (editorEl && data.generated_text) {
-            editorEl.value = data.generated_text;
-        }
-
-        // Use the returned text_filename from the server response
-        const actualFilename = data.text_filename || filename || `text_${sceneId}.txt`;
-        await regenerateSceneTTS(index, actualFilename, data.generated_text || '');
-
-        showSISGenerationProgress('✅ Text generated from SIS and saved.', 'success');
+        showSISGenerationProgress('✅ Text & Speech generated (pending).', 'success');
     } catch (e) {
         console.error('generateTextFromSIS error:', e);
         showSISGenerationProgress(`❌ Failed to generate text: ${e.message}`, 'error');
@@ -1527,6 +1644,331 @@ async function generateTextFromSIS(index, filename) {
             genBtn.disabled = false;
             genBtn.textContent = '🚀 Generate';
         }
+    }
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function setPendingGeneratedText(index, pending) {
+    if (!window.__pendingGeneratedText) window.__pendingGeneratedText = {};
+    if (pending) window.__pendingGeneratedText[index] = pending;
+    else delete window.__pendingGeneratedText[index];
+
+    const saveBtn = document.getElementById(`btn-text-generated-save-${index}`);
+    const cancelBtn = document.getElementById(`btn-text-generated-cancel-${index}`);
+    const container = document.getElementById(`text-${index}`)?.closest('.text-container');
+    const editBtn = container ? container.querySelector('.btn-edit') : null;
+    const genBtn = container ? container.querySelector('.btn-generate-sis') : null;
+    const hasPending = !!pending;
+
+    if (saveBtn) saveBtn.style.display = hasPending ? 'inline-block' : 'none';
+    if (cancelBtn) cancelBtn.style.display = hasPending ? 'inline-block' : 'none';
+    if (editBtn) editBtn.disabled = hasPending;
+    if (genBtn) genBtn.disabled = hasPending;
+}
+
+function showTextCompareSwiper(index, originalText, generatedText, fixedHeightPx) {
+    const textEl = document.getElementById(`text-${index}`);
+    if (!textEl) return;
+
+    const swiperId = `text-compare-swiper-${index}`;
+    textEl.innerHTML = `
+        <div class="swiper text-compare-swiper" id="${swiperId}">
+            <div class="swiper-wrapper">
+                <div class="swiper-slide">
+                    <h4>📝 Original</h4>
+                    <pre class="text-compare-content">${escapeHtml(originalText || '')}</pre>
+                </div>
+                <div class="swiper-slide">
+                    <h4>📝 Generated</h4>
+                    <pre class="text-compare-content">${escapeHtml(generatedText || '')}</pre>
+                </div>
+            </div>
+            <div class="swiper-pagination"></div>
+        </div>
+    `;
+
+    const el = document.getElementById(swiperId);
+    if (el && fixedHeightPx && Number.isFinite(fixedHeightPx) && fixedHeightPx > 0) {
+        el.style.height = `${fixedHeightPx}px`;
+        el.style.maxHeight = `${fixedHeightPx}px`;
+        el.style.overflow = 'hidden';
+    }
+
+    try {
+        if (window.__textCompareSwipers && window.__textCompareSwipers[index]?.destroy) {
+            window.__textCompareSwipers[index].destroy(true, true);
+        }
+    } catch {}
+    if (!window.__textCompareSwipers) window.__textCompareSwipers = {};
+
+    if (typeof Swiper !== 'undefined' && el) {
+        window.__textCompareSwipers[index] = new Swiper(el, {
+            loop: false,
+            initialSlide: 1,
+            pagination: { el: el.querySelector('.swiper-pagination'), clickable: true }
+        });
+    }
+}
+
+function displayGeneratedTextCandidate(index, filename, generatedText, candidateFilename) {
+    const textEl = document.getElementById(`text-${index}`);
+    const container = textEl?.closest('.text-container');
+    if (!textEl || !container) return;
+
+    // If editing is active, exit it (candidate compare is view-only)
+    const editorEl = document.getElementById(`text-editor-${index}`);
+    if (editorEl && editorEl.style.display !== 'none') {
+        cancelTextEdit(index);
+    }
+
+    const originalText = (textEl.textContent || '').trim() === '読み込み中...' ? '' : (textEl.textContent || '');
+    const fixedHeight = textEl.getBoundingClientRect().height;
+
+    setPendingGeneratedText(index, {
+        filename,
+        candidate_filename: candidateFilename,
+        original_text: originalText,
+        generated_text: generatedText,
+        tts_candidate_filename: '',
+        tts_target_filename: ''
+    });
+
+    showTextCompareSwiper(index, originalText, generatedText, fixedHeight);
+}
+
+function getTTSTargetFilenameFromTextFilename(textFilename) {
+    const tf = String(textFilename || '');
+    if (!tf) return '';
+    return tf.replace(/^text_/, 'tts_').replace(/\.txt$/i, '.wav');
+}
+
+async function generateTTSCandidateForGeneratedText(index, textFilename, generatedText) {
+    const pending = window.__pendingGeneratedText?.[index];
+    if (!pending) return;
+    const container = document.getElementById(`text-${index}`)?.closest('.text-container');
+    if (!container) return;
+
+    const targetTts = getTTSTargetFilenameFromTextFilename(textFilename);
+    if (!targetTts) return;
+
+    let response;
+    let data = {};
+    try {
+        response = await fetch(`/scene/{{ scene.id }}/generate_tts`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text_filename: textFilename,
+                text_override: generatedText,
+                tts_filename: targetTts,
+                output_mode: 'candidate'
+            })
+        });
+
+        try {
+            data = await response.json();
+        } catch {
+            throw new Error('Invalid JSON from TTS server');
+        }
+
+        if (!response.ok || data.success === false) {
+            throw new Error(data.error || `HTTP ${response.status}`);
+        }
+
+        pending.tts_candidate_filename = data.candidate_filename || data.tts_filename || '';
+        pending.tts_target_filename = data.target_tts_filename || targetTts;
+        setPendingGeneratedText(index, pending);
+
+        showTTSCompareSwiper(index, container, pending.tts_target_filename, pending.tts_candidate_filename);
+    } catch (e) {
+        console.error('generateTTSCandidateForGeneratedText error:', e);
+        // Do not block text compare if speech generation fails
+    }
+}
+
+function showTTSCompareSwiper(index, container, targetTtsFilename, candidateTtsFilename) {
+    if (!container) return;
+    const controls = container.querySelector('.tts-controls');
+    if (!controls) return;
+
+    const originalNode = controls.nextElementSibling;
+    if (!window.__ttsCompareOriginalHTML) window.__ttsCompareOriginalHTML = {};
+    if (!window.__ttsCompareOriginalHTML[index]) {
+        window.__ttsCompareOriginalHTML[index] = originalNode ? originalNode.outerHTML : '';
+    }
+
+    // Remove existing block (audio player or no-content)
+    if (originalNode) {
+        originalNode.remove();
+    }
+
+    const swiperId = `tts-compare-swiper-${index}`;
+    const originalUrl = targetTtsFilename ? `/scene/{{ scene.id }}/file/${encodeURIComponent(targetTtsFilename)}` : '';
+    const candidateUrl = candidateTtsFilename ? `/scene/{{ scene.id }}/file/${encodeURIComponent(candidateTtsFilename)}` : '';
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+        <div class="swiper tts-compare-swiper" id="${swiperId}">
+            <div class="swiper-wrapper">
+                <div class="swiper-slide">
+                    <h4>🎤 Original</h4>
+                    ${buildAudioPlayerHtml(`tts-player-original-${index}`, targetTtsFilename || 'No Speech', originalUrl)}
+                </div>
+                <div class="swiper-slide">
+                    <h4>🎤 Generated</h4>
+                    ${buildAudioPlayerHtml(`tts-player-candidate-${index}`, candidateTtsFilename || 'Generated Speech', candidateUrl)}
+                </div>
+            </div>
+            <div class="swiper-pagination"></div>
+        </div>
+    `;
+
+    controls.parentNode.insertBefore(wrapper.firstElementChild, controls.nextSibling);
+
+    const el = document.getElementById(swiperId);
+    try {
+        if (window.__ttsCompareSwipers && window.__ttsCompareSwipers[index]?.destroy) {
+            window.__ttsCompareSwipers[index].destroy(true, true);
+        }
+    } catch {}
+    if (!window.__ttsCompareSwipers) window.__ttsCompareSwipers = {};
+
+    if (typeof Swiper !== 'undefined' && el) {
+        window.__ttsCompareSwipers[index] = new Swiper(el, {
+            loop: false,
+            initialSlide: 1,
+            pagination: { el: el.querySelector('.swiper-pagination'), clickable: true }
+        });
+    }
+}
+
+function restoreTTSOriginalBlock(index, container) {
+    if (!container) return;
+    const controls = container.querySelector('.tts-controls');
+    if (!controls) return;
+    const current = controls.nextElementSibling;
+    if (current) current.remove();
+
+    const html = window.__ttsCompareOriginalHTML?.[index] || '';
+    if (html) {
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        const restored = temp.firstElementChild;
+        if (restored) controls.parentNode.insertBefore(restored, controls.nextSibling);
+    }
+    if (window.__ttsCompareOriginalHTML) delete window.__ttsCompareOriginalHTML[index];
+}
+
+async function saveGeneratedTextAndSpeech(index, filename) {
+    const pending = window.__pendingGeneratedText?.[index];
+    if (!pending) return;
+
+    const saveBtn = document.getElementById(`btn-text-generated-save-${index}`);
+    const cancelBtn = document.getElementById(`btn-text-generated-cancel-${index}`);
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+    if (cancelBtn) cancelBtn.disabled = true;
+
+    try {
+        // Save text candidate
+        const res = await fetch(`/scene/{{ scene.id }}/save_generated_text`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ candidate_filename: pending.candidate_filename, text_filename: filename })
+        });
+        let data = {};
+        try { data = await res.json(); } catch { throw new Error('Invalid JSON response'); }
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+        }
+
+        // Save TTS candidate if available
+        if (pending.tts_candidate_filename && pending.tts_target_filename) {
+            const res2 = await fetch(`/scene/{{ scene.id }}/save_generated_tts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ candidate_filename: pending.tts_candidate_filename, tts_filename: pending.tts_target_filename })
+            });
+            let data2 = {};
+            try { data2 = await res2.json(); } catch { throw new Error('Invalid JSON response'); }
+            if (!res2.ok || !data2.success) {
+                throw new Error(data2.error || `HTTP ${res2.status}`);
+            }
+        }
+
+        // Restore normal view with generated text
+        const textEl = document.getElementById(`text-${index}`);
+        if (textEl) {
+            textEl.textContent = pending.generated_text || '';
+        }
+        const container = textEl?.closest('.text-container');
+        if (container) {
+            restoreTTSOriginalBlock(index, container);
+            if (pending.tts_target_filename) {
+                // Update canonical player
+                updateTTSPlayer(index, container, pending.tts_target_filename);
+            }
+        }
+
+        setPendingGeneratedText(index, null);
+        showSISGenerationProgress('✅ Text & Speech saved.', 'success');
+    } catch (e) {
+        console.error('saveGeneratedTextAndSpeech error:', e);
+        showSISGenerationProgress(`❌ Failed to save: ${e.message}`, 'error');
+    } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Save'; }
+        if (cancelBtn) cancelBtn.disabled = false;
+    }
+}
+
+async function cancelGeneratedTextAndSpeech(index, filename) {
+    const pending = window.__pendingGeneratedText?.[index];
+    if (!pending) return;
+    const cancelBtn = document.getElementById(`btn-text-generated-cancel-${index}`);
+    const saveBtn = document.getElementById(`btn-text-generated-save-${index}`);
+    if (cancelBtn) { cancelBtn.disabled = true; cancelBtn.textContent = 'Cancelling...'; }
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+        // Discard text candidate
+        await fetch(`/scene/{{ scene.id }}/discard_generated_text`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ candidate_filename: pending.candidate_filename })
+        });
+
+        // Discard TTS candidate if present
+        if (pending.tts_candidate_filename) {
+            await fetch(`/scene/{{ scene.id }}/discard_generated_tts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ candidate_filename: pending.tts_candidate_filename })
+            });
+        }
+
+        const textEl = document.getElementById(`text-${index}`);
+        if (textEl) {
+            textEl.textContent = pending.original_text || '';
+        }
+        const container = textEl?.closest('.text-container');
+        if (container) {
+            restoreTTSOriginalBlock(index, container);
+        }
+        setPendingGeneratedText(index, null);
+        showSISGenerationProgress('✅ Discarded generated Text & Speech.', 'info');
+    } catch (e) {
+        console.error('cancelGeneratedTextAndSpeech error:', e);
+        showSISGenerationProgress(`❌ Failed to discard: ${e.message}`, 'error');
+    } finally {
+        if (cancelBtn) { cancelBtn.disabled = false; cancelBtn.textContent = '❌ Cancel'; }
+        if (saveBtn) saveBtn.disabled = false;
     }
 }
 
@@ -1899,7 +2341,7 @@ async function generateImageFromSIS() {
                 // 画像を表示
                 if (result.image_info.image_url) {
                     console.log(`🖼️ Displaying image: ${result.image_info.image_url}`);
-                    displayGeneratedImage(result.image_info.image_url, result.prompt);
+                    displayGeneratedImage(result.image_info.image_url, result.prompt, { source_path: result.image_info.source_path });
                 }
             } else {
                 message += ` 📝 Image prompt generated (image server not available)`;
@@ -2014,9 +2456,10 @@ async function generateAndReplaceImage() {
         }
 
         const result = await response.json();
-        if (result.success && result.image_url) {
-            // 生成画像をImageセクションに表示
-            displayGeneratedImage(result.image_url, promptText);
+        if (result.success && (result.candidate_image_url || result.image_url)) {
+            // 生成画像を「候補」として比較表示
+            const candidateUrl = result.candidate_image_url || result.image_url;
+            displayGeneratedImage(candidateUrl, promptText, { candidate_filename: result.candidate_filename, is_candidate: true });
             showSISGenerationProgress('✅ Image generated from prompt via SD.', 'success');
         } else {
             const reason = result.error || 'Unknown error';
@@ -2848,88 +3291,273 @@ function copyMusicPrompt() {
 }
 
 // 生成された画像を表示する関数
-function displayGeneratedImage(imageUrl, prompt) {
-    console.log(`🖼️ Displaying generated image in Image section: ${imageUrl}`);
+function getCacheBustedUrl(url) {
+    if (!url) return '';
+    return url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+}
 
-    // キャッシュバスターを付与して確実に更新を反映
-    const cacheBustedUrl = imageUrl + (imageUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+function getOriginalImageUrlForCompare() {
+    // 既に比較UIがある場合は original スライドから拾う
+    const originalEl = document.querySelector('.image-compare-swiper img[data-role="original"]');
+    if (originalEl?.getAttribute('src')) return originalEl.getAttribute('src');
 
-    // 既存のImageセクションの画像ギャラリーまたはno-contentエリアを探す
-    const imageGallery = document.querySelector('.image-gallery');
-    const noContentArea = document.querySelector('.image-section .no-content');
+    // 通常表示の場合は最初の画像を拾う
+    const img = document.querySelector('.image-gallery .scene-image');
+    return img?.getAttribute('src') || '';
+}
 
-    if (imageGallery) {
-        // 既存の最初の画像を置き換える（重複追加を避ける）
-        const existingContainer = imageGallery.querySelector('.image-container');
-        const existingImg = existingContainer?.querySelector('.scene-image');
-        const existingTitle = existingContainer?.querySelector('h4');
+function getOriginalImageDisplayHeightForCompare() {
+    // まずは既存画像の表示高さを優先
+    const img = document.querySelector('.image-gallery .scene-image');
+    const h1 = img?.getBoundingClientRect?.().height;
+    if (h1 && h1 > 0) return Math.round(h1);
 
-        if (existingImg) {
-            existingImg.src = cacheBustedUrl;
-            existingImg.alt = 'Generated Image';
-            existingImg.onclick = () => window.open(cacheBustedUrl, '_blank');
+    // 次にギャラリー領域の高さ
+    const gallery = document.querySelector('.image-gallery');
+    const h2 = gallery?.getBoundingClientRect?.().height;
+    if (h2 && h2 > 0) return Math.round(h2);
+
+    return null;
+}
+
+function showImageCompareSwiper(originalUrl, generatedUrl, fixedHeightPx) {
+    const imageSection = document.querySelector('.image-section');
+    if (!imageSection) return;
+
+    // no-content があれば消して gallery を作る
+    const noContentArea = imageSection.querySelector('.no-content');
+    if (noContentArea) noContentArea.remove();
+
+    let imageGallery = imageSection.querySelector('.image-gallery');
+    if (!imageGallery) {
+        imageGallery = document.createElement('div');
+        imageGallery.className = 'image-gallery';
+        imageSection.appendChild(imageGallery);
+    }
+
+    const orig = originalUrl ? getCacheBustedUrl(originalUrl) : '';
+    const gen = getCacheBustedUrl(generatedUrl);
+
+    imageGallery.innerHTML = `
+        <div class="swiper image-compare-swiper">
+            <div class="swiper-wrapper">
+                <div class="swiper-slide">
+                    <div class="image-container">
+                        <h4>🖼️ Original</h4>
+                        ${orig ? `<img src="${orig}" data-role="original" alt="Original Image" class="scene-image" onclick="window.open('${orig}', '_blank')">` : `<div class="no-content-small">No original image.</div>`}
+                    </div>
+                </div>
+                <div class="swiper-slide">
+                    <div class="image-container">
+                        <h4>🎨 Generated</h4>
+                        <img src="${gen}" data-role="generated" alt="Generated Image" class="scene-image" onclick="window.open('${gen}', '_blank')">
+                    </div>
+                </div>
+            </div>
+            <div class="swiper-pagination"></div>
+            <div class="swiper-button-next"></div>
+            <div class="swiper-button-prev"></div>
+        </div>
+    `;
+
+    // Swiper 初期化（既存があれば破棄）
+    try {
+        if (window.__imageCompareSwiper && typeof window.__imageCompareSwiper.destroy === 'function') {
+            window.__imageCompareSwiper.destroy(true, true);
         }
-        if (existingTitle) {
-            existingTitle.textContent = '🎨 Generated Image';
-        }
-        let info = existingContainer?.querySelector('.image-info');
-        // 画像直下のプロンプトと「View Full Size」ボタンは表示しない
-        if (info) {
-            info.innerHTML = '';
+    } catch {}
+
+    const el = imageGallery.querySelector('.image-compare-swiper');
+    if (!el) return;
+
+    // 元の表示領域の高さを維持
+    if (fixedHeightPx && Number.isFinite(fixedHeightPx) && fixedHeightPx > 0) {
+        el.style.height = `${fixedHeightPx}px`;
+        el.style.maxHeight = `${fixedHeightPx}px`;
+    }
+
+    window.__imageCompareSwiper = new Swiper(el, {
+        loop: false,
+        // 初期表示は生成画像（2枚目）
+        initialSlide: 1,
+        pagination: {
+            el: el.querySelector('.swiper-pagination'),
+            clickable: true,
+        },
+        navigation: {
+            nextEl: el.querySelector('.swiper-button-next'),
+            prevEl: el.querySelector('.swiper-button-prev'),
+        },
+    });
+
+    const firstContainer = imageGallery.querySelector('.image-container');
+    if (firstContainer) firstContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function setPendingGeneratedImage(meta) {
+    window.__pendingGeneratedImage = meta || null;
+    const saveBtn = document.getElementById('btn-image-save');
+    const cancelBtn = document.getElementById('btn-image-cancel');
+    if (saveBtn) {
+        saveBtn.style.display = window.__pendingGeneratedImage ? 'inline-block' : 'none';
+        saveBtn.disabled = false;
+    }
+    if (cancelBtn) {
+        cancelBtn.style.display = window.__pendingGeneratedImage ? 'inline-block' : 'none';
+        cancelBtn.disabled = false;
+    }
+}
+
+// 生成された画像を「比較表示」する関数（Generate時に呼ばれる）
+function displayGeneratedImage(imageUrl, prompt, meta) {
+    console.log(`🖼️ Showing compare swiper. generated=${imageUrl}`);
+    const originalUrl = getOriginalImageUrlForCompare();
+    const originalHeight = getOriginalImageDisplayHeightForCompare();
+
+    // Save確定のためのメタ情報を保持
+    const pending = {
+        prompt: prompt || '',
+        generated_url: imageUrl,
+        candidate_filename: meta?.candidate_filename || '',
+        source_path: meta?.source_path || '',
+    };
+    setPendingGeneratedImage(pending);
+
+    showImageCompareSwiper(originalUrl, imageUrl, originalHeight);
+}
+
+async function saveGeneratedImage() {
+    const sceneId = '{{ scene.id }}';
+    const saveBtn = document.getElementById('btn-image-save');
+    const cancelBtn = document.getElementById('btn-image-cancel');
+    const pending = window.__pendingGeneratedImage;
+
+    if (!pending) return;
+
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+    }
+    if (cancelBtn) cancelBtn.disabled = true;
+
+    try {
+        const body = {};
+        if (pending.candidate_filename) {
+            body.candidate_filename = pending.candidate_filename;
+        } else if (pending.source_path) {
+            body.source_path = pending.source_path;
+        } else {
+            throw new Error('No candidate/source to save');
         }
 
-        // 以前の生成用一時コンテナがあれば削除
-        document.querySelectorAll('.generated-image-item').forEach(el => el.remove());
+        const res = await fetch(`/scene/${sceneId}/save_generated_image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
 
-        // ハイライト表示
-        if (existingContainer) {
-            existingContainer.style.transition = 'all 0.5s ease';
-            existingContainer.style.backgroundColor = '#e8f5e8';
-            existingContainer.style.border = '2px solid #28a745';
-            setTimeout(() => {
-                existingContainer.style.backgroundColor = '';
-                existingContainer.style.border = '';
-            }, 2000);
-            existingContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `HTTP ${res.status}`);
         }
 
-    } else if (noContentArea) {
-        // 画像がない場合、no-contentエリアを置き換え
-        console.log('🖼️ Replacing no-content area with generated image');
+        // UIを本番画像表示に戻す
         const imageSection = document.querySelector('.image-section');
-        
-        // image-galleryを新しく作成
-        const newGallery = document.createElement('div');
-        newGallery.className = 'image-gallery';
-        newGallery.innerHTML = `
+        const imageGallery = imageSection?.querySelector('.image-gallery');
+        if (imageGallery) {
+            const finalUrl = getCacheBustedUrl(data.image_url);
+            imageGallery.innerHTML = `
+                <div class="image-container">
+                    <h4>🖼️ Image</h4>
+                    <img src="${finalUrl}" alt="${data.filename || 'image'}" class="scene-image" onclick="window.open('${finalUrl}', '_blank')">
+                </div>
+            `;
+        }
+
+        try {
+            if (window.__imageCompareSwiper && typeof window.__imageCompareSwiper.destroy === 'function') {
+                window.__imageCompareSwiper.destroy(true, true);
+            }
+        } catch {}
+
+        setPendingGeneratedImage(null);
+        showSISGenerationProgress('💾 Image saved (overwritten).', 'success');
+
+    } catch (e) {
+        console.error(e);
+        showSISGenerationProgress(`❌ Failed to save image: ${e.message}`, 'error');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Save';
+        }
+        if (cancelBtn) cancelBtn.disabled = false;
+    }
+}
+
+function restoreOriginalImageUI(originalUrl) {
+    const imageSection = document.querySelector('.image-section');
+    if (!imageSection) return;
+
+    const imageGallery = imageSection.querySelector('.image-gallery');
+    if (!imageGallery) return;
+
+    try {
+        if (window.__imageCompareSwiper && typeof window.__imageCompareSwiper.destroy === 'function') {
+            window.__imageCompareSwiper.destroy(true, true);
+        }
+    } catch {}
+
+    if (originalUrl) {
+        const url = getCacheBustedUrl(originalUrl);
+        imageGallery.innerHTML = `
             <div class="image-container">
-                <h4>🎨 Generated Image</h4>
-                <img src="${cacheBustedUrl}" alt="Generated Image" class="scene-image" onclick="window.open('${cacheBustedUrl}', '_blank')">
+                <h4>🖼️ Image</h4>
+                <img src="${url}" alt="image" class="scene-image" onclick="window.open('${url}', '_blank')">
             </div>
         `;
-        
-        // no-contentエリアを削除してギャラリーを追加
-        noContentArea.remove();
-        imageSection.appendChild(newGallery);
-        
-        // ダウンロードボタンも追加
-        const sectionControls = imageSection.querySelector('.section-controls');
-        if (sectionControls && !sectionControls.querySelector('.btn-download')) {
-            const downloadBtn = document.createElement('button');
-            downloadBtn.className = 'btn btn-download';
-            downloadBtn.onclick = () => window.open(imageUrl, '_blank');
-            downloadBtn.innerHTML = '💾 Download Image';
-            
-            // Upload ImageボタンとGenerate SISボタンの間に挿入
-            const generateSISBtn = sectionControls.querySelector('.btn-generate-sis');
-            sectionControls.insertBefore(downloadBtn, generateSISBtn);
-        }
+    } else {
+        imageGallery.innerHTML = `
+            <div class="no-content">No image available. You can upload an image using the button above.</div>
+        `;
     }
-    
-    // 生成された画像にスムーズスクロール（no-contentからの新規作成時）
-    const firstContainer = document.querySelector('.image-gallery .image-container');
-    if (firstContainer) {
-        firstContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function cancelGeneratedImage() {
+    const sceneId = '{{ scene.id }}';
+    const saveBtn = document.getElementById('btn-image-save');
+    const cancelBtn = document.getElementById('btn-image-cancel');
+    const pending = window.__pendingGeneratedImage;
+    const originalUrl = getOriginalImageUrlForCompare();
+
+    if (cancelBtn) {
+        cancelBtn.disabled = true;
+        cancelBtn.textContent = 'Cancelling...';
+    }
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+        // SD直生成の場合は候補ファイルを削除
+        if (pending?.candidate_filename) {
+            await fetch(`/scene/${sceneId}/discard_generated_image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ candidate_filename: pending.candidate_filename }),
+            }).catch(() => {});
+        }
+
+        setPendingGeneratedImage(null);
+        restoreOriginalImageUI(originalUrl);
+        showSISGenerationProgress('❌ Cancelled. Original image kept.', 'success');
+    } catch (e) {
+        console.error(e);
+        showSISGenerationProgress(`❌ Failed to cancel: ${e.message}`, 'error');
+    } finally {
+        if (cancelBtn) {
+            cancelBtn.disabled = false;
+            cancelBtn.textContent = '❌ Cancel';
+        }
+        if (saveBtn) saveBtn.disabled = false;
     }
 }
 
@@ -3154,7 +3782,7 @@ async function generateSceneMusic() {
         if (!res.ok || !data.success) {
             throw new Error(data.error || `HTTP ${res.status}`);
         }
-        injectGeneratedMusicPlayer(data.music_url, data.music_filename);
+        displayGeneratedMusicCandidate(data.music_url, data.music_filename);
         showSISGenerationProgress('✅ Music generation completed.', 'success');
         // Update prompt (backend saves it). Reload prompt file silently.
         loadMusicPromptFile('{{ scene.id }}', `music_{{ scene.id }}_prompt.txt`);
@@ -3164,6 +3792,212 @@ async function generateSceneMusic() {
     } finally {
         hideLoadingOverlay(overlay);
         if (btn) { btn.disabled = false; btn.textContent = 'Generate'; }
+    }
+}
+
+function setPendingGeneratedMusic(pending) {
+    window.__pendingGeneratedMusic = pending || null;
+    const btnSave = document.getElementById('btn-music-save');
+    const btnCancel = document.getElementById('btn-music-cancel');
+    const btnGenerate = document.getElementById('btn-generate-music');
+    const hasPending = !!window.__pendingGeneratedMusic;
+    if (btnSave) btnSave.style.display = hasPending ? '' : 'none';
+    if (btnCancel) btnCancel.style.display = hasPending ? '' : 'none';
+    if (btnGenerate) btnGenerate.disabled = hasPending;
+}
+
+function getOriginalMusicInfoForCompare() {
+    const standard = `music_{{ scene.id }}.wav`;
+    const players = Array.from(document.querySelectorAll('.music-section .music-controls .audio-player'));
+    let filename = '';
+    let url = '';
+
+    const standardPlayer = players.find(p => (p.querySelector('.file-name')?.textContent || '').trim() === standard);
+    const chosen = standardPlayer || players[0];
+    if (chosen) {
+        filename = (chosen.querySelector('.file-name')?.textContent || '').trim();
+    }
+    if (filename) {
+        url = `/scene/{{ scene.id }}/file/${encodeURIComponent(filename)}`;
+    }
+    return { filename, url };
+}
+
+function buildAudioPlayerHtml(playerId, filename, url) {
+    const safeName = filename || 'music.wav';
+    const safeUrl = url || '';
+    const onclick = safeUrl
+        ? `togglePlayPause('${playerId}', '${safeUrl.replace(/'/g, "\\'")}')`
+        : '';
+    const disabledAttr = safeUrl ? '' : 'disabled';
+    return `
+        <div class="audio-player" id="${playerId}">
+            <div class="player-controls">
+                <button class="play-pause-btn" ${disabledAttr} onclick="${onclick}">
+                    <span class="play-icon">▶️</span>
+                    <span class="pause-icon" style="display:none;">⏸️</span>
+                </button>
+                <span class="file-name">${safeName}</span>
+                <div class="volume-control">
+                    <span class="volume-icon">🎵</span>
+                    <input type="range" class="volume-slider" min="0" max="100" value="100" onchange="setVolume('${playerId}', this.value)">
+                </div>
+            </div>
+            <div class="progress-container">
+                <div class="time-display">
+                    <span class="current-time">0:00</span>
+                    <span class="duration">0:00</span>
+                </div>
+                <div class="progress-bar" onclick="seekAudio(event, '${playerId}')">
+                    <div class="progress-fill"></div>
+                    <div class="progress-handle"></div>
+                </div>
+            </div>
+            <audio class="audio-element" preload="metadata"></audio>
+        </div>
+    `;
+}
+
+function showMusicCompareSwiper(originalInfo, candidateInfo) {
+    const section = document.querySelector('.music-section');
+    if (!section) return;
+    let controlsWrapper = section.querySelector('.music-controls');
+    if (!controlsWrapper) {
+        // No music case: replace the "no-content" placeholder with a controls wrapper
+        const noContent = section.querySelector('.no-content');
+        if (noContent && !window.__musicNoContentOriginalHTML) {
+            window.__musicNoContentOriginalHTML = noContent.outerHTML;
+            const newDiv = document.createElement('div');
+            newDiv.className = 'music-controls';
+            noContent.replaceWith(newDiv);
+            controlsWrapper = newDiv;
+        } else {
+            const newDiv = document.createElement('div');
+            newDiv.className = 'music-controls';
+            section.appendChild(newDiv);
+            controlsWrapper = newDiv;
+        }
+    }
+
+    // Save original DOM to restore on cancel/save
+    if (!window.__musicControlsOriginalHTML) {
+        window.__musicControlsOriginalHTML = controlsWrapper.innerHTML;
+    }
+
+    const swiperId = 'music-compare-swiper-{{ scene.id }}';
+    controlsWrapper.innerHTML = `
+        <div class="swiper music-compare-swiper" id="${swiperId}">
+            <div class="swiper-wrapper">
+                <div class="swiper-slide">
+                    <h4>🎵 Original</h4>
+                    ${buildAudioPlayerHtml('music-player-original-{{ scene.id }}', originalInfo.filename || 'No original music', originalInfo.url)}
+                </div>
+                <div class="swiper-slide">
+                    <h4>🎵 Generated</h4>
+                    ${buildAudioPlayerHtml('music-player-candidate-{{ scene.id }}', candidateInfo.filename || 'Generated music', candidateInfo.url)}
+                </div>
+            </div>
+            <div class="swiper-pagination"></div>
+        </div>
+    `;
+
+    if (typeof Swiper !== 'undefined') {
+        window.__musicCompareSwiper = new Swiper(`#${swiperId}`, {
+            loop: false,
+            slidesPerView: 1,
+            spaceBetween: 12,
+            pagination: { el: `#${swiperId} .swiper-pagination`, clickable: true },
+            initialSlide: 1
+        });
+    }
+}
+
+function restoreMusicControlsOriginal() {
+    const section = document.querySelector('.music-section');
+    if (!section) return;
+    const controlsWrapper = section.querySelector('.music-controls');
+    if (window.__musicNoContentOriginalHTML) {
+        // Restore the original placeholder and remove the controls wrapper we created
+        if (controlsWrapper) {
+            const temp = document.createElement('div');
+            temp.innerHTML = window.__musicNoContentOriginalHTML;
+            const restored = temp.firstElementChild;
+            if (restored) {
+                controlsWrapper.replaceWith(restored);
+            } else {
+                controlsWrapper.remove();
+            }
+        }
+    } else if (controlsWrapper) {
+        controlsWrapper.innerHTML = window.__musicControlsOriginalHTML || controlsWrapper.innerHTML;
+    }
+    window.__musicControlsOriginalHTML = null;
+    window.__musicNoContentOriginalHTML = null;
+}
+
+function displayGeneratedMusicCandidate(musicUrl, filename) {
+    if (!musicUrl) return;
+    const originalInfo = getOriginalMusicInfoForCompare();
+    const candidateInfo = { filename: filename || 'music_candidate.wav', url: musicUrl };
+    showMusicCompareSwiper(originalInfo, candidateInfo);
+    setPendingGeneratedMusic({ candidateFilename: filename, candidateUrl: musicUrl });
+}
+
+async function saveGeneratedMusic() {
+    const pending = window.__pendingGeneratedMusic;
+    if (!pending) return;
+    const btnSave = document.getElementById('btn-music-save');
+    if (btnSave) { btnSave.disabled = true; btnSave.textContent = 'Saving...'; }
+    try {
+        const res = await fetch(`/scene/{{ scene.id }}/save_generated_music`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        let data = {};
+        try { data = await res.json(); } catch { throw new Error('Invalid JSON response'); }
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+        }
+
+        // Restore original UI, then inject the final (saved) player
+        restoreMusicControlsOriginal();
+        setPendingGeneratedMusic(null);
+        injectGeneratedMusicPlayer(data.music_url, data.music_filename);
+        showSISGenerationProgress('✅ Music saved.', 'success');
+    } catch (e) {
+        console.error('Save music failed:', e);
+        showSISGenerationProgress(`❌ Failed to save music: ${e.message}`, 'error');
+    } finally {
+        if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💾 Save'; }
+    }
+}
+
+async function cancelGeneratedMusic() {
+    const pending = window.__pendingGeneratedMusic;
+    if (!pending) return;
+    const btnCancel = document.getElementById('btn-music-cancel');
+    if (btnCancel) { btnCancel.disabled = true; btnCancel.textContent = 'Cancelling...'; }
+    try {
+        const res = await fetch(`/scene/{{ scene.id }}/discard_generated_music`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+        let data = {};
+        try { data = await res.json(); } catch { throw new Error('Invalid JSON response'); }
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+        }
+
+        restoreMusicControlsOriginal();
+        setPendingGeneratedMusic(null);
+        showSISGenerationProgress('✅ Discarded generated music.', 'info');
+    } catch (e) {
+        console.error('Discard music failed:', e);
+        showSISGenerationProgress(`❌ Failed to discard: ${e.message}`, 'error');
+    } finally {
+        if (btnCancel) { btnCancel.disabled = false; btnCancel.textContent = '❌ Cancel'; }
     }
 }
 

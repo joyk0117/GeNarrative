@@ -535,14 +535,14 @@ def project_detail(project_id):
                 # Look for files in scene directory
                 for file in os.listdir(scene_path):
                     # Check for image files
-                    if file.startswith('image_') and file.endswith('.png'):
+                    if file.startswith('image_') and file.endswith('.png') and not file.endswith('_candidate.png'):
                         scene_info['has_image'] = True
                         scene_info['image_filename'] = file
                     # Check for text files
                     elif file.startswith('text_') and file.endswith('.txt'):
                         scene_info['has_text'] = True
                     # Check for music files
-                    elif file.startswith('music_') and (file.endswith('.mp3') or file.endswith('.wav')):
+                    elif file.startswith('music_') and (file.endswith('.mp3') or file.endswith('.wav')) and not file.endswith('_candidate.wav'):
                         scene_info['has_music'] = True
                 
                 scenes.append(scene_info)
@@ -594,14 +594,14 @@ def scene_detail(scene_id):
     for file in files:
         if file.startswith('sis_structure_') and file.endswith('.json'):
             scene_data['sis_files'].append(file)
-        elif file.startswith('text_') and file.endswith('.txt') and not file.endswith('_prompt.txt'):
+        elif file.startswith('text_') and file.endswith('.txt') and not file.endswith('_prompt.txt') and not file.endswith('_candidate.txt'):
             # 純粋な本文テキストのみ。メタ/最終プロンプト(text_*_prompt.txt)は除外
             scene_data['text_files'].append(file)
-        elif file.startswith('image_') and file.endswith('.png'):
+        elif file.startswith('image_') and file.endswith('.png') and not file.endswith('_candidate.png'):
             scene_data['image_files'].append(file)
-        elif file.startswith('music_') and file.endswith('.wav'):
+        elif file.startswith('music_') and file.endswith('.wav') and not file.endswith('_candidate.wav'):
             scene_data['music_files'].append(file)
-        elif file.startswith('tts_') and file.endswith('.wav'):
+        elif file.startswith('tts_') and file.endswith('.wav') and not file.endswith('_candidate.wav'):
             scene_data['tts_files'].append(file)
         # 画像プロンプトファイル（保存済み）
         elif file.endswith('_prompt.txt') and (
@@ -683,16 +683,16 @@ def get_scene_data(scene_id):
             file_path = os.path.join(scene_path, file)
 
             # Check for image
-            if file.startswith('image_') and file.endswith('.png'):
+            if file.startswith('image_') and file.endswith('.png') and not file.endswith('_candidate.png'):
                 scene_data['hasImage'] = True
                 scene_data['image'] = f'/scene/{scene_id}/file/{file}'
 
             # Check for TTS audio
-            elif file.startswith('tts_') and file.endswith(('.wav', '.mp3')):
+            elif file.startswith('tts_') and file.endswith(('.wav', '.mp3')) and not file.endswith('_candidate.wav'):
                 scene_data['hasTTS'] = True
 
             # Check for music
-            elif file.startswith('music_') and file.endswith(('.wav', '.mp3')):
+            elif file.startswith('music_') and file.endswith(('.wav', '.mp3')) and not file.endswith('_candidate.wav'):
                 scene_data['hasMusic'] = True
 
         return jsonify(scene_data)
@@ -710,7 +710,7 @@ def serve_scene_tts(scene_id):
     
     # Look for TTS audio file
     for file in os.listdir(scene_path):
-        if file.startswith('tts_') and file.endswith(('.wav', '.mp3')):
+        if file.startswith('tts_') and file.endswith(('.wav', '.mp3')) and not file.endswith('_candidate.wav'):
             file_path = os.path.join(scene_path, file)
             return send_file(file_path)
     
@@ -726,7 +726,7 @@ def serve_scene_music(scene_id):
     
     # Look for music file
     for file in os.listdir(scene_path):
-        if file.startswith('music_') and file.endswith(('.wav', '.mp3')):
+        if file.startswith('music_') and file.endswith(('.wav', '.mp3')) and not file.endswith('_candidate.wav'):
             file_path = os.path.join(scene_path, file)
             return send_file(file_path)
     
@@ -742,7 +742,7 @@ def serve_scene_image(scene_id):
     
     # Look for image file
     for file in os.listdir(scene_path):
-        if file.startswith('image_') and file.endswith(('.png', '.jpg', '.jpeg')):
+        if file.startswith('image_') and file.endswith(('.png', '.jpg', '.jpeg')) and not file.endswith('_candidate.png'):
             file_path = os.path.join(scene_path, file)
             return send_file(file_path)
     
@@ -856,7 +856,7 @@ def generate_narrative_html(narrative_data, title):
         if scene_path and scene_data.get('hasImage') and scene_data.get('image'):
             # Embed image as base64
             for file in scene_files:
-                if file.startswith('image_') and file.endswith('.png'):
+                if file.startswith('image_') and file.endswith('.png') and not file.endswith('_candidate.png'):
                     img_file_path = os.path.join(scene_path, file)
                     if os.path.exists(img_file_path):
                         with open(img_file_path, 'rb') as img_file:
@@ -1927,49 +1927,14 @@ def generate_image_from_sis(scene_id):
                 image_info = {
                     'image_generated': True,
                     'image_path': img_result['image_path'],
+                    # Save確定用: /app/shared 配下の生成結果をそのまま返す
+                    'source_path': img_result['image_path'],
                     'image_url': image_url,
                     'image_filename': img_result['image_filename'],
                     'image_size': img_result['image_size'],
                     'generation_time': img_result['generation_time']
                 }
                 print(f"🌐 Image URL: {image_url}")
-
-                # 生成された画像でシーンの既存画像を置き換え
-                try:
-                    # シーンパスと保存先ファイル名
-                    scene_path_save, _ = find_scene_path(scene_id)
-                    if not scene_path_save:
-                        print(f"❌ Scene not found for saving: {scene_id}")
-                        return jsonify({'error': 'Scene not found for saving'}), 404
-                    os.makedirs(scene_path_save_save, exist_ok=True)
-
-                    # 既存の画像を削除
-                    for existing_file in os.listdir(scene_path_save):
-                        if existing_file.startswith('image_') and existing_file.endswith(('.png', '.jpg', '.jpeg')):
-                            try:
-                                os.remove(os.path.join(scene_path_save, existing_file))
-                            except Exception as rm_err:
-                                print(f"⚠️ Failed to remove old image {existing_file}: {rm_err}")
-
-                    # 出力画像をシーン標準名でコピー（png前提）
-                    target_ext = '.png'
-                    replaced_filename = f"image_{scene_id}{target_ext}"
-                    target_path = os.path.join(scene_path_save, replaced_filename)
-
-                    import shutil
-                    shutil.copy2(img_result['image_path'], target_path)
-                    print(f"✅ Scene image replaced: {target_path}")
-
-                    # 生成プロンプトも保存（参考用）
-                    try:
-                        prompt_txt = result.get('generated_text') or ''
-                        prompt_path = os.path.join(scene_path, f"image_{scene_id}_prompt.txt")
-                        with open(prompt_path, 'w', encoding='utf-8') as pf:
-                            pf.write(f"Generated Image Prompt:\n{prompt_txt}\n\nGenerated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                    except Exception as pe:
-                        print(f"⚠️ Failed to save prompt text: {pe}")
-                except Exception as rep_err:
-                    print(f"❌ Failed to replace scene image: {rep_err}")
             else:
                 print(f"⚠️ Image prompt generated but actual image not created")
                 image_info = {
@@ -1989,7 +1954,7 @@ def generate_image_from_sis(scene_id):
                 'image_info': image_info,
                 'method': 'sis_to_image',
                 'prompt_only': prompt_only
-                , 'replaced_image': replaced_filename
+                , 'replaced_image': None
             })
         
         else:
@@ -2069,18 +2034,9 @@ def sd_generate_image(scene_id):
         except Exception as e:
             return jsonify({'success': False, 'error': f'Base64 decode error: {str(e)}'}), 500
 
-        # scene内の既存画像を片付け、標準名で保存
-        replaced_filename = f"image_{scene_id}.png"
-        target_path = os.path.join(scene_path, replaced_filename)
-        try:
-            for existing_file in os.listdir(scene_path):
-                if existing_file.startswith('image_') and existing_file.endswith(('.png', '.jpg', '.jpeg')):
-                    try:
-                        os.remove(os.path.join(scene_path, existing_file))
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+        # 既存画像は消さず「候補画像」として保存（Saveで確定）
+        candidate_filename = f"image_{scene_id}_candidate.png"
+        target_path = os.path.join(scene_path, candidate_filename)
 
         with open(target_path, 'wb') as f:
             f.write(img_bytes)
@@ -2092,11 +2048,113 @@ def sd_generate_image(scene_id):
         except Exception:
             pass
 
-        image_url = f"/scene/{scene_id}/file/{replaced_filename}"
-        return jsonify({'success': True, 'image_url': image_url, 'image_filename': replaced_filename, 'prompt': prompt})
+        image_url = f"/scene/{scene_id}/file/{candidate_filename}"
+        return jsonify({
+            'success': True,
+            # 互換のため image_url は候補画像URL
+            'image_url': image_url,
+            'candidate_image_url': image_url,
+            'candidate_filename': candidate_filename,
+            'is_candidate': True,
+            'prompt': prompt,
+        })
 
     except Exception as e:
         return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@app.route("/scene/<scene_id>/save_generated_image", methods=['POST'])
+def save_generated_image(scene_id):
+    """候補画像をシーンの本番画像(image_<scene_id>.*)として確定保存する。
+    Request JSON:
+      - candidate_filename?: str  (sceneディレクトリ内の候補)
+      - source_path?: str         (/app/shared 配下の生成物パス)
+    Response:
+      { success, filename, image_url }
+    """
+    scene_path, _ = find_scene_path(scene_id)
+    if not scene_path:
+        return jsonify({'success': False, 'error': 'Scene not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    candidate_filename = (data.get('candidate_filename') or '').strip()
+    source_path = (data.get('source_path') or '').strip()
+
+    src_path = None
+    if candidate_filename:
+        # scene配下のみ許可
+        if '/' in candidate_filename or '\\' in candidate_filename:
+            return jsonify({'success': False, 'error': 'Invalid candidate_filename'}), 400
+        src_path = os.path.join(scene_path, candidate_filename)
+    elif source_path:
+        # /app/shared 配下のみ許可
+        norm = source_path.replace('\\\\', '/').replace('\\', '/')
+        if not norm.startswith('/app/shared/'):
+            return jsonify({'success': False, 'error': 'Invalid source_path'}), 400
+        src_path = source_path
+    else:
+        return jsonify({'success': False, 'error': 'candidate_filename or source_path is required'}), 400
+
+    if not os.path.exists(src_path):
+        return jsonify({'success': False, 'error': 'Source image not found'}), 404
+
+    # 既存の image_*.{png,jpg,jpeg} を削除（候補ファイルは後でmove/copyする）
+    try:
+        for existing_file in os.listdir(scene_path):
+            if existing_file.startswith('image_') and existing_file.endswith(('.png', '.jpg', '.jpeg')):
+                # candidate_filename は残してOK（moveするなら消えても良いが安全に避ける）
+                if candidate_filename and existing_file == candidate_filename:
+                    continue
+                try:
+                    os.remove(os.path.join(scene_path, existing_file))
+                except Exception as rm_err:
+                    print(f"⚠️ Failed to remove old image {existing_file}: {rm_err}")
+    except Exception:
+        pass
+
+    # 本番ファイル名（png固定。入力がjpgでも一旦png名で保存）
+    target_filename = f"image_{scene_id}.png"
+    target_path = os.path.join(scene_path, target_filename)
+
+    try:
+        import shutil
+        # scene内候補はmove、それ以外はcopy
+        if candidate_filename and os.path.abspath(src_path).startswith(os.path.abspath(scene_path)):
+            shutil.move(src_path, target_path)
+        else:
+            shutil.copy2(src_path, target_path)
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Failed to save image: {str(e)}'}), 500
+
+    image_url = f"/scene/{scene_id}/file/{target_filename}"
+    return jsonify({'success': True, 'filename': target_filename, 'image_url': image_url})
+
+
+@app.route("/scene/<scene_id>/discard_generated_image", methods=['POST'])
+def discard_generated_image(scene_id):
+    """候補画像(image_<scene_id>_candidate.png)を破棄する。"""
+    scene_path, _ = find_scene_path(scene_id)
+    if not scene_path:
+        return jsonify({'success': False, 'error': 'Scene not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    candidate_filename = (data.get('candidate_filename') or '').strip()
+    if candidate_filename:
+        if '/' in candidate_filename or '\\' in candidate_filename:
+            return jsonify({'success': False, 'error': 'Invalid candidate_filename'}), 400
+        if not candidate_filename.endswith('_candidate.png'):
+            return jsonify({'success': False, 'error': 'Invalid candidate filename'}), 400
+    else:
+        candidate_filename = f"image_{scene_id}_candidate.png"
+
+    candidate_path = os.path.join(scene_path, candidate_filename)
+    if os.path.exists(candidate_path):
+        try:
+            os.remove(candidate_path)
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Failed to delete candidate: {str(e)}'}), 500
+
+    return jsonify({'success': True})
 
 @app.route("/scene/<scene_id>/generate_text", methods=['POST'])
 def generate_text_from_sis(scene_id):
@@ -2158,10 +2216,27 @@ def generate_text_from_sis(scene_id):
         except Exception as e:
             return jsonify({'success': False, 'error': f'Unified generation error: {str(e)}', 'error_code': 'UNIFIED_EXCEPTION'}), 500
 
-        # Save generated text into scene as text_*.txt
+        payload = request.get_json(silent=True) or {}
+        output_mode = (payload.get('output_mode') or 'overwrite').strip().lower()
+
+        target_text_filename = (payload.get('text_filename') or f"text_{scene_id}.txt").strip()
+        if not target_text_filename or '/' in target_text_filename or '\\' in target_text_filename:
+            return jsonify({'success': False, 'error': 'Invalid text filename'}), 400
+        if not (target_text_filename.startswith('text_') and target_text_filename.endswith('.txt')):
+            target_text_filename = f"text_{scene_id}.txt"
+        if target_text_filename.endswith('_prompt.txt') or target_text_filename.endswith('_candidate.txt'):
+            target_text_filename = f"text_{scene_id}.txt"
+
+        actual_text_filename = target_text_filename
+        candidate_text_filename = None
+        if output_mode == 'candidate':
+            base, ext = os.path.splitext(target_text_filename)
+            candidate_text_filename = f"{base}_candidate{ext}"
+            actual_text_filename = candidate_text_filename
+
+        # Save generated text into scene
         try:
-            text_filename = f"text_{scene_id}.txt"
-            text_path = os.path.join(scene_path, text_filename)
+            text_path = os.path.join(scene_path, actual_text_filename)
             with open(text_path, 'w', encoding='utf-8') as f:
                 f.write(generated_text or '')
         except Exception as e:
@@ -2170,7 +2245,9 @@ def generate_text_from_sis(scene_id):
         return jsonify({
             'success': True,
             'generated_text': generated_text,
-            'text_filename': text_filename,
+            'text_filename': target_text_filename,
+            'candidate_filename': candidate_text_filename,
+            'output_mode': output_mode,
             'processing_time': processing_time
         })
 
@@ -2220,7 +2297,17 @@ def generate_tts_from_text(scene_id):
         if not tts_filename or '/' in tts_filename or '\\' in tts_filename:
             return jsonify({'success': False, 'error': 'Invalid TTS filename'}), 400
 
-        tts_path = os.path.join(scene_path, tts_filename)
+        output_mode = (payload.get('output_mode') or 'overwrite').strip().lower()
+
+        target_tts_filename = tts_filename
+        actual_tts_filename = target_tts_filename
+        candidate_tts_filename = None
+        if output_mode == 'candidate':
+            base, ext = os.path.splitext(target_tts_filename)
+            candidate_tts_filename = f"{base}_candidate{ext or '.wav'}"
+            actual_tts_filename = candidate_tts_filename
+
+        tts_path = os.path.join(scene_path, actual_tts_filename)
 
         params = {'text': text_content}
         for optional_key in ('speaker_id', 'style_wav', 'language_id'):
@@ -2241,7 +2328,7 @@ def generate_tts_from_text(scene_id):
             }), resp.status_code
 
         try:
-            # Overwrite previous TTS file for this text filename
+            # Write TTS file
             with open(tts_path, 'wb') as f:
                 f.write(resp.content)
         except Exception as e:
@@ -2251,11 +2338,154 @@ def generate_tts_from_text(scene_id):
 
         return jsonify({
             'success': True,
-            'tts_filename': tts_filename,
+            'tts_filename': actual_tts_filename,
+            'target_tts_filename': target_tts_filename,
+            'candidate_filename': candidate_tts_filename,
+            'output_mode': output_mode,
             'audio_data': f'data:audio/wav;base64,{audio_b64}',
             'bytes': len(resp.content)
         })
 
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@app.route("/scene/<scene_id>/save_generated_text", methods=['POST'])
+def save_generated_text(scene_id):
+    """Confirm pending generated text by overwriting the canonical text file."""
+    try:
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
+            return jsonify({'success': False, 'error': 'Scene not found'}), 404
+
+        payload = request.get_json(silent=True) or {}
+        candidate_filename = (payload.get('candidate_filename') or '').strip()
+        target_filename = (payload.get('text_filename') or f"text_{scene_id}.txt").strip()
+
+        if not candidate_filename or '/' in candidate_filename or '\\' in candidate_filename:
+            return jsonify({'success': False, 'error': 'Invalid candidate_filename'}), 400
+        if not candidate_filename.endswith('_candidate.txt'):
+            return jsonify({'success': False, 'error': 'Invalid candidate filename'}), 400
+
+        if not target_filename or '/' in target_filename or '\\' in target_filename:
+            return jsonify({'success': False, 'error': 'Invalid text filename'}), 400
+        if not (target_filename.startswith('text_') and target_filename.endswith('.txt')):
+            target_filename = f"text_{scene_id}.txt"
+
+        cand_path = os.path.join(scene_path, candidate_filename)
+        if not os.path.exists(cand_path):
+            return jsonify({'success': False, 'error': 'No pending generated text to save'}), 400
+
+        target_path = os.path.join(scene_path, target_filename)
+        try:
+            os.replace(cand_path, target_path)
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Failed to save text: {str(e)}'}), 500
+
+        return jsonify({'success': True, 'text_filename': target_filename})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@app.route("/scene/<scene_id>/discard_generated_text", methods=['POST'])
+def discard_generated_text(scene_id):
+    """Discard pending generated text candidate file."""
+    try:
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
+            return jsonify({'success': False, 'error': 'Scene not found'}), 404
+
+        payload = request.get_json(silent=True) or {}
+        candidate_filename = (payload.get('candidate_filename') or '').strip()
+
+        if not candidate_filename:
+            candidate_filename = f"text_{scene_id}_candidate.txt"
+
+        if '/' in candidate_filename or '\\' in candidate_filename:
+            return jsonify({'success': False, 'error': 'Invalid candidate_filename'}), 400
+        if not candidate_filename.endswith('_candidate.txt'):
+            return jsonify({'success': False, 'error': 'Invalid candidate filename'}), 400
+
+        cand_path = os.path.join(scene_path, candidate_filename)
+        if os.path.exists(cand_path):
+            try:
+                os.remove(cand_path)
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Failed to discard candidate: {str(e)}'}), 500
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@app.route("/scene/<scene_id>/save_generated_tts", methods=['POST'])
+def save_generated_tts(scene_id):
+    """Confirm pending generated TTS by overwriting the canonical tts file."""
+    try:
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
+            return jsonify({'success': False, 'error': 'Scene not found'}), 404
+
+        payload = request.get_json(silent=True) or {}
+        candidate_filename = (payload.get('candidate_filename') or '').strip()
+        target_filename = (payload.get('tts_filename') or '').strip()
+
+        # Backward/lenient support: if client doesn't send tts_filename, infer from candidate.
+        # e.g. tts_XXXX_candidate.wav -> tts_XXXX.wav
+        if not target_filename and candidate_filename.endswith('_candidate.wav'):
+            target_filename = candidate_filename[:-len('_candidate.wav')] + '.wav'
+
+        if not candidate_filename or '/' in candidate_filename or '\\' in candidate_filename:
+            return jsonify({'success': False, 'error': 'Invalid candidate_filename'}), 400
+        if not candidate_filename.endswith('_candidate.wav'):
+            return jsonify({'success': False, 'error': 'Invalid candidate filename'}), 400
+
+        if not target_filename or '/' in target_filename or '\\' in target_filename:
+            return jsonify({'success': False, 'error': 'Invalid tts filename'}), 400
+        if not (target_filename.startswith('tts_') and target_filename.endswith('.wav')):
+            return jsonify({'success': False, 'error': 'Invalid tts filename'}), 400
+
+        cand_path = os.path.join(scene_path, candidate_filename)
+        if not os.path.exists(cand_path):
+            return jsonify({'success': False, 'error': 'No pending generated speech to save'}), 400
+
+        target_path = os.path.join(scene_path, target_filename)
+        try:
+            os.replace(cand_path, target_path)
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Failed to save speech: {str(e)}'}), 500
+
+        return jsonify({'success': True, 'tts_filename': target_filename})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@app.route("/scene/<scene_id>/discard_generated_tts", methods=['POST'])
+def discard_generated_tts(scene_id):
+    """Discard pending generated TTS candidate file."""
+    try:
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
+            return jsonify({'success': False, 'error': 'Scene not found'}), 404
+
+        payload = request.get_json(silent=True) or {}
+        candidate_filename = (payload.get('candidate_filename') or '').strip()
+        if not candidate_filename:
+            return jsonify({'success': False, 'error': 'candidate_filename is required'}), 400
+
+        if '/' in candidate_filename or '\\' in candidate_filename:
+            return jsonify({'success': False, 'error': 'Invalid candidate_filename'}), 400
+        if not candidate_filename.endswith('_candidate.wav'):
+            return jsonify({'success': False, 'error': 'Invalid candidate filename'}), 400
+
+        cand_path = os.path.join(scene_path, candidate_filename)
+        if os.path.exists(cand_path):
+            try:
+                os.remove(cand_path)
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Failed to discard candidate: {str(e)}'}), 500
+
+        return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
 
@@ -2307,21 +2537,16 @@ def generate_music_for_scene(scene_id):
             # 失敗時でもファイルがない場合はエラー
             return jsonify({'success': False, 'error': 'No audio file produced'}), 502
 
-        # シーン内の既存music_*を片付け、標準名でコピー
-        try:
-            for existing in os.listdir(scene_path):
-                if existing.startswith('music_') and existing.endswith(('.wav', '.mp3')):
-                    try:
-                        os.remove(os.path.join(scene_path, existing))
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-
-        target_name = f"music_{scene_id}.wav"
+        # 既存ファイルは置換せず、候補ファイルとして保存
+        target_name = f"music_{scene_id}_candidate.wav"
         target_path = os.path.join(scene_path, target_name)
         import shutil
         try:
+            if os.path.exists(target_path):
+                try:
+                    os.remove(target_path)
+                except Exception:
+                    pass
             shutil.copy2(src_path, target_path)
         except Exception as e:
             return jsonify({'success': False, 'error': f'Failed to copy file: {str(e)}'}), 500
@@ -2350,6 +2575,68 @@ def generate_music_for_scene(scene_id):
             pass
 
         return jsonify({'success': True, 'music_filename': target_name, 'music_url': music_url})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@app.route("/scene/<scene_id>/save_generated_music", methods=['POST'])
+def save_generated_music(scene_id):
+    """Confirm pending generated music by overwriting the scene's canonical file."""
+    try:
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
+            return jsonify({'success': False, 'error': 'Scene not found'}), 404
+
+        candidate_name = f"music_{scene_id}_candidate.wav"
+        candidate_path = os.path.join(scene_path, candidate_name)
+        if not os.path.exists(candidate_path):
+            return jsonify({'success': False, 'error': 'No pending generated music to save'}), 400
+
+        # Remove existing music files (excluding candidate)
+        try:
+            for existing in os.listdir(scene_path):
+                if existing == candidate_name:
+                    continue
+                if existing.startswith('music_') and existing.endswith(('.wav', '.mp3', '.ogg', '.m4a')):
+                    try:
+                        os.remove(os.path.join(scene_path, existing))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+        target_name = f"music_{scene_id}.wav"
+        target_path = os.path.join(scene_path, target_name)
+
+        try:
+            os.replace(candidate_path, target_path)
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Failed to save music: {str(e)}'}), 500
+
+        music_url = f"/scene/{scene_id}/file/{target_name}"
+        return jsonify({'success': True, 'music_filename': target_name, 'music_url': music_url})
+    except Exception as e:
+        return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
+
+
+@app.route("/scene/<scene_id>/discard_generated_music", methods=['POST'])
+def discard_generated_music(scene_id):
+    """Discard pending generated music candidate file."""
+    try:
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
+            return jsonify({'success': False, 'error': 'Scene not found'}), 404
+
+        candidate_name = f"music_{scene_id}_candidate.wav"
+        candidate_path = os.path.join(scene_path, candidate_name)
+
+        if os.path.exists(candidate_path):
+            try:
+                os.remove(candidate_path)
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Failed to discard candidate: {str(e)}'}), 500
+
+        return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': f'Unexpected error: {str(e)}'}), 500
 
@@ -2731,13 +3018,13 @@ def project_scene_detail_alt(project_id, scene_id):
     for file in files:
         if file.startswith('sis_structure_') and file.endswith('.json'):
             scene_data['sis_files'].append(file)
-        elif file.startswith('text_') and file.endswith('.txt') and not file.endswith('_prompt.txt'):
+        elif file.startswith('text_') and file.endswith('.txt') and not file.endswith('_prompt.txt') and not file.endswith('_candidate.txt'):
             scene_data['text_files'].append(file)
-        elif file.startswith('image_') and file.endswith('.png'):
+        elif file.startswith('image_') and file.endswith('.png') and not file.endswith('_candidate.png'):
             scene_data['image_files'].append(file)
-        elif file.startswith('music_') and file.endswith('.wav'):
+        elif file.startswith('music_') and file.endswith('.wav') and not file.endswith('_candidate.wav'):
             scene_data['music_files'].append(file)
-        elif file.startswith('tts_') and file.endswith('.wav'):
+        elif file.startswith('tts_') and file.endswith('.wav') and not file.endswith('_candidate.wav'):
             scene_data['tts_files'].append(file)
         elif file.endswith('_prompt.txt') and (
             file.startswith('image_') or file.startswith('sis2image_') or file.startswith('prompt_')
