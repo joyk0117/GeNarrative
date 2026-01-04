@@ -130,7 +130,7 @@ def load_structured_sis(scene_id):
 
     structured_files = [
         f for f in os.listdir(scene_path)
-        if f.startswith('sis_structure_') and f.endswith('.json')
+        if f.startswith('sis_structure_') and f.endswith('.json') and not f.endswith('_candidate.json')
     ]
 
     structured_files.sort(reverse=True)
@@ -592,7 +592,7 @@ def scene_detail(scene_id):
     }
     
     for file in files:
-        if file.startswith('sis_structure_') and file.endswith('.json'):
+        if file.startswith('sis_structure_') and file.endswith('.json') and not file.endswith('_candidate.json'):
             scene_data['sis_files'].append(file)
         elif file.startswith('text_') and file.endswith('.txt') and not file.endswith('_prompt.txt') and not file.endswith('_candidate.txt'):
             # 純粋な本文テキストのみ。メタ/最終プロンプト(text_*_prompt.txt)は除外
@@ -1641,6 +1641,9 @@ def generate_sis(scene_id):
     # リクエストJSON取得
     data = request.get_json(silent=True) or {}
     content_type = data.get('content_type')
+    output_mode = (data.get('output_mode') or 'overwrite').strip()
+    if output_mode not in ['overwrite', 'candidate']:
+        output_mode = 'overwrite'
     if content_type not in ['image', 'text', 'music']:
         return jsonify({'error': 'Invalid or missing content_type'}), 400
 
@@ -1738,7 +1741,8 @@ def generate_sis(scene_id):
         json_valid = sis_json is not None
 
     # 保存 (raw + optional structured)
-    sis_raw_name = f'sis_raw_{scene_id}.txt'
+    sis_raw_name = f'sis_raw_{scene_id}.txt' if output_mode == 'overwrite' else f'sis_raw_{scene_id}_candidate.txt'
+    sis_struct_name = f'sis_structure_{scene_id}.json' if output_mode == 'overwrite' else f'sis_structure_{scene_id}_candidate.json'
     try:
         with open(os.path.join(scene_path, sis_raw_name), 'w', encoding='utf-8') as f:
             f.write(raw_text)
@@ -1747,7 +1751,7 @@ def generate_sis(scene_id):
 
     if json_valid:
         try:
-            with open(os.path.join(scene_path, f'sis_structure_{scene_id}.json'), 'w', encoding='utf-8') as jf:
+            with open(os.path.join(scene_path, sis_struct_name), 'w', encoding='utf-8') as jf:
                 json.dump(sis_json, jf, ensure_ascii=False, indent=2)
         except Exception as e:
             print(f"Failed to save structured SIS: {e}")
@@ -1755,6 +1759,9 @@ def generate_sis(scene_id):
     return jsonify({
         'success': True,
         'filename': sis_raw_name,
+        'candidate_raw_filename': sis_raw_name if output_mode == 'candidate' else None,
+        'candidate_structured_filename': sis_struct_name if (output_mode == 'candidate' and json_valid) else None,
+        'output_mode': output_mode,
         'sis_raw_text': raw_text,
         'json_valid': json_valid,
         'json_parse_error': parse_error,
@@ -1763,6 +1770,84 @@ def generate_sis(scene_id):
         'prompts': {},
         'debug_info': debug_info,
     })
+
+
+@app.route("/scene/<scene_id>/save_generated_sis", methods=['POST'])
+def save_generated_sis(scene_id):
+    """Confirm pending generated SIS by overwriting canonical raw/structured files."""
+    try:
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
+            return jsonify({'success': False, 'error': 'Scene not found'}), 404
+
+        payload = request.get_json(silent=True) or {}
+        candidate_raw = (payload.get('candidate_raw_filename') or '').strip()
+        candidate_struct = (payload.get('candidate_structured_filename') or '').strip()
+
+        def _is_safe(name: str) -> bool:
+            return bool(name) and '/' not in name and '\\' not in name
+
+        if not _is_safe(candidate_raw) or not candidate_raw.endswith('_candidate.txt') or not candidate_raw.startswith('sis_raw_'):
+            return jsonify({'success': False, 'error': 'Invalid SIS candidate raw filename'}), 400
+
+        raw_src = os.path.join(scene_path, candidate_raw)
+        if not os.path.exists(raw_src):
+            return jsonify({'success': False, 'error': 'Candidate raw file not found'}), 404
+
+        raw_dst_name = f'sis_raw_{scene_id}.txt'
+        raw_dst = os.path.join(scene_path, raw_dst_name)
+        os.replace(raw_src, raw_dst)
+
+        struct_dst_name = None
+        if candidate_struct:
+            if not _is_safe(candidate_struct) or not candidate_struct.endswith('_candidate.json') or not candidate_struct.startswith('sis_structure_'):
+                return jsonify({'success': False, 'error': 'Invalid SIS candidate structured filename'}), 400
+            struct_src = os.path.join(scene_path, candidate_struct)
+            if not os.path.exists(struct_src):
+                return jsonify({'success': False, 'error': 'Candidate structured file not found'}), 404
+            struct_dst_name = f'sis_structure_{scene_id}.json'
+            struct_dst = os.path.join(scene_path, struct_dst_name)
+            os.replace(struct_src, struct_dst)
+
+        return jsonify({
+            'success': True,
+            'sis_raw_filename': raw_dst_name,
+            'sis_structured_filename': struct_dst_name,
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route("/scene/<scene_id>/discard_generated_sis", methods=['POST'])
+def discard_generated_sis(scene_id):
+    """Discard pending generated SIS candidate files."""
+    try:
+        scene_path, _ = find_scene_path(scene_id)
+        if not scene_path:
+            return jsonify({'success': False, 'error': 'Scene not found'}), 404
+
+        payload = request.get_json(silent=True) or {}
+        candidate_raw = (payload.get('candidate_raw_filename') or '').strip()
+        candidate_struct = (payload.get('candidate_structured_filename') or '').strip()
+
+        def _safe_delete(name: str):
+            if not name:
+                return
+            if '/' in name or '\\' in name:
+                return
+            try:
+                p = os.path.join(scene_path, name)
+                if os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
+
+        _safe_delete(candidate_raw)
+        _safe_delete(candidate_struct)
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route("/scene/<scene_id>/regenerate_prompts", methods=['POST'])
@@ -1820,7 +1905,7 @@ def generate_image_from_sis(scene_id):
             return jsonify({'error': 'Scene not found'}), 404
         
         # SISファイルを探す
-        sis_files = [f for f in os.listdir(scene_path) if f.startswith('sis_structure_') and f.endswith('.json')]
+        sis_files = [f for f in os.listdir(scene_path) if f.startswith('sis_structure_') and f.endswith('.json') and not f.endswith('_candidate.json')]
         
         if not sis_files:
             print(f"❌ No SIS file found in scene: {scene_path}")
@@ -2167,7 +2252,7 @@ def generate_text_from_sis(scene_id):
             return jsonify({'success': False, 'error': 'Scene not found'}), 404
 
         # Find SIS file
-        sis_files = [f for f in os.listdir(scene_path) if f.startswith('sis_structure_') and f.endswith('.json')]
+        sis_files = [f for f in os.listdir(scene_path) if f.startswith('sis_structure_') and f.endswith('.json') and not f.endswith('_candidate.json')]
         if not sis_files:
             return jsonify({'success': False, 'error': 'No SIS file found. Please generate SIS first.'}), 404
         sis_filepath = os.path.join(scene_path, sis_files[0])
@@ -3016,7 +3101,7 @@ def project_scene_detail_alt(project_id, scene_id):
     }
     
     for file in files:
-        if file.startswith('sis_structure_') and file.endswith('.json'):
+        if file.startswith('sis_structure_') and file.endswith('.json') and not file.endswith('_candidate.json'):
             scene_data['sis_files'].append(file)
         elif file.startswith('text_') and file.endswith('.txt') and not file.endswith('_prompt.txt') and not file.endswith('_candidate.txt'):
             scene_data['text_files'].append(file)

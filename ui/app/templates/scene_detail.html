@@ -383,6 +383,12 @@
                 <button class="btn btn-generate-sis" onclick="regeneratePrompts()" id="btn-update-prompts">
                     Update Prompts
                 </button>
+                <button class="btn btn-save" id="btn-sis-generated-save" onclick="saveGeneratedSIS()" style="display:none;">
+                    💾 Save
+                </button>
+                <button class="btn btn-cancel" id="btn-sis-generated-cancel" onclick="cancelGeneratedSIS()" style="display:none;">
+                    ❌ Cancel
+                </button>
             </div>
             <div class="sis-generation-controls">
                 <button class="btn btn-generate-sis" onclick="generateSISFromImage()">
@@ -417,6 +423,12 @@
                 </button>
                 <button class="btn btn-generate-sis" onclick="regeneratePrompts()" id="btn-update-prompts">
                     Update Prompts
+                </button>
+                <button class="btn btn-save" id="btn-sis-generated-save" onclick="saveGeneratedSIS()" style="display:none;">
+                    💾 Save
+                </button>
+                <button class="btn btn-cancel" id="btn-sis-generated-cancel" onclick="cancelGeneratedSIS()" style="display:none;">
+                    ❌ Cancel
                 </button>
             </div>
             <div class="sis-generation-hint">
@@ -536,6 +548,26 @@
     border: 1px solid #ddd;
     border-radius: 4px;
     padding: 10px;
+    resize: vertical;
+}
+
+.sis-compare-swiper {
+    width: 100%;
+    overflow: hidden;
+}
+
+.sis-compare-swiper .swiper-slide {
+    width: 100% !important;
+}
+
+.sis-compare-header {
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.sis-compare-textarea {
+    width: 100%;
+    box-sizing: border-box;
     resize: vertical;
 }
 
@@ -2546,7 +2578,8 @@ async function generateSIS(contentType) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                content_type: contentType
+                content_type: contentType,
+                output_mode: 'candidate'
             }),
             signal: controller.signal
         });
@@ -2582,19 +2615,19 @@ async function generateSIS(contentType) {
             message += ' 🔄 Prompts remain unchanged until you run Update Prompts.';
             showSISGenerationProgress(message, 'success');
 
-            // Update SIS section with new content instead of reloading page
-            updateSISSection(result.sis_raw_text || result.sis_data || result.sis_structure, result.filename || `sis_raw_{{ scene.id }}.txt`);
+            // Ensure SIS section exists (for scenes without SIS yet)
+            const existingTextarea = document.getElementById('sis-1');
+            if (!existingTextarea) {
+                updateSISSection('', `sis_structure_{{ scene.id }}.json`);
+            }
+
+            // Candidate compare (do not overwrite immediately)
+            displayGeneratedSISCandidate(result);
 
             // Show JSON validity info for the returned SIS
             try { showSISJsonValidation(result.json_valid, result.json_parse_error); } catch {}
             
-            // Auto-activate edit mode after generation
-            setTimeout(() => {
-                const editBtn = document.querySelector('.sis-edit-main-controls .btn-edit');
-                if (editBtn && editBtn.style.display !== 'none') {
-                    toggleSISEdit(1);
-                }
-            }, 2000); // Increased delay to let user see success message
+            // Do not auto-enter edit mode; user decides to Save/Cancel.
         } else {
             let errorMessage = `❌ Error: ${result.error}`;
             
@@ -2647,6 +2680,186 @@ async function generateSIS(contentType) {
         try { if (progressInterval) clearInterval(progressInterval); } catch {}
         try { clearTimeout(timeoutId); } catch {}
         hideLoadingOverlay(overlay);
+    }
+}
+
+function setPendingGeneratedSIS(pending) {
+    window.__pendingGeneratedSIS = pending;
+    const saveBtn = document.getElementById('btn-sis-generated-save');
+    const cancelBtn = document.getElementById('btn-sis-generated-cancel');
+    const hasPending = !!pending;
+    if (saveBtn) saveBtn.style.display = hasPending ? 'inline-block' : 'none';
+    if (cancelBtn) cancelBtn.style.display = hasPending ? 'inline-block' : 'none';
+}
+
+function showSISCompareSwiper(originalText, generatedText) {
+    const editor = document.querySelector('.sis-section .sis-editor');
+    if (!editor) return;
+
+    const textarea = editor.querySelector('#sis-1');
+    if (!textarea) return;
+
+    // Persist original UI so we can restore cleanly
+    if (!window.__sisCompareOriginalHTML) {
+        window.__sisCompareOriginalHTML = textarea.outerHTML;
+    }
+
+    textarea.style.display = 'none';
+
+    // Remove existing compare swiper if present
+    const existing = editor.querySelector('.sis-compare-swiper');
+    if (existing) existing.remove();
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'swiper sis-compare-swiper';
+    wrapper.innerHTML = `
+        <div class="swiper-wrapper">
+            <div class="swiper-slide">
+                <div class="sis-compare-header">🧩 Original</div>
+                <textarea class="sis-compare-textarea" rows="20" readonly></textarea>
+            </div>
+            <div class="swiper-slide">
+                <div class="sis-compare-header">🧩 Generated</div>
+                <textarea class="sis-compare-textarea" rows="20" readonly></textarea>
+            </div>
+        </div>
+        <div class="swiper-pagination"></div>
+    `;
+
+    editor.appendChild(wrapper);
+
+    const areas = wrapper.querySelectorAll('textarea.sis-compare-textarea');
+    if (areas[0]) areas[0].value = originalText || '';
+    if (areas[1]) areas[1].value = generatedText || '';
+
+    // Keep compare height consistent with SIS editor
+    if (textarea) {
+        const h = textarea.getBoundingClientRect().height;
+        areas.forEach(a => {
+            if (h && Number.isFinite(h)) {
+                a.style.height = `${Math.max(220, Math.floor(h))}px`;
+            }
+        });
+    }
+
+    try {
+        new Swiper(wrapper, {
+            initialSlide: 1,
+            pagination: { el: wrapper.querySelector('.swiper-pagination'), clickable: true },
+            allowTouchMove: true,
+        });
+    } catch (e) {
+        console.warn('Failed to init Swiper for SIS compare:', e);
+    }
+}
+
+function restoreSISFromCompare() {
+    const editor = document.querySelector('.sis-section .sis-editor');
+    if (!editor) return;
+    const compare = editor.querySelector('.sis-compare-swiper');
+    if (compare) compare.remove();
+
+    const textarea = editor.querySelector('#sis-1');
+    if (textarea) {
+        textarea.style.display = '';
+    }
+}
+
+function displayGeneratedSISCandidate(result) {
+    const original = document.getElementById('sis-1')?.value || '';
+    const generated = (typeof result.sis_raw_text === 'string' && result.sis_raw_text) ? result.sis_raw_text : (
+        typeof result.sis_data === 'string' ? result.sis_data : (
+            typeof result.sis_structure === 'string' ? result.sis_structure : (
+                typeof result.sis_data === 'object' ? JSON.stringify(result.sis_data, null, 2) : ''
+            )
+        )
+    );
+
+    setPendingGeneratedSIS({
+        candidate_raw_filename: result.candidate_raw_filename,
+        candidate_structured_filename: result.candidate_structured_filename,
+        generated_text: generated,
+        json_valid: !!result.json_valid,
+        json_parse_error: result.json_parse_error || null,
+    });
+
+    showSISCompareSwiper(original, generated);
+
+    try { showSISJsonValidation(!!result.json_valid, result.json_parse_error); } catch {}
+}
+
+async function saveGeneratedSIS() {
+    const pending = window.__pendingGeneratedSIS;
+    if (!pending) return;
+    const saveBtn = document.getElementById('btn-sis-generated-save');
+    const cancelBtn = document.getElementById('btn-sis-generated-cancel');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+    if (cancelBtn) cancelBtn.disabled = true;
+
+    try {
+        const res = await fetch(`/scene/{{ scene.id }}/save_generated_sis`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                candidate_raw_filename: pending.candidate_raw_filename,
+                candidate_structured_filename: pending.candidate_structured_filename
+            })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+        }
+
+        // Update canonical textarea with generated SIS content
+        const textarea = document.getElementById('sis-1');
+        if (textarea) {
+            textarea.value = pending.generated_text || '';
+            textarea.readOnly = true;
+            textarea.style.backgroundColor = '#f8f9fa';
+            textarea.style.border = '1px solid #ced4da';
+        }
+
+        restoreSISFromCompare();
+        setPendingGeneratedSIS(null);
+        showSISGenerationProgress('✅ SIS saved.', 'success');
+    } catch (e) {
+        console.error('saveGeneratedSIS error:', e);
+        showSISGenerationProgress(`❌ Failed to save: ${e.message}`, 'error');
+    } finally {
+        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Save'; }
+        if (cancelBtn) cancelBtn.disabled = false;
+    }
+}
+
+async function cancelGeneratedSIS() {
+    const pending = window.__pendingGeneratedSIS;
+    if (!pending) return;
+    const cancelBtn = document.getElementById('btn-sis-generated-cancel');
+    const saveBtn = document.getElementById('btn-sis-generated-save');
+    if (cancelBtn) { cancelBtn.disabled = true; cancelBtn.textContent = 'Cancelling...'; }
+    if (saveBtn) saveBtn.disabled = true;
+
+    try {
+        await fetch(`/scene/{{ scene.id }}/discard_generated_sis`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                candidate_raw_filename: pending.candidate_raw_filename,
+                candidate_structured_filename: pending.candidate_structured_filename
+            })
+        });
+
+        restoreSISFromCompare();
+        setPendingGeneratedSIS(null);
+        showSISGenerationProgress('✅ Discarded generated SIS.', 'success');
+    } catch (e) {
+        console.error('cancelGeneratedSIS error:', e);
+        restoreSISFromCompare();
+        setPendingGeneratedSIS(null);
+        showSISGenerationProgress(`❌ Failed to discard: ${e.message}`, 'error');
+    } finally {
+        if (cancelBtn) { cancelBtn.disabled = false; cancelBtn.textContent = '❌ Cancel'; }
+        if (saveBtn) saveBtn.disabled = false;
     }
 }
 
