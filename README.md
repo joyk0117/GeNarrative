@@ -158,9 +158,11 @@ docker compose logs tts
 - TTS details: `tts/README.md`
 
 ## 🎯 Roadmap
-- Automatic generation of full stories
+- More advanced workflow management
 - Stronger multi-language support
 - Integration with external AI services
+- SIS generation from music and voice
+- Reduce install time and disk footprint (nv, Docker container optimization)
 - Gradual modernization (Frontend: Flask → Vue.js, Backend: Flask → FastAPI)
 - Fine-tuning (Image: LoRA, LLM: Unsloth)
 
