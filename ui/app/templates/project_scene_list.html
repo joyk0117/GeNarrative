@@ -1524,6 +1524,12 @@ function displayGeneratedStorySISCandidate() {
         return;
     }
 
+    // Ensure the StorySIS section is visible so the compare UI can be seen.
+    const resultDiv = document.getElementById('storySISResult');
+    if (resultDiv) {
+        resultDiv.style.display = 'block';
+    }
+
     const originalTextarea = document.getElementById('storySISContent');
     const originalCompareTextarea = document.getElementById('storySISOriginalCompare');
     const generatedCompareTextarea = document.getElementById('storySISGeneratedCompare');
@@ -1535,6 +1541,10 @@ function displayGeneratedStorySISCandidate() {
     generatedCompareTextarea.value = generatedText;
 
     showStorySISCompareSwiper();
+
+    if (resultDiv) {
+        resultDiv.scrollIntoView({ behavior: 'smooth' });
+    }
 }
 
 function showStorySISCompareSwiper() {
