@@ -30,58 +30,42 @@ from common_base import (
     ModelNotLoadedError, ContentTypeError, ValidationError,
     create_standard_response
 )
-# Story type presets aligned with docs/SIS.md §3.3
-STORY_TYPE_BLUEPRINTS = {
-    "three_act": {
-        "overview": "Drama pattern (difficulty → resolution)",
-        "scene_types": ["setup", "conflict", "resolution"],
-        "scene_type_descriptions": {
-            "setup": "Introduce characters, setting, and the initial situation.",
-            "conflict": "Escalate problems and obstacles leading to a turning point.",
-            "resolution": "Resolve the main conflict and show the new status quo."
-        }
-    },
-    "kishotenketsu": {
-        "overview": "Twist/punchline pattern (meaning flips at the end)",
-        "scene_types": ["ki", "sho", "ten", "ketsu"],
-        "scene_type_descriptions": {
-            "ki": "Introduce the situation and characters without strong conflict.",
-            "sho": "Develop the situation and deepen relationships or context.",
-            "ten": "Introduce an unexpected twist that re-frames earlier scenes.",
-            "ketsu": "Conclude by revealing the new meaning after the twist."
-        }
-    },
-    "circular": {
-        "overview": "Journey-and-return pattern (leave → change → return)",
-        "scene_types": ["home_start", "away", "change", "home_end"],
-        "scene_type_descriptions": {
-            "home_start": "Show the ordinary world before the journey begins.",
-            "away": "Depict the journey into a different place, state, or situation.",
-            "change": "Show events that transform the character or situation.",
-            "home_end": "Return to the starting point, highlighting what has changed."
-        }
-    },
-    "attempts": {
-        "overview": "Multiple-attempts pattern (trial and error)",
-        "scene_types": ["problem", "attempt", "result"],
-        "scene_type_descriptions": {
-            "problem": "Define the main problem or goal that must be solved.",
-            "attempt": "Show one or more trials and partial successes or failures.",
-            "result": "Reveal the final outcome of the attempts and their consequences."
-        }
-    },
-    "catalog": {
-        "overview": "Catalog/introduction pattern (weak ordering)",
-        "scene_types": ["intro", "entry", "outro"],
-        "scene_type_descriptions": {
-            "intro": "Introduce the theme and explain what will be presented.",
-            "entry": "Present one catalog item, character, or example at a time.",
-            "outro": "Summarise the catalog and restate the overall impression."
-        }
-    }
-}
 
-ALL_SCENE_TYPES = sorted({stype for cfg in STORY_TYPE_BLUEPRINTS.values() for stype in cfg["scene_types"]})
+SCHEMAS_DIR = Path(__file__).parent / 'schemas'
+STORY_TYPE_BLUEPRINTS_PATH = SCHEMAS_DIR / 'story_type_blueprints.json'
+
+
+@lru_cache(maxsize=1)
+def _load_story_type_blueprints() -> Dict[str, Any]:
+    """Load story type presets from JSON.
+
+    The JSON file is the single source of truth so UI/backend can share the same definitions.
+    """
+    if not STORY_TYPE_BLUEPRINTS_PATH.exists():
+        raise FileNotFoundError(f"Story type blueprints JSON not found: {STORY_TYPE_BLUEPRINTS_PATH}")
+
+    with open(STORY_TYPE_BLUEPRINTS_PATH, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    if not isinstance(data, dict):
+        raise ValidationError('story_type_blueprints.json must contain an object at the top level')
+
+    # Minimal validation for expected structure
+    for key, cfg in data.items():
+        if not isinstance(key, str) or not key.strip():
+            raise ValidationError('story_type_blueprints.json contains an invalid story_type key')
+        if not isinstance(cfg, dict):
+            raise ValidationError(f"story_type '{key}' config must be an object")
+        scene_types = cfg.get('scene_types')
+        if not isinstance(scene_types, list) or not scene_types or not all(isinstance(x, str) and x for x in scene_types):
+            raise ValidationError(f"story_type '{key}' must define a non-empty string array 'scene_types'")
+    return data
+
+
+# Story type presets aligned with docs/SIS.md §3.3 (loaded from JSON)
+STORY_TYPE_BLUEPRINTS = _load_story_type_blueprints()
+
+ALL_SCENE_TYPES = sorted({stype for cfg in STORY_TYPE_BLUEPRINTS.values() for stype in cfg.get('scene_types', [])})
 
 PROMPT_DIR = Path(__file__).parent / 'prompts'
 

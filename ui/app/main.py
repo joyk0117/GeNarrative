@@ -12,6 +12,7 @@ import time
 import copy
 import shutil
 from datetime import datetime
+from functools import lru_cache
 
 # Add dev/scripts to Python path for content2sis_unified import
 sys.path.insert(0, '/app/dev/scripts')
@@ -26,8 +27,47 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 workspace_root = os.path.dirname(os.path.dirname(current_dir))
 dev_scripts_path = os.path.join(workspace_root, 'dev', 'scripts')
 ui_scripts_path = os.path.join(workspace_root, 'ui', 'scripts')
+
+# Docker dev mount layout note:
+# - docker-compose mounts ./ui/app -> /app
+# - docker-compose mounts ./ui/scripts -> /app/ui/scripts
+# In that case, the heuristic workspace_root becomes '/', so prefer existing paths.
+candidate_dev_scripts = [
+    os.path.join(current_dir, 'dev', 'scripts'),
+    os.path.join(workspace_root, 'dev', 'scripts'),
+    '/app/dev/scripts',
+]
+candidate_ui_scripts = [
+    os.path.join(current_dir, 'ui', 'scripts'),
+    os.path.join(os.path.dirname(current_dir), 'scripts'),
+    os.path.join(workspace_root, 'ui', 'scripts'),
+    '/app/ui/scripts',
+]
+
+for p in candidate_dev_scripts:
+    if isinstance(p, str) and os.path.exists(p):
+        dev_scripts_path = p
+        break
+
+for p in candidate_ui_scripts:
+    if isinstance(p, str) and os.path.exists(p):
+        ui_scripts_path = p
+        break
 sys.path.insert(0, dev_scripts_path)
 sys.path.insert(0, ui_scripts_path)
+
+
+@lru_cache(maxsize=1)
+def _load_story_type_blueprints() -> dict:
+    """Load story type definitions used by the Project screen lanes."""
+    path = os.path.join(ui_scripts_path, 'schemas', 'story_type_blueprints.json')
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception as e:
+        print(f"⚠️ Failed to load story_type_blueprints.json: {e}")
+        return {}
 
 print(f"📁 Current working directory: {os.getcwd()}")
 print(f"📁 Script directory: {current_dir}")
@@ -549,7 +589,12 @@ def project_detail(project_id):
     
     # Sort by newest first
     scenes.sort(key=lambda x: x['id'], reverse=True)
-    return render_template('project_scene_list.html', project_id=project_id, scenes=scenes)
+    return render_template(
+        'project_scene_list.html',
+        project_id=project_id,
+        scenes=scenes,
+        story_type_blueprints=_load_story_type_blueprints(),
+    )
 
 @app.route("/projects/<project_id>/create", methods=['POST'])
 def create_project(project_id):
