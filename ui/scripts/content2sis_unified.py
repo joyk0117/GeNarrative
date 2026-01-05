@@ -21,6 +21,8 @@ import time
 from datetime import datetime
 from typing import Dict, Any, Optional, Tuple
 from pathlib import Path
+from functools import lru_cache
+from string import Template
 
 # 共通基盤のインポート
 from common_base import (
@@ -30,6 +32,19 @@ from common_base import (
     ModelNotLoadedError, ContentTypeError, ValidationError,
     detect_content_type, create_standard_response
 )
+
+
+PROMPT_DIR = Path(__file__).parent / 'prompts'
+
+
+@lru_cache(maxsize=16)
+def _load_prompt_template(filename: str) -> Template:
+    """Load and cache prompt templates stored under ui/scripts/prompts."""
+    template_path = PROMPT_DIR / filename
+    if not template_path.exists():
+        raise FileNotFoundError(f"Prompt template not found: {template_path}")
+    with open(template_path, 'r', encoding='utf-8') as prompt_file:
+        return Template(prompt_file.read())
 
 
 # ========================================
@@ -131,20 +146,15 @@ class SISExtractor(ContentProcessor):
 
         # 完全なSceneSISスキーマを取得
         scene_sis_schema = self._scene_sis_schema()
-        prompt_parts = [
-            "Analyze the attached image and produce a complete SceneSIS JSON that matches the provided schema.",
-            "Include all required fields: sis_type='scene', scene_id, summary, and semantics.",
-            "For semantics, include: common (mood, characters with visual details, location, time, weather, objects with colors, descriptions), text, visual, and audio.",
-            "Return ONLY a valid JSON object (no prose, no comments)."
-        ]
-        sis_prompt = "\n\n".join(prompt_parts)
+        sis_prompt = _load_prompt_template('content2sis_scene_from_image.md').substitute()
+        system_prompt = _load_prompt_template('content2sis_scene_system.md').substitute()
         # 計測開始
         req_start = time.time()
 
         # Structured Output 呼び出し
         sis_json, raw_text = self._ollama_chat_structured(
             messages=[
-                {'role': 'system', 'content': 'You are a precise JSON generator for SceneSIS structure. Output only valid JSON that matches the schema.'},
+                {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': sis_prompt}
             ],
             schema=scene_sis_schema,
@@ -182,18 +192,14 @@ class SISExtractor(ContentProcessor):
 
         # 完全なSceneSISスキーマを取得
         scene_sis_schema = self._scene_sis_schema()
-        prompt_parts = [
-            "Analyze the following text and produce a complete SceneSIS JSON that matches the provided schema.",
-            "Include all required fields: sis_type='scene', scene_id, summary, and semantics.",
-            "For semantics, include: common (mood, characters with visual details, location, time, weather, objects with colors, descriptions), text, visual, and audio.",
-            f"Text:\n{json.dumps(text_content)}",
-            "Return ONLY a valid JSON object (no prose, no comments)."
-        ]
-        sis_prompt = "\n\n".join(prompt_parts)
+        sis_prompt = _load_prompt_template('content2sis_scene_from_text.md').substitute(
+            text_json=json.dumps(text_content, ensure_ascii=False)
+        )
+        system_prompt = _load_prompt_template('content2sis_scene_system.md').substitute()
 
         sis_json, raw_text = self._ollama_chat_structured(
             messages=[
-                {'role': 'system', 'content': 'You are a precise JSON generator for SceneSIS structure. Output only valid JSON that matches the schema.'},
+                {'role': 'system', 'content': system_prompt},
                 {'role': 'user', 'content': sis_prompt}
             ],
             schema=scene_sis_schema
@@ -346,16 +352,6 @@ class SISExtractor(ContentProcessor):
 
     
 
-    # プロンプトテンプレート読み込み（存在しない・空の場合は空文字）
-    def _load_prompt_template(self, filename: str) -> str:
-        try:
-            path = os.path.join(os.path.dirname(__file__), 'prompts', filename)
-            with open(path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                return content.strip()
-        except Exception:
-            return ''
-
     def _schema_field_guide_template(self, schema: Dict[str, Any]) -> str:
         """JSON Schema をもとにLLMが理解しやすいテンプレートJSONを生成"""
         try:
@@ -394,38 +390,10 @@ class SISExtractor(ContentProcessor):
     def _extract_sis_from_text(self, text_content: str) -> Dict[str, Any]:
         """テキストからのSIS抽出"""
         self._check_server_and_model()
-        
-        sis_prompt = f"""Analyze the following text and create a Semantic Interface Structure (SIS) in JSON format.
 
-Text: "{text_content}"
-
-Provide ONLY a JSON object with the following structure:
-{{
-  "summary": "brief description of the text content",
-  "emotions": ["emotion1", "emotion2", "emotion3"],
-  "mood": "overall mood",
-  "themes": ["theme1", "theme2", "theme3"],
-  "narrative": {{
-    "characters": ["character descriptions"],
-    "location": "setting description",
-    "weather": "weather conditions",
-    "tone": "narrative tone",
-    "style": "narrative style"
-  }},
-  "visual": {{
-    "style": "visual style implied by the text",
-    "composition": "scene composition",
-    "lighting": "lighting conditions described",
-    "perspective": "narrative viewpoint",
-    "colors": ["color1", "color2", "color3"]
-  }},
-  "audio": {{
-    "genre": "music genre that would fit",
-    "tempo": "tempo description",
-    "instruments": ["instrument1", "instrument2"],
-    "structure": "musical structure"
-  }}
-    }}"""
+        sis_prompt = _load_prompt_template('content2sis_legacy_sis_from_text.md').substitute(
+            text_content=text_content
+        )
 
         try:
             payload = {
