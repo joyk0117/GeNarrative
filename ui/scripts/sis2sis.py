@@ -840,16 +840,13 @@ class SISTransformer(ContentProcessor):
         story_characters = []
         if isinstance(story_common.get('characters'), list) and story_common['characters']:
             story_characters = story_common['characters']
-        if is_missing(semantics_common.get('characters')):
-            base_character = story_characters[0] if story_characters else {}
-            semantics_common['characters'] = [{
-                'name': base_character.get('name', 'Protagonist'),
-                'traits': base_character.get('traits', ['curious']),
-                'visual': base_character.get('visual', {
-                    'hair': 'unspecified hair',
-                    'clothes': 'unspecified clothes'
-                })
-            }]
+        # NOTE: Empty list [] is a valid value (e.g., landscape-only scenes).
+        # Only backfill when the field is truly missing or None.
+        if 'characters' not in semantics_common or semantics_common.get('characters') is None:
+            if story_characters:
+                semantics_common['characters'] = [story_characters[0]]
+            else:
+                semantics_common['characters'] = []
             applied_defaults.append('semantics.common.characters')
 
         if is_missing(semantics_common.get('objects')):
