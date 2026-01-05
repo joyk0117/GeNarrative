@@ -1,89 +1,124 @@
 # GeNarrative
 
-> This repository is an experimental product and is currently under active development and evaluation. Specifications and behavior may change without prior notice.
+> Note: This repository is an experimental project and is still under active development and validation. Specifications and behavior may change without notice.
 
 ## 🌟 Overview
-GeNarrative is a local, multimodal creative assistant.
-You can combine scripts, illustrations, voice, and BGM to create original narrative experiences completely offline.
-On the first run, you need to download models and build Docker containers (subsequent runs basically work offline).
+GeNarrative is an experimental multimodal generation workflow system that runs locally.
+By combining scripts, illustrations, narration, and BGM, you can create an original story experience offline.
 
-We focus on supporting **generation → regeneration → comparison → editing** workflows via a semantic intermediate representation called **SIS (Semantic Interface Structure)**.
-Each function is separated into its own Docker service, with an emphasis on privacy, reproducibility, and extensibility.
+- The first run requires model downloads and container builds (from the second run onward, it typically works offline).
+- It emphasizes iterating on **generate → regenerate → compare → edit** via **SIS (Semantic Interface Structure)**, a “semantic schema” that sits between assets and generation.
+- Each capability is isolated in Docker containers, with a focus on privacy, reproducibility, and extensibility.
 
-- Example inputs: Scripts, children’s hand-drawn illustrations
-- Example outputs: Narrated multimedia stories (HTML / MP4)
-- Goal: Not a **finished end-user app**, but a system where you can **observe, reproduce, and compare** the generation pipeline
+- Example inputs: scripts, children’s hand-drawn illustrations
+- Example outputs: narrated multimedia stories (HTML / MP4)
+- Goal: not a **finished app**, but a state where the generation pipeline can be **observed, reproduced, and compared**
 
-## What’s New
+## What’s new
 
-### 1) SIS: Exposing the “semantic” intermediate representation
-GeNarrative serializes the semantic information of works and scenes as **SIS** (JSON), enabling you to:
+### 1) SIS: make the “semantic schema” explicit
+GeNarrative represents meaning information about works/scenes as **SIS** in JSON, enabling:
 
-- Keep semantics (SIS) fixed while **swapping only models/parameters**
-- Preserve generation conditions to **ensure reproducibility**
-- **Manually edit or correct** SIS when extraction is imperfect
+- Swap **models/parameters** while keeping meaning (SIS) fixed
+- Keep generation conditions for **reproducibility**
+- **Manually edit/correct** SIS even if extraction is imperfect
 
-### 2) Local & separated architecture: Easy to swap and compare
-The UI orchestrates each service over REST APIs and aggregates all outputs into `shared/`.
-This allows you to **compare LLM / image generation / TTS / music generation on a per-module basis**.
+### 2) Local & modular: easy to swap and compare components
+The UI orchestrates each service’s REST API and aggregates artifacts into `shared/`.
+This makes it easier to compare modules independently (LLM / image generation / TTS / music generation).
 
-## 🔍 Related Work
-Google Gemini provides a “Storybook” feature that can generate a 10-page illustrated storybook with narration from prompts and photos/images.
+## 🔍 Related work
+Google Gemini includes a “Storybook” feature that can generate a 10-page illustrated storybook from prompts and photos/images, and can also read it aloud.
 
-GeNarrative is not aiming to reproduce that exact finished experience. Instead, it is designed as a local experimental pipeline centered on SIS (a structured intermediate representation), making it easy to generate, regenerate, compare, and swap components. (This project is not affiliated with Google.)
+GeNarrative is designed less to reproduce the same polished experience, and more as a local experimental pipeline centered on SIS (a semantic schema) to make generation, regeneration, comparison, and component swapping easier (this project is not affiliated with Google).
 
-## 🏗️ Architecture / Tech Stack
-GeNarrative uses a microservice architecture. The UI orchestrates each service via REST APIs and all artifacts are exchanged through shared storage.
+## 🏗️ Architecture / Tech stack
+GeNarrative uses a microservices architecture. The UI orchestrates each service’s REST API, and artifacts are passed via shared storage.
 
-| Component | Technology | Default Port | Description |
-|---|---|---|---|
-| Unified UI | Flask + Swiper.js | 5000 | Integrated front/back end, workflow execution |
-| Image generation | AUTOMATIC1111 (Stable Diffusion) | 7860 | Illustration / image generation |
-| Text-to-Speech | Coqui TTS | 5002 | Narration voice generation |
-| Music generation | AudioCraft (MusicGen) | 5003 | Background music / sound effects generation |
-| LLM runtime | Ollama (Gemma3) | 11434 | Text generation, SIS transformation support |
+```mermaid
+flowchart LR
+	%% GeNarrative: high-level system architecture (default ports; see docker-compose.yml for overrides)
+
+	subgraph HOST["Host"]
+		B["Browser"]
+	end
+
+	subgraph NET["Docker Compose<br/>(docker network)"]
+		UI["ui :Flask"]
+		SD["image :AUTOMATIC1111"]
+		TTS["tts :Coqui TTS"]
+		MUSIC["music :MusicGen"]
+		OLLAMA["text :Ollama"]
+	end
+
+	subgraph VOL["Shared Volume"]
+		SHARED["Artifacts, SIS, outputs"]
+	end
+
+	B -->|"HTTP (UI)"| UI
+
+	UI -->|"generate images"| SD
+	UI -->|"generate narration"| TTS
+	UI -->|"generate music"| MUSIC
+	UI -->|"generate text/SIS"| OLLAMA
+
+	UI <-->|"read/write artifacts"| SHARED
+	SD <-->|"read/write images"| SHARED
+	TTS <-->|"read/write narration"| SHARED
+	MUSIC <-->|"read/write music"| SHARED
+	OLLAMA <-->|"read/write text/SIS"| SHARED
+```
+
+| Component | Tech | Default Port | Description |
+|---|---:|---:|---|
+| Integrated UI | Flask + Swiper.js | 5000 | All-in-one front/back + workflow execution |
+| Image generation | AUTOMATIC1111 (Stable Diffusion) | 7860 | Illustration/image generation |
+| Speech synthesis | Coqui TTS | 5002 | Narration generation |
+| Music generation | AudioCraft (MusicGen) | 5003 | Background music / SFX generation |
+| LLM runtime | Ollama (Gemma3) | 11434 | Text generation, SIS conversion assistance |
 
 - Internal network: Docker bridge network
 - Shared storage: `shared/` (used by all services)
-- Default ports: see `docker-compose.yml` for the source of truth
+- Default ports may be overridden by `docker-compose.yml`
 
 ## 🧩 SIS (Semantic Interface Structure)
 
-- GeNarrative uses **SIS (Semantic Interface Structure)** as the common format for multimodal generation.
-- By using SIS as a hub, you can create SIS from scripts or images, and then generate scripts, illustrations, BGM, etc. in a unified manner from SIS.
-- You can also re-extract SIS from generated artifacts and use it for search and evaluation (consistency checking).
-- For detailed specifications, see `docs/SIS.md`.
+- GeNarrative uses **SIS (Semantic Interface Structure)** as a common format for multimodal generation.
+- SIS acts as the hub: generate SIS from scripts/images, then generate scripts/illustrations/BGM, etc. from SIS in a unified way.
+- It also anticipates re-extracting SIS from generated artifacts for search and evaluation (consistency checks).
+- See `docs/SIS.md` for details.
 
-## 📁 Directory Structure
+## 📁 Directory structure
+
 ```text
 GeNarrative/
-├── docker-compose.yml      # Definitions of all services
-├── requirements.txt        # Shared Python dependencies
-├── docs/                   # Documentation
-├── sd/                     # Image generation (Stable Diffusion WebUI)
-├── tts/                    # Text-to-speech (Coqui TTS)
-├── music/                  # Music generation (MusicGen)
-├── ui/                     # UI + Flask integrated server
-└── shared/                 # Shared data area
+├── docker-compose.yml      # service definitions
+├── requirements.txt        # shared Python deps
+├── docs/                   # documentation
+├── sd/                     # image generation (Stable Diffusion WebUI)
+├── tts/                    # speech synthesis (Coqui TTS)
+├── music/                  # music generation (MusicGen)
+├── ui/                     # UI + Flask integration server
+└── shared/                 # shared data/artifacts
 ```
 
-## 🔧 Technical Challenges and Solutions
+## 🔧 Technical challenges and approaches
 
-| Challenge | Solution |
+| Challenge | Approach |
 |---|---|
-| Controlling multimodal generation | Design a unified schema (SIS) and meta-prompts for each modality |
-| Library load and resource contention | Isolate each function into its own container to localize load |
-| Running on local GPUs | Use quantized and lightweight models |
-| Unified output | Produce multimedia output as HTML + Swiper.js or MP4 |
+| Controlling multimodal generation | Design a unified schema (SIS) + modality-specific meta-prompts |
+| Heavy libraries / resource contention | Split into containers to localize load |
+| Running on local GPU | Use quantized / lightweight models |
+| Integrated output | HTML + Swiper.js or MP4 export |
 
-## 🚀 Quick Start (Windows / PowerShell)
+## 🚀 Quick start (Windows / PowerShell)
 
-Please install Docker in advance (NVIDIA environment required for GPU usage).
+Install Docker in advance (NVIDIA environment is required to use GPU).
 
-- Estimated setup time: 30+ minutes for first install and startup
-- Required free disk space: 100GB or more
+- Estimated setup time: 30+ minutes from first install to first boot
+- Required free disk space: 100GB+
 - Recommended GPU: 12GB+ VRAM (depends on model configuration)
-(Mainly due to model downloads and container builds.)
+  (downloads/builds are the primary cause)
 
 ```powershell
 git clone https://github.com/joyk0117/GeNarrative.git
@@ -91,88 +126,98 @@ cd GeNarrative
 docker compose up -d
 ```
 
-After startup, open your browser and access `http://localhost:5000/` to start using the app.
+After starting, open `http://localhost:5000/` in your browser.
 
-### Checking Service Status
+### Check service status
+
 ```powershell
-# List all services
+# list all services
 docker compose ps
 
-# Check individual logs
+# check logs per service
 docker compose logs ui      # UI server
-docker compose logs music   # Music generation server
+docker compose logs music   # music server
 docker compose logs tts     # TTS server
-docker compose logs sd      # Image generation server
-docker compose logs ollama  # Text generation server
+docker compose logs sd      # image server
+docker compose logs ollama  # text server
 ```
 
-### Endpoints
-- Unified UI: http://localhost:5000
+### Access
+
+- Integrated UI: http://localhost:5000
 - Image generation (A1111): http://localhost:7860
 - LLM API (Ollama): http://localhost:11434
 
-For exact port settings, see `docker-compose.yml`.
+For exact ports, see `docker-compose.yml`.
 
 ## 🛠️ Troubleshooting (Windows)
 
 ### GPU / CUDA
-- Check GPU status with `nvidia-smi` (on WSL2 or another supported environment).
-- To use GPU in Docker, you need to install the NVIDIA Container Toolkit or equivalent.
 
-### Port Conflicts
+- Check GPU status with `nvidia-smi` (run in WSL2 or a compatible environment)
+- To use GPU in Docker, you need the equivalent of NVIDIA Container Toolkit setup
+
+### Port conflicts
+
 ```powershell
-# Check port usage (example: 5000)
+# check port usage (example: 5000)
 netstat -ano | Select-String ":5000"
 
-# After checking the PID, stop the target process
+# after checking PID, stop the process
 Get-Process -Id <PID>
 Stop-Process -Id <PID> -Force
 ```
 
-### API Connectivity / Networking
+### API connectivity / network
+
 ```powershell
-# Check connectivity between containers (examples)
+# check container-to-container connectivity (examples)
 docker compose exec ui ping -c 1 music
 docker compose exec ui ping -c 1 tts
 
-# Check logs
+# check logs
 docker compose logs ui
 docker compose logs music
 docker compose logs tts
 ```
 
-## ✅ Reproducibility Check
-- Start all services with `docker compose up -d`.
-- Get logs for each service with `docker compose logs`.
-- Generated artifacts are saved under `shared/` (subdirectories differ by module).
-- Main endpoints (defaults):
-  - http://localhost:5000 (UI)
-  - http://localhost:7860 (Image)
-  - http://localhost:5002 (TTS)
-  - http://localhost:5003 (Music)
-  - http://localhost:11434 (Ollama)
+## ✅ Reproducibility checklist
 
-## 📚 Documentation / References
-- Structured specification (SIS): `docs/SIS.md`
-- UI / API details: `ui/README.md`, `ui/API_REFERENCE.md`
+- Start all services with `docker compose up -d`
+- Capture logs with `docker compose logs`
+- Artifacts are saved under `shared/` (subdirectories differ by module)
+- Main endpoints (defaults):
+	- http://localhost:5000 (UI)
+	- http://localhost:7860 (Image)
+	- http://localhost:5002 (TTS)
+	- http://localhost:5003 (Music)
+	- http://localhost:11434 (Ollama)
+
+## 📚 Docs / References
+
+- Structured spec (SIS): `docs/SIS.md`
+- UI/API details: `ui/README.md`, `ui/API_REFERENCE.md`
 - TTS details: `tts/README.md`
 
 ## 🎯 Roadmap
-- More advanced workflow management
-- Stronger multi-language support
+
+- Advanced workflow management
+- Stronger multilingual support
 - Integration with external AI services
-- SIS generation from music and voice
-- Reduce install time and disk footprint (nv, Docker container optimization)
-- Gradual modernization (Frontend: Flask → Vue.js, Backend: Flask → FastAPI)
+- SIS generation from music and speech
+- Reduce installation time and disk footprint (uv, Docker optimization)
+- Gradual modernization (frontend: Flask → Vue.js, backend: Flask → FastAPI)
 - Fine-tuning (Image: LoRA, LLM: Unsloth)
 
-## 🧪 Development Notes
-- Some parts of the code in this repository were created with the help of LLM-based coding assistance (AI-assisted coding).
-- The author carried out the architecture design (Docker separation and workflow), SIS schema design, service integration, and verification/debugging.
+## 🧪 Development notes
+
+- Some parts of this repository were built using LLM-based coding assistance (AI-assisted coding).
+- Architecture design (Docker separation/workflow), SIS schema design, service integration, and verification/debugging were done by the author.
 
 ## 📜 License
+
 MIT License  
 Copyright (c) 2025 Yuki Jo
 
-Note: This repository only contains orchestration code.
-Third-party models/tools/assets such as Ollama, AUTOMATIC1111, Coqui TTS, and MusicGen must be obtained separately and used in accordance with their respective licenses.
+Note: This repository contains orchestration code only.
+Third-party models/tools/assets such as Ollama, AUTOMATIC1111, Coqui TTS, MusicGen, etc. must be obtained separately and used in accordance with their respective licenses.

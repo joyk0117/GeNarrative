@@ -1,61 +1,78 @@
-# GeNarrative – Semantic Interface Structure (SIS) Specification
+# 🧩 GeNarrative – Semantic Interface Structure (SIS) Specification
 
-## 1. Overview
+## 🎯 1. Overview
 
-Semantic Interface Structure (SIS) is an **intermediate representation that extracts the “semantic information” of works and scenes and turns it into a hub for generation, search, and reuse**.
-It separates **what to make (meaning)** from **how to make it (models/prompts)**, and serves as a shared language across all phases: generation, search, and learning.
+Semantic Interface Structure (SIS) is a **semantic schema that extracts “meaning information” about a work or scene and makes it the hub for generation, search, and reuse**.
+It separates **what to create (meaning)** from **how to create it (models/prompts)**, and serves as a shared language across generation, search, and learning/evaluation phases.
 
-### Key Benefits
+### Key benefits
 
-1. **Modular separation & controllability**
-   - Keep meaning (SIS) fixed while swapping models (SD/MusicGen, etc.) or parameters.
+1. **Modularity & controllability**
+   - Keep meaning (SIS) fixed while swapping models (SD/MusicGen, etc.) and parameters.
 2. **Reproducibility & explainability**
-   - Record “what semantic specification produced this” as JSON, enabling provenance checks and regeneration.
-3. **Editable parameters & human correction**
-   - Even if LLM extraction is imperfect, the data is structured and can be manually fixed/augmented.
-4. **A common interface for search & recommendation**
-   - Enables semantic search/recommendation like “melancholic + night + piano”.
-5. **A foundation for training data & evaluation**
-   - Use SIS as ground truth for prompt generation, QA creation, and model evaluation (consistency checks).
-6. **A hub for vector DBs and other models**
-   - Vectorize SIS elements to connect with external DBs or embedding models.
+   - Record “what meaning specification produced this output” in JSON; supports provenance and regeneration.
+3. **Editable “parameters” and manual correction**
+   - Even if LLM extraction is imperfect, structured data is easy to fix/augment by hand.
+4. **Unified interface for search and recommendation**
+   - Enables meaning-based queries like “melancholic + night + piano”.
+5. **Foundation for training data and evaluation**
+   - Use SIS as ground-truth for prompt generation, QA creation, and model evaluation (consistency checks).
+6. **Hub for vector DB / other models**
+   - Vectorize SIS elements to bridge to external DBs and embedding models.
+
+### SIS-centered relationship diagram (concept)
+
+```mermaid
+flowchart LR
+  H["Human<br/>Author / Editor"]
+  SIS["SIS<br/>Semantic schema (JSON)"]
+
+  T["Text<br/>Script / Summary / Instructions"]
+  I["Image<br/>Illustration / Composition"]
+  M["Music<br/>BGM / SFX"]
+
+  H -->|"Create / Edit"| SIS
+  SIS <-->|"Generate"| T
+  SIS <-->|"Generate"| I
+  SIS <-->|"Generate"| M
+```
 
 ---
 
-## 2. Layer Structure (Story / Scene / Media)
+## 🏗 2. Layer structure (Story / Scene / Media)
 
-Within the scope of GeNarrative, SIS consists of three types of objects:
+Within GeNarrative’s scope, SIS is composed of three object types.
 
-### StorySIS (Top layer: the whole work)
+### StorySIS (top layer: the whole work)
 
-- An object holding the semantic structure of the entire work.
-- Story structure type (Kishotenketsu, Three-Act, etc.)
-- Global themes and character settings
-- Global style policies (writing style / visual style / music direction)
+- Holds the semantic structure for the whole work.
+- Story structure type (kishotenketsu, three-act, etc.)
+- Global theme and character settings
+- Global style policies (writing style, visual style, music direction)
 
-### SceneSIS (Middle layer: minimal semantic unit)
+### SceneSIS (middle layer: unit of meaning)
 
-- Represents a **single scene** as the smallest semantic unit.
+- Represents the **smallest semantic unit (one scene)**.
 - Scene meaning (summary / semantics)
 - Scene-level generation policies (text / visual / audio)
-  - For reusability, SceneSIS does **not** include `story_id` (the same scene can be reused across multiple stories).
+  - For reusability, SceneSIS does **not** include `story_id` (so the same Scene can be reused across multiple Stories).
 
-### MediaSIS (Bottom layer: expression unit) — Under consideration / unused
+### MediaSIS (bottom layer: unit of expression) — under consideration / currently unused
 
-- Represents “scene components (expression units)” by further decomposing a SceneSIS.
-- Examples: shots (composition), lines, narration, subtitles, sound effects, BGM segments, props/objects, etc.
+- Represents **scene components (expression units)** by further decomposing a SceneSIS.
+- Examples: shots (composition), dialog, narration, subtitles, sound effects, BGM segments, props/objects, etc.
 
 #### Connections between layers and external indexing
 
-- The connections among StorySIS / SceneSIS / MediaSIS (mapping `story_id`, `scene_id`, `media_id`) are **not stored directly inside each SIS JSON**, but managed as an external index.
-- This enables reusing a single SceneSIS / MediaSIS from multiple StorySIS objects (reusability), and makes updates robust by allowing relation-only replacements without modifying Story/Scene/Media content.
-- Concretely, this is intended to be stored as relation tables in a relational DB or as edges in a graph DB.
+- The linkage between StorySIS / SceneSIS / MediaSIS (mapping of `story_id`, `scene_id`, `media_id`) is not stored directly inside each SIS JSON; it is managed as an external index.
+- This allows a single SceneSIS / MediaSIS to be reused from multiple StorySIS (reusability), and enables swapping relationships without changing the Story/Scene/Media objects themselves.
+- Concretely, this could be stored as a graph structure (graph DB) or relational mapping tables.
 
 ---
 
-## 3. StorySIS Specification
+## 📘 3. StorySIS specification
 
-### 3.1 StorySIS – Conceptual JSON Schema
+### 3.1 StorySIS – JSON schema (concept)
 
 ```jsonc
 {
@@ -65,13 +82,13 @@ Within the scope of GeNarrative, SIS consists of three types of objects:
   "title": "The Girl and the Sun",
   "summary": "A girl befriends the sun and learns to share its light.",
 
-  // Semantic structure for the whole work (themes & style policies)
+  // Global semantic structure (theme/style policy)
   "semantics": {
-    // Semantic information shared across the whole work
+    // Shared semantic info for the whole work
     "common": {
       "themes": ["trust", "learning"],
     },
-    // Optional style policies for the whole work
+    // Optional global style policies
     "text":  {"language": "English", "tone": "gentle", "point_of_view": "third"},
     "visual": {"style": "watercolor"},
     "audio": {"genre": "ambient"}
@@ -79,81 +96,77 @@ Within the scope of GeNarrative, SIS consists of three types of objects:
 
   "story_type": "three_act", // e.g. "kishotenketsu" | "three_act" | "attempts" | "circular" | "catalog"
 
-  // Scene blueprint for the story
+  // Story scene blueprints
   "scene_blueprints": [
     {
       "scene_type": "setup",
       "descriptions": [
-        "Introduce the protagonist and setting (a sunny town / a hill), placing admiration for the ‘sun’ within everyday life.",
-        "Depict the comfort and joy brought by sunlight while hinting at small anxieties about ‘shadows’ or ‘clouds’."
+        "Introduce the protagonist and the setting (a sunny town / hill) and place a longing for the 'Sun' within daily life.",
+        "Depict the comfort and joy brought by sunlight, while also hinting at small anxieties about 'shadows' or 'clouds'."
       ]
     },
     {
       "scene_type": "setup",
       "descriptions": [
-        "The protagonist talks to the sun or chases its light, and the ‘seed’ of their relationship emerges.",
-        "Plant foreshadowing for later conflict: an important promise (not to monopolize the light) and a small device (mirror/hat, etc.)."
+        "The protagonist talks to the sun and chases the light, and a budding relationship begins.",
+        "Plant foreshadowing for a later conflict: an important promise (not to monopolize the light) and a small device (mirror/hat, etc.)."
       ]
     },
     {
       "scene_type": "conflict",
       "descriptions": [
-        "Clouds spread and the sun is hidden. The protagonist panics and tries to bring the light back, but fails.",
-        "The desire for light clashes with consideration for others, leading to misunderstandings and regret."
+        "Clouds spread and the sun is hidden. The protagonist panics and tries to bring the light back, but it backfires.",
+        "The desire for light clashes with consideration for others, creating misunderstanding and regret."
       ]
     },
     {
       "scene_type": "resolution",
       "descriptions": [
-        "The protagonist understands that the sun is something that ‘returns’ and that light is something that can be ‘shared’.",
-        "A small act (supporting a friend, finding a shady place, etc.) softens the atmosphere, and light breaks through the clouds."
+        "The protagonist understands the sun is something that returns, and that light can be shared.",
+        "Small actions (staying close to a friend / finding a place with shade, etc.) soften the atmosphere, and light shines through the clouds."
       ]
     },
     {
       "scene_type": "resolution",
       "descriptions": [
-        "Add a short epilogue-like beat where the same daily life looks slightly different (accepting both light and shadow).",
-        "Conclude with the lesson (sharing/trust) verbalized, and the relationship with the sun gently settled."
+        "As an epilogue, show the same daily life looking slightly different (accepting both light and shadow).",
+        "Put the learning into words (sharing/trust) and close with a gentle, settled relationship with the sun."
       ]
     }
   ],
-
-
-
 }
 ```
 
-### 3.2 Field Details (Excerpt)
+### 3.2 Field details (excerpt)
 
 | Field | Type | Description |
 |---|---|---|
-| story_type | string | Type of story structure (e.g., Kishotenketsu) |
-| semantics.common.themes | array | Themes of the whole work |
-| semantics.common.descriptions | array | Additional description text that the summary cannot fully capture (nuances/intent, etc.) |
-| semantics.text / semantics.visual / semantics.audio | object | Global style policies (can be overridden at SceneSIS / MediaSIS level) |
+| `story_type` | string | Type of story structure (e.g., kishotenketsu) |
+| `semantics.common.themes` | array | Global themes |
+| `semantics.common.descriptions` | array | Supplemental descriptions not fully captured by `summary` (nuance/intent, etc.) |
+| `semantics.text` / `semantics.visual` / `semantics.audio` | object | Global style policy (can be overridden by SceneSIS/MediaSIS) |
 
-### 3.3 Standard Values for story_type
+### 3.3 Standard `story_type` values
 
-Representative patterns and the corresponding `scene_blueprints[].scene_type` are as follows.
+Typical patterns and the mapping to `scene_blueprints[].scene_type`:
 
-| story_type | Overview | scene_type (scene_blueprints[].scene_type) |
+| `story_type` | Summary | `scene_type` (in `scene_blueprints[]`) |
 |---|---|---|
-| three_act | Drama style (difficulty → resolution) | setup (1–2 scenes) / conflict (1–5 scenes) / resolution (1–2 scenes) |
-| kishotenketsu | Twist/turn style (meaning flips at the end) | ki (1) / sho (1–2) / ten (1) / ketsu (1–2) |
-| attempts | Multiple attempts (trial and error) | problem (1) / attempt (repeat) (2–5) / result (1) |
-| catalog | Catalog/intro style (weak ordering) | intro (1) / entry (repeat) (3–10) / outro (1) |
+| `three_act` | Drama (challenge → resolution) | `setup` (1–2 scenes) / `conflict` (1–5 scenes) / `resolution` (1–2 scenes) |
+| `kishotenketsu` | Twist/turn (meaning flips at the end) | `ki` (1) / `sho` (1–2) / `ten` (1) / `ketsu` (1–2) |
+| `attempts` | Multiple attempts (trial and error) | `problem` (1) / `attempt` (repeat) (2–5) / `result` (1) |
+| `catalog` | Catalog/encyclopedic (weak ordering) | `intro` (1) / `entry` (repeat) (3–10) / `outro` (1) |
 
 ---
 
-## 4. SceneSIS Specification
+## 🎬 4. SceneSIS specification
 
-SceneSIS is a JSON object describing a single scene.
+SceneSIS is a JSON object that describes one scene.
+Both **JSON** and **JSONL** are supported for storage, but **JSONL (one Scene per line)** is recommended when handling many scenes.
 
-The storage format can be **JSON or JSONL**, but when handling many scenes, **JSONL (one Scene per line)** is recommended.
+The schema example below is **JSONC (JSON with comments)** for explanation. Real files should be plain JSON/JSONL without comments.
 
-The JSON schema example below is **JSONC (JSON with comments)** for explanation. For actual stored files, use plain JSON/JSONL without comments.
-
-### 4.1 SceneSIS – Conceptual JSON Schema
+### 4.1 SceneSIS – JSON schema (concept)
 
 ```jsonc
 {
@@ -162,7 +175,7 @@ The JSON schema example below is **JSONC (JSON with comments)** for explanation.
 
   "summary": "Introduction of the girl and the forest.",
 
-  // Scene meaning + generation policy (shared context across modalities)
+  // Scene meaning + generation policy (multimodal shared background)
   "semantics": {
     "common": {
       "mood": "calm",
@@ -179,7 +192,7 @@ The JSON schema example below is **JSONC (JSON with comments)** for explanation.
       "location": "forest",
       "time": "day",
       "weather": "sunny",
-      // salient motifs and colors (easy to interpret/label semantically)
+      // Salient motifs and colors (easy to semantically label)
       "objects": [
         { "name": "big_sun", "colors": ["yellow", "orange"] },
         { "name": "small_house", "colors": ["red", "brown"] },
@@ -191,66 +204,60 @@ The JSON schema example below is **JSONC (JSON with comments)** for explanation.
       ]
     },
 
-    // Modality-specific semantic information
+    // Modality-specific semantic info
     "text": { "style": "simple", "language": "English", "tone": "gentle", "point_of_view": "third" },
     "visual": { "style": "watercolor", "composition": "mid-shot", "lighting": "soft", "perspective": "eye-level" },
     "audio": { "genre": "ambient", "tempo": "slow", "instruments": ["piano", "pad"] }
   },
-
 }
 ```
 
-> Note: Role labels for a scene (e.g., ki/sho/ten/ketsu or setup/conflict/resolution) are not stored in SceneSIS. They are managed by StorySIS `scene_blueprints[].scene_type` or by an external index.
+> Note: Scene role labels (e.g., ki/sho/ten/ketsu or setup/conflict/resolution) are not stored in SceneSIS. Manage them via `scene_blueprints[].scene_type` in StorySIS or via an external index.
 
-### 4.2 Field Details (Excerpt)
+### 4.2 Field details (excerpt)
 
-#### 4.2.1 semantics (Scene semantic information)
-
-The “semantic background” referenced by image/text/audio. In `semantics.common`, you may have fields like:
+#### 4.2.1 `semantics` (scene meaning)
+A “semantic background” referenced by image/text/audio. `semantics.common` may include:
 
 | Field | Description |
 |---|---|
-| characters | Character details appearing in the scene (ID, name, appearance, etc.). Scene-specific outfits can be described. |
-| location | Place name |
-| time | Time of day |
-| weather | Weather |
-| mood | Overall atmosphere |
-| objects | Important motifs/colors in the scene |
-| descriptions | Text notes capturing intent/nuance/interpretation beyond what the summary can express (multiple allowed) |
+| `characters` | Character details in the scene (ID/name/appearance, etc.); can include scene-specific clothing |
+| `location` | Place |
+| `time` | Time of day |
+| `weather` | Weather |
+| `mood` | Mood/atmosphere |
+| `objects` | Important objects/motifs and their colors |
+| `descriptions` | Notes/intent/nuance not captured by `summary` (multiple allowed) |
 
-#### 4.2.2 semantics.text / semantics.visual / semantics.audio (Scene-level policy)
-
-- `semantics.text/semantics.visual/semantics.audio` are **scene-level default policies**.
+#### 4.2.2 `semantics.text` / `semantics.visual` / `semantics.audio` (scene-level policy)
+- These fields define **scene-level defaults**.
 
 ---
 
-## 5. MediaSIS Specification
+## 🧩 5. MediaSIS specification
 
-MediaSIS decomposes a SceneSIS into “components (expression units)”.
+MediaSIS decomposes a SceneSIS into “components” (expression units).
+By aligning generation/editing/output to MediaSIS as the smallest unit, both coarse-grained scenes and fine-grained scenes can be handled within the same framework.
 
-By aligning generation/editing/output to MediaSIS as the minimal unit, both coarse-grained and fine-grained scenes can be handled within the same framework.
+### 5.1 MediaSIS – JSON schema (concept)
 
-### 5.1 MediaSIS – Conceptual JSON Schema
-
-Below is a sample MediaSIS extracted from a **visual** asset only; it does not include text/audio elements.
+Below is a sample MediaSIS extracted from **visual** content, and does not include text or audio elements.
 
 ```jsonc
 {
   "sis_type": "media",
   "media_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
 
-  // A short summary of this media element
+  // Short summary of this component
   "summary": "a happy scene in a park with a big sun and a small house",
 
-  // Which modality this Media element represents (visual in this example)
+  // Which modality this Media element targets (visual in this example)
   "media_type": "visual",
 
   // Semantic structure (extraction target)
   "semantics": {
     "common": {
-      // overall mood
       "mood": "happy",
-      // notes that are hard to split into fields (multiple allowed)
       "descriptions": [
         "The drawing conveys a strong sense of safety and warmth between the two figures.",
         "Colors are intentionally vivid to reflect a child's joyful perception of the world."
@@ -260,7 +267,6 @@ Below is a sample MediaSIS extracted from a **visual** asset only; it does not i
       "time": "day",
       "weather": "sunny",
 
-      // characters
       "characters": [
         {
           "name": "girl",
@@ -272,17 +278,15 @@ Below is a sample MediaSIS extracted from a **visual** asset only; it does not i
         }
       ],
 
-      // salient motifs and colors
       "objects": [
         { "name": "big_sun", "colors": ["yellow", "orange"] },
         { "name": "small_house", "colors": ["red", "brown"] },
         { "name": "tree", "colors": ["green", "brown"] }
       ]
-
     }
   },
 
-  // provenance / generation record
+  // Provenance / generation record
   "provenance": {
     "assets": [
       {
@@ -298,10 +302,9 @@ Below is a sample MediaSIS extracted from a **visual** asset only; it does not i
 }
 ```
 
-#### 5.2 semantics.text / semantics.visual / semantics.audio (Media-level policy)
-
-- `semantics.text/semantics.visual/semantics.audio` are **MediaSIS-level policies**, inheriting from SceneSIS policies and overriding them when needed.
-- Typical fields per modality include:
+#### 5.2 `semantics.text` / `semantics.visual` / `semantics.audio` (media-level policy)
+- These fields define **MediaSIS-level policies**, inheriting from SceneSIS and overriding as needed.
+- Typical fields per modality:
 
 | Modality | Example fields |
 |---|---|
@@ -309,169 +312,153 @@ Below is a sample MediaSIS extracted from a **visual** asset only; it does not i
 | visual | `style`, `composition`, `lighting`, `perspective`, etc. |
 | audio | `genre`, `tempo`, `instruments`, `mood`, etc. |
 
----
+## 🚀 6. Use cases
 
-## 6. Use Cases
-
-### A. Typical use cases inside GeNarrative
-
-- **Children’s drawings → SIS extraction:** Extract meaning from an image into SIS, then generate a story and BGM from it.
+### A. Typical use cases in GeNarrative
+- **Child’s drawing → SIS extraction:** extract meaning from an image into SIS, then generate story/BGM from it.
 
 ### B. Cataloging existing content
-
-- Automatically extract SIS from commercial picture books or public-domain texts to enable semantic labeling for “picture-book recommendations” or “BGM search for a scene”.
+- Automatically extract SIS from commercial picture books or public-domain literature and use it for meaning labeling such as “picture book recommendations” or “find BGM that fits this scene”.
 
 ### C. Education / research
+- Run controlled comparisons such as “change only the images” or “change only the BGM” under the same SIS to study impacts on learning outcomes.
 
-- Run comparison experiments such as “change only images” or “change only BGM” under the same SIS, to study effects on learning.
-
-### D. Connection to evaluation protocols
-
-- Treat SIS as “ground-truth semantic structure” and measure how closely generated content matches SIS for quantitative evaluation.
+### D. Connecting to evaluation protocols
+- Treat SIS as “ground-truth meaning structure” and quantify how well generated content matches SIS for model evaluation.
 
 ----
 
-## 7. Recommended Generation Workflow
+## 🧪 7. Recommended generation workflow
 
 1. Generate SceneSIS
-   - Extract SceneSIS from existing assets (image/text).
-2. Generate the Scene
-   - Generate the remaining modalities (text/visual/audio/music) not present in the source asset, and produce a complete Scene.
-   - Use meta-prompts to generate modality-specific prompts as needed.
+   - Extract SceneSIS from existing materials (images/text)
+2. Generate the scene
+   - Generate modalities other than the extraction source (images/text/speech/music) to produce a single scene
+   - Use meta-prompts as needed to generate modality-specific prompts
 3. Generate StorySIS
-   - Choose `story_type` and generate StorySIS including `scene_blueprints`.
-   - In SIS UI or via `/api/sis2sis/scene2story`, you can provide `story_type` (three-act / kishotenketsu / attempts / catalog / circular) to fix the structure without relying on LLM inference (if blank, it may be inferred).
-   - If you also specify each SceneSIS’s corresponding `scene_type` (setup / ki / intro, etc.) via UI dropdown or `scene_type_overrides`, the generated `scene_blueprints[]` will reliably inherit those labels.
-4. Generate remaining SceneSIS
-   - Generate the remaining SceneSIS objects from `scene_blueprints`.
-5. Generate remaining Scenes
-   - Generate the remaining Scenes from the remaining SceneSIS.
+   - Choose `story_type` and generate StorySIS including `scene_blueprints`
+   - In SIS UI or `/api/sis2sis/scene2story`, you can input `story_type` (three-act / kishotenketsu / attempts / catalog / circular) to **fix the structure without relying on the LLM** (leave blank to infer)
+   - If you also specify `scene_type` (setup / ki / intro, etc.) for each SceneSIS via the UI dropdown or `scene_type_overrides`, the generated `scene_blueprints[]` will reliably carry those labels
+4. Generate the remaining SceneSIS
+   - Generate the remaining SceneSIS from `scene_blueprints`
+5. Generate the remaining scenes
+   - Generate the remaining scenes from the remaining SceneSIS
 
 ----
 
-## 8. Related Concepts (Inspirations)
+## 🔗 8. Inspirations / related concepts
 
-SIS is an original specification, but shares design ideas with the following concepts.
-These are for analogy only; SIS does not guarantee compliance or compatibility.
+SIS is a custom specification, but shares design ideas with the following concepts.
+These are **references/analogies** only; SIS does not claim compliance or compatibility.
 
-### OpenUSD (Separating scene description and rendering)
+### OpenUSD (separating scene description ↔ rendering)
 
-OpenUSD separates “scene description as an editable artifact” from “output steps (rendering)”, enabling swapping, composition, and reuse.
-SIS extends this idea beyond 3D to multimodal creation (story/image/audio), treating “meaning” as an editable intermediate representation.
+OpenUSD separates “scene description as an editable object” from “output (rendering)”, making swapping, composition, and reuse easier.
+SIS extends a similar idea beyond 3D into multimodal creation (stories/images/audio), treating “meaning” as an editable semantic schema.
 
-### W3C PROV (Provenance model)
+### W3C PROV (provenance model)
 
-SIS `provenance` holds information about “what inputs and generation settings produced this”, including assets and generators.
-This aligns with W3C PROV (Entity / Activity / Agent) as a general provenance model, and is useful as a reference for future extension/interoperability.
+SIS’s `provenance` is intended to store “which inputs and generation conditions produced this”.
+This aligns conceptually with W3C PROV (Entity / Activity / Agent) as a reference for future extensions/interoperability.
 
-### JSON Schema (Validation for editable JSON)
+### JSON Schema (validation for editable JSON)
 
-Since SIS assumes human editing, schema-based validation (required fields, types, enums) can reduce breakage and spelling/format drift.
-JSON Schema can also serve as a foundation for schema evolution (backward compatibility) and tooling (form UI generation).
+Because SIS is intended to be edited by humans, schema-based validation (required fields, types, enums, etc.) can reduce corruption and inconsistency.
+JSON Schema is a useful foundation for schema evolution (backward compatibility) and tool integration (form UI generation).
 
----
+## 🧭 9. Comparison with alternative approaches (reference)
 
-## 9. Comparison with Other Approaches (Reference)
-
-SIS is positioned as an “intermediate representation for cross-modality coordination”, but similar goals can be achieved with other designs.
-Here we summarize typical alternatives and differences.
+SIS is positioned as a “semantic schema” to connect modalities, but similar goals can be achieved by other designs.
+This section summarizes common alternatives and how they differ.
 
 ---
 
-### 9.1 Overview of Each Approach
+### 9.1 Overview of approaches
 
-#### A) SIS (Explicit schema JSON)
+#### A) SIS (explicit schema JSON)
+- **Summary**: Keep meaning as an explicit schema (JSON) that connects image/text/music generation and can be edited by humans.
+- **Best for**: iterative improvement (generate → fix → regenerate), diff management, verification, model swapping, explainability.
+- **Weakness**: schema design, transformations (SIS → modality conditions), and operational cost can be significant; may be overkill for “quick and dirty” output.
 
-- **Overview:** Hold meaning as an **explicit schema (JSON)** connecting image/text/music generation, with optional human editing.
-- **Best for:** Iterative improvement (generate → fix → regenerate), diff management, verification, model swapping, explainability.
-- **Weakness:** Costs of schema design, conversion (SIS → modality conditions), and operations; may be overkill for “quick and rough” outputs.
-
-#### B) Direct (No intermediate: image/text → LLM → generation)
-
-- **Overview:** Generate captions/instructions from image/text and feed them directly into each modality generator.
-- **Best for:** Fast prototypes, demos, one-off generation.
-- **Weakness:** Weak reproducibility/diff management/verification; hard to stably tune only the intended attributes; behavior changes easily when models change.
+#### B) Direct piping (no intermediate)
+- **Summary**: Generate captions/instructions from images/text and feed directly into each modality generator; meaning is not fixed as a schema.
+- **Best for**: quickest prototypes, demos, one-shot personal use.
+- **Weakness**: poor reproducibility/diffing/verification; hard to reliably adjust only specific attributes; behavior changes with model changes.
 
 #### C) Natural-language script / story bible
+- **Summary**: Use structured prose documents (world, characters, scene outlines, mood) as intermediate artifacts instead of JSON.
+- **Best for**: human readability and iterative creative editing while keeping flexibility.
+- **Weakness**: difficult to validate mechanically (types/constraints) and to interpret diffs semantically; search/reuse needs extra work.
 
-- **Overview:** Use structured prose (world, character settings, scene outlines, mood, etc.) as the intermediate artifact instead of JSON.
-- **Best for:** Human readability/editing while retaining creative freedom.
-- **Weakness:** Hard to do mechanical validation (type checks), semantic diff interpretation, and reuse/search without additional work.
+#### D) Embeddings / latent intermediate (vector)
+- **Summary**: Convert assets into embedding vectors and use similarity search or conditioning; the “meaning schema” is a vector.
+- **Best for**: large-scale asset search/recommendation and similarity-based reuse.
+- **Weakness**: hard for humans to edit; tends toward a black box; difficult to “change only this attribute”; verification is hard.
 
-#### D) Embedding / latent (Vector intermediate)
-
-- **Overview:** Convert assets to embedding vectors and use them for similarity search or conditioning.
-- **Best for:** Search/recommendation across large asset collections.
-- **Weakness:** Hard for humans to edit; black-box; difficult to “change only this attribute” or verify constraints.
-
-#### E) Graph (Knowledge graph / scene graph)
-
-- **Overview:** Represent relations as nodes/edges (e.g., “Character A holds Object B”, “location is forest”).
-- **Best for:** Consistency checks of relationships, dependency management, reasoning/constraints.
-- **Weakness:** Design/implementation costs can be high; preserving creative freedom is challenging.
+#### E) Graph (knowledge graph / scene graph)
+- **Summary**: Represent meaning as nodes/edges (e.g., “Character A holds object B”, “location is forest”).
+- **Best for**: relational consistency checks, dependency management, constraints/inference.
+- **Weakness**: high design/implementation cost; maintaining creative freedom can be challenging.
 
 #### F) Existing standards + extensions (e.g., OpenUSD)
-
-- **Overview:** Align to an existing standard (especially scene/asset management) and add required meaning as extended metadata.
-- **Best for:** Integration with existing production pipelines and ecosystems.
-- **Weakness:** Adoption/operations costs are large; narrative/emotional meaning often still needs a separate layer.
+- **Summary**: Align with existing standards (especially scene/asset management) and store required meaning as extended metadata.
+- **Best for**: integrating into existing production/asset pipelines and leveraging standard ecosystems.
+- **Weakness**: high adoption/operational cost; narrative/emotional meaning often still needs a separate layer.
 
 ---
 
-### 9.2 Balance Comparison Table (Good / Depends / Hard)
+### 9.2 Balance comparison table (✓ / △ / ✗)
 
-- **Good:** Works well / easy to realize
-- **Depends:** Possible with conditions / needs extra design
-- **Hard:** Not a good fit / usually needs additional mechanisms
+- **✓**: strong / straightforward
+- **△**: depends / needs extra design
+- **✗**: weak / typically requires additional mechanisms
 
-| Approach | Speed (quick “good enough”) | Easy to edit by humans | Reproducibility / diffs | Verification via types/constraints | Robust to model swapping | Less black-box | Search / reuse | Implementation / ops cost | Creative freedom |
+| Approach | Fast start (quick results) | Human-editable | Reproducibility / diff mgmt | Validation via types/constraints | Robust to model swapping | Less black-box | Search / reuse | Implementation/ops cost | Creative freedom |
 |---|---|---|---|---|---|---|---|---|---|
-| **SIS (Explicit schema JSON)** | Depends | Good | Good | Good | Good | Good | Good | Depends | Depends |
-| Direct (No intermediate) | Good | Hard | Hard | Hard | Depends | Hard | Depends | Good | Good |
-| Natural-language story bible | Good | Good | Depends | Hard | Depends | Good | Depends | Good | Good |
-| Embedding / latent (Vector) | Depends | Hard | Good | Hard | Hard | Hard | Good | Depends | Depends |
-| Graph (Knowledge/scene graph) | Hard | Depends | Good | Good | Good | Good | Good | Hard | Hard |
-| Existing standards + extensions (OpenUSD, etc.) | Hard | Depends | Good | Good | Good | Good | Good | Hard | Depends |
+| **SIS (explicit schema JSON)** | △ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | △ | △ |
+| Direct piping (no intermediate) | ✓ | ✗ | ✗ | ✗ | △ | ✗ | △ | ✓ | ✓ |
+| Natural-language story bible | ✓ | ✓ | △ | ✗ | △ | ✓ | △ | ✓ | ✓ |
+| Embeddings / latent (vector) | △ | ✗ | ✓ | ✗ | ✗ | ✗ | ✓ | △ | △ |
+| Graph (knowledge/scene graph) | ✗ | △ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ |
+| Existing standards + extensions (OpenUSD, etc.) | ✗ | △ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | △ |
 
 ---
 
-### 9.3 Operational Guideline: Hybrid of SIS + Natural-language description (Recommended)
+### 9.3 Operational guideline: hybrid of SIS + natural-language `description` (recommended)
 
-In practice, a hybrid of **SIS (skeleton) + description (flesh)** is often easiest to operate.
+In practice, **SIS (skeleton) + descriptions (flesh)** is often easiest.
 
 #### Basic policy
+- Keep SIS to the **minimum elements you want to edit/fix** (necessary and sufficient; keep it small)
+- Put flexible details into `description` (fine details, nuance, examples, candidate lists)
+- During generation, prioritize “confirmed SIS fields” and use descriptions as supporting info
 
-- **Keep SIS minimal and only fix what you want to edit** (necessary and sufficient; keep it small)
-- **Move free-form content into `description`** (details, aftertaste, examples, candidate lists, etc.)
-- During generation, prioritize **confirmed SIS information**, using `description` as auxiliary context
-
-#### Rule of thumb (what goes into SIS)
-
-- **Put into SIS (want to fix/validate):**
-  - Story/scene structure (what you want to validate as a schema)
-  - Parameters that strongly affect outputs: characters/setting/era/POV/tone, etc.
+#### Rule of thumb: what goes into SIS
+- **Put into SIS (fix/validate)**
+  - Story/scene structures (things you want to validate as a type)
+  - Parameters that strongly affect output: characters/setting/time/POV/tone, etc.
   - Prohibitions/constraints (e.g., no violence, for children, banned vocabulary)
-  - References that matter for consistency (scene_id references, parent/child relations, mappings)
-- **Put into description (keep flexible):**
-  - Examples, associations, phrasing candidates, mood additions
-  - Items where you want interpretive slack (“like…”, “might be…”) 
-  - Model/prompt-dependent details (poetic metaphors, long scenic descriptions)
-  - Multiple alternatives (list candidates, etc.)
+  - References that affect consistency (scene_id references, parent/child relations, mappings)
+- **Put into description (keep flexible)**
+  - Examples, associations, phrasing candidates, additional mood notes
+  - Elements you want to keep open (“like…”, “maybe…”) 
+  - Model/prompt-dependent details (poetic expressions, metaphors, long scenic descriptions)
+  - Multiple alternatives (bulleted candidates, etc.)
 
-#### Minimal SIS (example: start with only this)
+#### “Minimal SIS first” mindset (example)
 
 - StorySIS: `genre / audience / tone / structure / theme / constraints / scenes[]`
 - SceneSIS: `scene_id / summary / characters / setting / mood / key_events / constraints`
 - MediaSIS: `asset_id / type / purpose / style / constraints / source_refs`
 
-Consider putting everything else into `description` first, then “promote” fields from description to SIS when needed.
+Everything else can start in `description` and be promoted into SIS fields when needed.
 
-## 10. Summary
+## 🎉 10. Summary
 
-This specification satisfies:
+This specification supports:
 
-- Story structures such as Kishotenketsu (StorySIS)
-- Consistent management of scene meaning and generation policies (SceneSIS)
-- Decomposition into expression units via Media for editing (MediaSIS)
+- Story structures such as kishotenketsu (StorySIS)
+- Consistent management of scene meaning + generation policy (SceneSIS)
+- Decomposition into expression units via Media (MediaSIS)
 - Optimization for multimodal generation
-- Ease of use across UI / LLM / file storage
+- Usability across UI / LLM / file storage

@@ -6,7 +6,7 @@
 GeNarrative はローカル環境で動作するマルチモーダル生成の実験的ワークフロー・システムです。
 台本・イラスト・音声・BGM を組み合わせ、オフラインでオリジナルの物語体験を作れます。
 ※初回はモデルのダウンロード／コンテナのビルドが必要です（2回目以降は基本オフラインで動作します）。
-**SIS（Semantic Interface Structure）** という「意味の中間表現」を介して、生成 → 再生成 → 比較 → 編集を回せることを重視しています。
+**SIS（Semantic Interface Structure）** という「意味のスキーマ」を介して、生成 → 再生成 → 比較 → 編集を回せることを重視しています。
 各機能は Docker で分離され、プライバシー・再現性・拡張性を重視しています。
 
 - 想定入力例: 台本、子どもの手描きイラスト
@@ -14,7 +14,7 @@ GeNarrative はローカル環境で動作するマルチモーダル生成の�
 - 目的: **完成品アプリ**ではなく、生成パイプラインを **観測・再現・比較**できる状態を作る
 
 ## 何が新しいか
-### 1) SIS：意味の中間表現を“表に出す”
+### 1) SIS：意味のスキーマを“表に出す”
 GeNarrative は、作品やシーンの意味情報を **SIS** としてJSON化し、
 - 意味（SIS）を固定したまま **モデル/パラメータだけ差し替え**
 - 生成条件を残して **再現性を確保**
@@ -28,10 +28,44 @@ UIが各サービスのREST APIをオーケストレーションし、成果物�
 ## 🔍 Related work（関連）
 Google Gemini には、プロンプトや写真・画像から 10 ページのイラスト付きストーリーブックを生成し、読み上げも可能な「Storybook」機能があります。
 
-GeNarrative は、それと同じ完成体験を再現することよりも、SIS（構造化された中間表現）を中心に、生成・再生成・比較・差し替えをしやすいローカル実験パイプラインとして設計されています（本プロジェクトは Google とは無関係です）。
+GeNarrative は、それと同じ完成体験を再現することよりも、SIS（意味スキーマ）を中心に、生成・再生成・比較・差し替えをしやすいローカル実験パイプラインとして設計されています（本プロジェクトは Google とは無関係です）。
 
 ## 🏗️ アーキテクチャ / 技術スタック
 GeNarrative はマイクロサービス構成です。UI が各サービスの REST API をオーケストレーションし、共有ストレージで成果物を受け渡します。
+
+```mermaid
+flowchart LR
+	%% GeNarrative: high-level system architecture (default ports; see docker-compose.yml for overrides)
+
+	subgraph HOST["Host"]
+		B["Browser"]
+	end
+
+	subgraph NET["Docker Compose<br/>(docker network)"]
+		UI["ui :Flask"]
+		SD["image :AUTOMATIC1111"]
+		TTS["tts :Coqui TTS"]
+		MUSIC["music :MusicGen"]
+		OLLAMA["text :Ollama"]
+	end
+
+	subgraph VOL["Shared Volume"]
+		SHARED["Artifacts, SIS, outputs"]
+	end
+
+	B -->|"HTTP (UI)"| UI
+
+	UI -->|"generate images"| SD
+	UI -->|"generate narration"| TTS
+	UI -->|"generate music"| MUSIC
+	UI -->|"generate text/SIS"| OLLAMA
+
+	UI <-->|"read/write artifacts"| SHARED
+	SD <-->|"read/write images"| SHARED
+	TTS <-->|"read/write narration"| SHARED
+	MUSIC <-->|"read/write music"| SHARED
+	OLLAMA <-->|"read/write text/SIS"| SHARED
+```
 
 | コンポーネント | 技術 | 既定ポート | 説明 |
 |---|---|---|---|
