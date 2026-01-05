@@ -840,6 +840,18 @@
     margin: 10px;
 }
 
+/* Small spinner for inline button loading (e.g., Create Scene) */
+.scene-loading-spinner-sm {
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #2196F3;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+}
+
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -2592,6 +2604,14 @@ function hideCreateSceneModal() {
 }
 
 async function createNewScene() {
+    const modal = document.getElementById('createSceneModal');
+    const createBtn = modal ? modal.querySelector('.modal-footer .btn.btn-primary') : null;
+    const originalBtnHtml = createBtn ? createBtn.innerHTML : null;
+    if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.innerHTML = '<span class="scene-loading-spinner-sm" aria-hidden="true"></span> Creating...';
+    }
+
     let sceneId = document.getElementById('sceneId').value.trim();
     const creationType = document.querySelector('input[name="creationType"]:checked').value;
     const sourceScene = document.getElementById('sourceScene').value;
@@ -2609,6 +2629,10 @@ async function createNewScene() {
     
     if (creationType === 'copy' && !sourceScene) {
         alert('Please select a source scene to copy');
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerHTML = originalBtnHtml;
+        }
         return;
     }
     
@@ -2634,6 +2658,11 @@ async function createNewScene() {
         }
     } catch (error) {
         alert(`Error creating scene: ${error.message}`);
+    } finally {
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerHTML = originalBtnHtml;
+        }
     }
 }
 
