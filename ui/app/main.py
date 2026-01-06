@@ -3657,7 +3657,15 @@ def generate_scenes_from_story(project_id):
                     print(f"[DEBUG] story2scene_single result: success={result.get('success')}")
                     
                     if result.get('success'):
-                        scene_sis = result.get('scene_sis', {})
+                        # story2scene_single returns a dict with 'data' containing 'scene_sis'
+                        data_dict = result.get('data', {})
+                        scene_sis = data_dict.get('scene_sis', {})
+                        
+                        # Ensure scene_sis is not empty and has proper structure
+                        if not scene_sis or not isinstance(scene_sis, dict) or 'sis_type' not in scene_sis:
+                            print(f"[WARNING] Invalid scene_sis structure from LLM")
+                            raise ValueError("Invalid SceneSIS structure")
+                        
                         # Update scene_id
                         scene_sis['scene_id'] = scene_id
                         print(f"[DEBUG] Successfully generated SceneSIS with LLM for {scene_id}")
@@ -3896,6 +3904,291 @@ def generate_scenes_from_story(project_id):
             'success': True,
             'scenes_created': created_scenes,
             'message': f'Successfully created {len(created_scenes)} scene(s)'
+        })
+        
+    except Exception as e:
+        print(f"Error in generate_scenes_from_story: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/projects/<project_id>/add_single_scene', methods=['POST'])
+def add_single_scene(project_id):
+    """Add a single scene to a specific lane (scene_type) with full content generation"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        story_sis = data.get('story_sis')
+        scene_type = data.get('scene_type')
+        blueprint = data.get('blueprint')
+        
+        if not story_sis or not scene_type or not blueprint:
+            return jsonify({'success': False, 'error': 'story_sis, scene_type, and blueprint are required'}), 400
+        
+        # Verify project exists
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+        
+        scenes_dir = os.path.join(project_dir, 'scenes')
+        os.makedirs(scenes_dir, exist_ok=True)
+        
+        # Generate unique scene ID
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        scene_id = f"{timestamp}_{scene_type}"
+        
+        # Create scene directory
+        scene_path = os.path.join(scenes_dir, scene_id)
+        os.makedirs(scene_path, exist_ok=True)
+        
+        # Use LLM to generate SceneSIS from blueprint
+        from sis2sis import story2scene_single
+        
+        print(f"[DEBUG] Generating SceneSIS for single scene: {scene_type}")
+        
+        try:
+            result = story2scene_single(
+                story_sis=story_sis,
+                blueprint=blueprint,
+                blueprint_index=0,
+                api_config=APIConfig()
+            )
+            
+            print(f"[DEBUG] story2scene_single result keys: {result.keys() if isinstance(result, dict) else 'not a dict'}")
+            print(f"[DEBUG] result.success: {result.get('success')}")
+            
+            if result.get('success'):
+                # story2scene_single returns a dict with 'data' containing 'scene_sis'
+                data_dict = result.get('data', {})
+                scene_sis = data_dict.get('scene_sis', {})
+                
+                # Ensure scene_sis is not empty and has proper structure
+                if not scene_sis or not isinstance(scene_sis, dict) or 'sis_type' not in scene_sis:
+                    print(f"[WARNING] Invalid scene_sis structure: {scene_sis}")
+                    raise ValueError("Invalid SceneSIS structure returned from LLM")
+                
+                scene_sis['scene_id'] = scene_id
+                print(f"[DEBUG] Successfully generated SceneSIS with LLM for {scene_id}")
+                print(f"[DEBUG] SceneSIS keys: {list(scene_sis.keys())}")
+            else:
+                # Fallback
+                print(f"Warning: LLM generation failed, using fallback")
+                summary = blueprint.get('summary', '')
+                scene_sis = {
+                    'sis_type': 'scene',
+                    'scene_id': scene_id,
+                    'scene_type': scene_type,
+                    'summary': summary,
+                    'semantics': {
+                        'common': {
+                            'descriptions': [summary] if summary else [],
+                            'mood': '',
+                            'characters': [],
+                            'location': '',
+                            'time': '',
+                            'weather': '',
+                            'objects': []
+                        },
+                        'visual': {},
+                        'audio': {},
+                        'text': {}
+                    }
+                }
+        except Exception as e:
+            print(f"Error generating SceneSIS: {str(e)}")
+            summary = blueprint.get('summary', '')
+            scene_sis = {
+                'sis_type': 'scene',
+                'scene_id': scene_id,
+                'scene_type': scene_type,
+                'summary': summary,
+                'semantics': {
+                    'common': {
+                        'descriptions': [summary] if summary else [],
+                        'mood': '',
+                        'characters': [],
+                        'location': '',
+                        'time': '',
+                        'weather': '',
+                        'objects': []
+                    },
+                    'visual': {},
+                    'audio': {},
+                    'text': {}
+                }
+            }
+        
+        # Save SceneSIS
+        sis_file = os.path.join(scene_path, f'sis_structure_{scene_id}.json')
+        with open(sis_file, 'w', encoding='utf-8') as f:
+            json.dump(scene_sis, f, indent=2, ensure_ascii=False)
+        
+        # Generate prompts from SceneSIS
+        prompts = {}
+        try:
+            print(f"[DEBUG] Generating prompts for scene {scene_id}")
+            prompts, failures = regenerate_prompts_from_sis(scene_id, scene_sis)
+            if failures:
+                print(f"[WARNING] Some prompts failed: {failures}")
+        except Exception as e:
+            print(f"[WARNING] Failed to generate prompts: {str(e)}")
+        
+        # Auto-generate Image
+        if prompts.get('image', {}).get('text'):
+            try:
+                print(f"[DEBUG] Auto-generating image for scene {scene_id}")
+                image_prompt = prompts['image']['text']
+                sd_uri = 'http://sd:7860'
+                sd_payload = {
+                    'prompt': image_prompt,
+                    'negative_prompt': 'low quality, blurry, distorted, watermark, text',
+                    'width': 512,
+                    'height': 512,
+                    'steps': 20,
+                    'cfg_scale': 7.0,
+                    'sampler_name': 'Euler a',
+                    'seed': -1,
+                    'batch_size': 1,
+                    'n_iter': 1,
+                }
+                sd_resp = requests.post(f"{sd_uri}/sdapi/v1/txt2img", json=sd_payload, timeout=(10, 300))
+                if sd_resp.status_code == 200:
+                    sd_result = sd_resp.json() or {}
+                    images = sd_result.get('images') or []
+                    if images:
+                        import base64 as _b64
+                        img_bytes = _b64.b64decode(images[0])
+                        img_filename = f"image_{scene_id}.png"
+                        img_path = os.path.join(scene_path, img_filename)
+                        with open(img_path, 'wb') as f:
+                            f.write(img_bytes)
+                        print(f"[DEBUG] Image generated successfully")
+                else:
+                    print(f"[WARNING] Image generation failed: HTTP {sd_resp.status_code}")
+            except Exception as e:
+                print(f"[WARNING] Failed to auto-generate image: {str(e)}")
+        
+        # Auto-generate Text & TTS
+        try:
+            print(f"[DEBUG] Auto-generating text for scene {scene_id}")
+            api_config = APIConfig(
+                unsloth_uri='http://unsloth:5007',
+                sd_uri='http://sd:7860',
+                music_uri='http://music:5003',
+                tts_uri='http://tts:5002',
+                timeout=120
+            )
+            text_result = generate_content(
+                sis_data=scene_sis,
+                content_type='text',
+                api_config=api_config,
+                processing_config=ProcessingConfig(output_dir='/app/shared'),
+                generation_config=GenerationConfig(),
+                custom_timestamp=datetime.now().strftime("%Y%m%d_%H%M%S"),
+                test_case_name=f"scene_{scene_id}"
+            )
+            if isinstance(text_result, dict) and text_result.get('success'):
+                generated_text = text_result.get('generated_text')
+                if generated_text:
+                    text_filename = f"text_{scene_id}.txt"
+                    text_path = os.path.join(scene_path, text_filename)
+                    with open(text_path, 'w', encoding='utf-8') as f:
+                        f.write(generated_text)
+                    print(f"[DEBUG] Text generated successfully")
+                    
+                    # Auto-generate TTS
+                    try:
+                        print(f"[DEBUG] Auto-generating TTS for scene {scene_id}")
+                        tts_params = {'text': generated_text}
+                        tts_resp = requests.get("http://tts:5002/api/tts", params=tts_params, timeout=(5, 90))
+                        if tts_resp.status_code == 200:
+                            tts_filename = f"tts_{scene_id}.wav"
+                            tts_path = os.path.join(scene_path, tts_filename)
+                            with open(tts_path, 'wb') as f:
+                                f.write(tts_resp.content)
+                            print(f"[DEBUG] TTS generated successfully")
+                        else:
+                            print(f"[WARNING] TTS generation failed: HTTP {tts_resp.status_code}")
+                    except Exception as e:
+                        print(f"[WARNING] Failed to auto-generate TTS: {str(e)}")
+            else:
+                print(f"[WARNING] Text generation failed")
+        except Exception as e:
+            print(f"[WARNING] Failed to auto-generate text: {str(e)}")
+        
+        # Auto-generate Music
+        if prompts.get('music', {}).get('text'):
+            try:
+                print(f"[DEBUG] Auto-generating music for scene {scene_id}")
+                music_prompt = prompts['music']['text']
+                music_resp = requests.post(
+                    "http://music:5003/generate",
+                    json={'prompt': music_prompt, 'duration': 8},
+                    timeout=(10, 120)
+                )
+                if music_resp.status_code == 200:
+                    music_result = music_resp.json() or {}
+                    music_src_path = music_result.get('path')
+                    if music_src_path and os.path.exists(music_src_path):
+                        import shutil
+                        music_filename = f"music_{scene_id}.wav"
+                        music_dest = os.path.join(scene_path, music_filename)
+                        shutil.copy(music_src_path, music_dest)
+                        print(f"[DEBUG] Music generated successfully")
+                else:
+                    print(f"[WARNING] Music generation failed: HTTP {music_resp.status_code}")
+            except Exception as e:
+                print(f"[WARNING] Failed to auto-generate music: {str(e)}")
+        
+        # Update scene arrangement
+        story_dir = os.path.join(project_dir, 'story')
+        os.makedirs(story_dir, exist_ok=True)
+        arrangement_file = os.path.join(story_dir, 'scene_arrangement.json')
+        
+        scenes_by_type = {}
+        if os.path.exists(arrangement_file):
+            try:
+                with open(arrangement_file, 'r', encoding='utf-8') as f:
+                    existing_arrangement = json.load(f)
+                    scenes_by_type = existing_arrangement.get('scenes_by_type', {})
+            except Exception as e:
+                print(f"Warning: Could not load existing arrangement: {e}")
+        
+        # Add new scene to arrangement
+        if scene_type not in scenes_by_type:
+            scenes_by_type[scene_type] = []
+        scenes_by_type[scene_type].append(scene_id)
+        
+        # Save updated arrangement
+        arrangement_data = {
+            'story_type': story_sis.get('story_type', ''),
+            'scenes_by_type': scenes_by_type,
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        temp_arrangement_file = arrangement_file + '.tmp'
+        try:
+            with open(temp_arrangement_file, 'w', encoding='utf-8') as f:
+                json.dump(arrangement_data, f, indent=2, ensure_ascii=False)
+            
+            if os.path.exists(arrangement_file):
+                os.remove(arrangement_file)
+            os.rename(temp_arrangement_file, arrangement_file)
+        except Exception as e:
+            if os.path.exists(temp_arrangement_file):
+                os.remove(temp_arrangement_file)
+            raise e
+        
+        return jsonify({
+            'success': True,
+            'scene_id': scene_id,
+            'message': f'Successfully created scene: {scene_id}'
         })
         
     except Exception as e:

@@ -775,8 +775,10 @@
 .max-count-container {
     display: flex;
     align-items: center;
+    gap: 8px;
     font-weight: normal;
     font-size: 12px;
+    flex-wrap: wrap;
 }
 
 .max-count-input {
@@ -786,6 +788,32 @@
     border-radius: 4px;
     font-size: 14px;
     text-align: center;
+}
+
+.btn-add-scene {
+    padding: 4px 12px;
+    font-size: 0.85rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    margin-top: 4px;
+    display: block;
+    width: fit-content;
+}
+
+.btn-add-scene:hover:not(:disabled) {
+    background-color: #218838;
+    transform: translateY(-1px);
+}
+
+.btn-add-scene:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .scene-type-drop-zone {
@@ -871,6 +899,52 @@
     transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
     user-select: none;
     position: relative;
+}
+
+/* Add Scene Card - similar to Create New Scene */
+.add-scene-card {
+    border: 2px dashed #28a745;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background: #f0fff4;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.2s ease;
+    user-select: none;
+    min-width: 72px;
+}
+
+.add-scene-card:hover {
+    background: #e6f9ec;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
+}
+
+.add-scene-thumb {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #28a745;
+}
+
+.add-scene-icon {
+    font-size: 32px;
+    color: #28a745;
+    line-height: 1;
+}
+
+.add-scene-name {
+    font-size: 0.75rem;
+    color: #28a745;
+    font-weight: 600;
+    text-align: center;
 }
 
 .scene-mini-card:hover {
@@ -1220,10 +1294,23 @@ document.getElementById('storyTypeSelect').addEventListener('change', function()
         maxCountInput.addEventListener('change', function() {
             updateLaneColor(sceneType);
             saveMaxCounts();
+            updateAddSceneButtons();
         });
         
         maxCountContainer.appendChild(maxCountInput);
         label.appendChild(maxCountContainer);
+        
+        // Add scene button (below the max count input)
+        const addSceneBtn = document.createElement('button');
+        addSceneBtn.className = 'btn btn-add-scene';
+        addSceneBtn.dataset.sceneType = sceneType;
+        addSceneBtn.textContent = 'Add Scene';
+        addSceneBtn.style.display = 'none';
+        addSceneBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            addSingleSceneToLane(sceneType);
+        });
+        label.appendChild(addSceneBtn);
         
         const dropZone = document.createElement('div');
         dropZone.className = 'scene-type-drop-zone';
@@ -1419,6 +1506,8 @@ function addSceneToLane(dropZone, sceneId) {
         }
         // Update scene arrangement when a scene is removed
         updateSceneArrangement();
+        // Update add scene buttons visibility
+        updateAddSceneButtons();
     };
     
     miniCard.appendChild(thumb);
@@ -1445,6 +1534,9 @@ function addSceneToLane(dropZone, sceneId) {
     
     // Update scene arrangement when a scene is added
     updateSceneArrangement();
+    
+    // Update add scene buttons visibility
+    updateAddSceneButtons();
 }
 
 // Setup drag events for mini cards in lanes
@@ -1869,6 +1961,7 @@ function populateLanesFromArrangement(scenesByType) {
     // Load max counts and update colors
     loadMaxCounts();
     updateAllLaneColors();
+    updateAddSceneButtons();
     
     // Reset flag after restoration is complete
     isRestoringArrangement = false;
@@ -1996,6 +2089,112 @@ function copyStorySISToClipboard() {
     }).catch(err => {
         alert('Failed to copy: ' + err.message);
     });
+}
+
+// Update Add Scene buttons visibility based on current vs target counts
+function updateAddSceneButtons() {
+    const maxCountInputs = document.querySelectorAll('.max-count-input');
+    maxCountInputs.forEach(input => {
+        const sceneType = input.dataset.sceneType;
+        const targetCount = parseInt(input.value) || 0;
+        
+        const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${sceneType}"]`);
+        const currentCount = dropZone ? dropZone.querySelectorAll('.scene-mini-card').length : 0;
+        
+        const label = input.closest('.scene-type-label');
+        const addBtn = label ? label.querySelector('.btn-add-scene') : null;
+        if (addBtn) {
+            if (currentCount < targetCount) {
+                addBtn.style.display = 'block';
+            } else {
+                addBtn.style.display = 'none';
+            }
+        }
+    });
+}
+
+// Add a single scene to a specific lane
+async function addSingleSceneToLane(sceneType) {
+    const storySISContent = document.getElementById('storySISContent').value;
+    
+    if (!storySISContent) {
+        alert('No StorySIS available. Please generate a StorySIS first.');
+        return;
+    }
+    
+    try {
+        const storySIS = JSON.parse(storySISContent);
+        
+        if (!storySIS.scene_blueprints || storySIS.scene_blueprints.length === 0) {
+            alert('No scene blueprints found in StorySIS');
+            return;
+        }
+        
+        // Find blueprints matching this scene type
+        const matchingBlueprints = storySIS.scene_blueprints.filter(
+            bp => bp.scene_type === sceneType
+        );
+        
+        if (matchingBlueprints.length === 0) {
+            alert(`No blueprint found for scene type: ${sceneType}`);
+            return;
+        }
+        
+        // Use the first matching blueprint
+        const blueprint = matchingBlueprints[0];
+        
+        // Find the button and show loading state
+        const addBtn = document.querySelector(`.btn-add-scene[data-scene-type="${sceneType}"]`);
+        if (addBtn) {
+            const originalText = addBtn.textContent;
+            addBtn.disabled = true;
+            addBtn.textContent = 'Generating...';
+        }
+        
+        // Add loading spinner to the lane
+        const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${sceneType}"]`);
+        if (dropZone) {
+            const spinner = document.createElement('div');
+            spinner.className = 'scene-loading-spinner';
+            dropZone.appendChild(spinner);
+        }
+        
+        const response = await fetch(`/projects/${projectId}/add_single_scene`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                story_sis: storySIS,
+                scene_type: sceneType,
+                blueprint: blueprint
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.textContent = 'Add Scene';
+        }
+        
+        if (data.success) {
+            alert(`Successfully generated scene: ${data.scene_id}`);
+            
+            // Reload the page to show new scene
+            location.reload();
+        } else {
+            alert(`Failed to generate scene: ${data.error}`);
+        }
+        
+    } catch (error) {
+        alert(`Error generating scene: ${error.message}`);
+        const addBtn = document.querySelector(`.btn-add-scene[data-scene-type="${sceneType}"]`);
+        if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.textContent = 'Add Scene';
+        }
+    }
 }
 
 // Generate Scenes from StorySIS
