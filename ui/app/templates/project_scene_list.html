@@ -2197,7 +2197,7 @@ async function addSingleSceneToLane(sceneType) {
     }
 }
 
-// Generate Scenes from StorySIS
+// Generate Scenes from StorySIS - one by one with progress updates
 async function generateScenesFromStory() {
     const storySISContent = document.getElementById('storySISContent').value;
     
@@ -2235,23 +2235,37 @@ async function generateScenesFromStory() {
             currentCounts[sceneType] = currentCount;
         });
         
-        // Calculate scenes needed per type
-        const scenesNeeded = {};
-        Object.keys(targetCounts).forEach(sceneType => {
-            const needed = targetCounts[sceneType] - (currentCounts[sceneType] || 0);
-            if (needed > 0) {
-                scenesNeeded[sceneType] = needed;
+        // Build list of blueprints to generate
+        const blueprintsToGenerate = [];
+        storySIS.scene_blueprints.forEach((blueprint, index) => {
+            const sceneType = blueprint.scene_type;
+            const targetCount = targetCounts[sceneType] || 0;
+            const currentCount = currentCounts[sceneType] || 0;
+            
+            if (currentCount < targetCount) {
+                blueprintsToGenerate.push({
+                    blueprint: blueprint,
+                    sceneType: sceneType,
+                    index: index
+                });
+                currentCounts[sceneType]++;
             }
         });
         
-        const totalNeeded = Object.values(scenesNeeded).reduce((sum, count) => sum + count, 0);
+        const totalNeeded = blueprintsToGenerate.length;
         
         if (totalNeeded === 0) {
             alert('All scene types have reached their target count. No scenes need to be generated.');
             return;
         }
         
-        const message = Object.entries(scenesNeeded)
+        // Count by type for display
+        const countsByType = {};
+        blueprintsToGenerate.forEach(item => {
+            countsByType[item.sceneType] = (countsByType[item.sceneType] || 0) + 1;
+        });
+        
+        const message = Object.entries(countsByType)
             .map(([type, count]) => `${type}: ${count}`)
             .join('\n');
         
@@ -2259,53 +2273,133 @@ async function generateScenesFromStory() {
             return;
         }
         
-        // Add loading spinners to lanes
-        Object.entries(scenesNeeded).forEach(([sceneType, count]) => {
-            const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${sceneType}"]`);
-            if (dropZone) {
-                for (let i = 0; i < count; i++) {
-                    const spinner = document.createElement('div');
-                    spinner.className = 'scene-loading-spinner';
-                    dropZone.appendChild(spinner);
-                }
-            }
-        });
-        
-        // Show loading state
+        // Show loading state on button
         const btn = event.target;
         const originalText = btn.textContent;
         btn.disabled = true;
-        btn.textContent = 'Generating Scenes...';
         
-        const response = await fetch(`/projects/${projectId}/generate_scenes_from_story`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                story_sis: storySIS,
-                scenes_needed: scenesNeeded
-            })
-        });
+        let successCount = 0;
+        let failCount = 0;
         
-        const data = await response.json();
-        
-        if (data.success) {
-            alert(`Successfully generated ${data.scenes_created.length} scene(s)!`);
+        // Generate scenes one by one
+        for (let i = 0; i < blueprintsToGenerate.length; i++) {
+            const item = blueprintsToGenerate[i];
+            const progress = i + 1;
             
-            // Reload the page to show new scenes
-            location.reload();
-        } else {
-            alert(`Failed to generate scenes: ${data.error}`);
+            // Update button text with progress
+            btn.textContent = `Generating ${progress}/${totalNeeded}...`;
+            
+            // Add loading spinner to the lane
+            const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${item.sceneType}"]`);
+            const spinner = document.createElement('div');
+            spinner.className = 'scene-loading-spinner';
+            spinner.dataset.generationIndex = i;
+            if (dropZone) {
+                dropZone.appendChild(spinner);
+            }
+            
+            try {
+                const response = await fetch(`/projects/${projectId}/add_single_scene`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        story_sis: storySIS,
+                        scene_type: item.sceneType,
+                        blueprint: item.blueprint
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    successCount++;
+                    
+                    // Remove spinner
+                    if (spinner && spinner.parentNode) {
+                        spinner.parentNode.removeChild(spinner);
+                    }
+                    
+                    // Create and add the new scene card immediately
+                    await addSceneCardToLane(data.scene_id, item.sceneType, dropZone);
+                    
+                } else {
+                    failCount++;
+                    console.error(`Failed to generate scene: ${data.error}`);
+                    
+                    // Remove spinner on failure
+                    if (spinner && spinner.parentNode) {
+                        spinner.parentNode.removeChild(spinner);
+                    }
+                }
+            } catch (error) {
+                failCount++;
+                console.error(`Error generating scene: ${error.message}`);
+                
+                // Remove spinner on error
+                if (spinner && spinner.parentNode) {
+                    spinner.parentNode.removeChild(spinner);
+                }
+            }
         }
         
+        // Restore button
         btn.disabled = false;
         btn.textContent = originalText;
         
+        // Show summary
+        if (failCount > 0) {
+            alert(`Generation complete!\nSuccessful: ${successCount}\nFailed: ${failCount}`);
+        } else {
+            alert(`Successfully generated ${successCount} scene(s)!`);
+        }
+        
+        // Update button visibility
+        updateAddSceneButtons();
+        
     } catch (error) {
         alert(`Error generating scenes: ${error.message}`);
-        event.target.disabled = false;
-        event.target.textContent = '🎬 Generate Scenes';
+        if (event.target) {
+            event.target.disabled = false;
+            event.target.textContent = '🎬 Generate Scenes';
+        }
+    }
+}
+
+// Helper function to add a scene card to a lane without reloading
+async function addSceneCardToLane(sceneId, sceneType, dropZone) {
+    try {
+        // Fetch scene data
+        const response = await fetch(`/projects/${projectId}/scenes/${sceneId}`);
+        const data = await response.json();
+        
+        console.log('Scene data received:', data);
+        
+        if (!data.success) {
+            console.error('Failed to fetch scene data:', data.error);
+            return;
+        }
+        
+        // Add scene data to scenesData so addSceneToLane can use it
+        scenesData[sceneId] = {
+            id: sceneId,
+            hasImage: data.has_image || false,
+            imageUrl: data.thumbnail_path || null,
+            hasText: data.has_text || false,
+            hasMusic: data.has_music || false
+        };
+        
+        console.log('Updated scenesData:', scenesData[sceneId]);
+        
+        // Use the existing addSceneToLane function
+        addSceneToLane(dropZone, sceneId);
+        
+        console.log('Scene card added successfully:', sceneId);
+        
+    } catch (error) {
+        console.error(`Error adding scene card: ${error.message}`);
+        console.error(error);
     }
 }
 

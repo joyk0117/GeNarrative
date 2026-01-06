@@ -4199,6 +4199,59 @@ def add_single_scene(project_id):
             'traceback': traceback.format_exc()
         }), 500
 
+@app.route('/projects/<project_id>/scenes/<scene_id>', methods=['GET'])
+def get_project_scene_info(project_id, scene_id):
+    """Get scene information for display in project view"""
+    try:
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+        
+        scene_path = os.path.join(project_dir, 'scenes', scene_id)
+        if not os.path.isdir(scene_path):
+            return jsonify({'success': False, 'error': f'Scene {scene_id} not found'}), 404
+        
+        # Get scene name (from SIS or use scene_id)
+        scene_name = scene_id
+        sis_files = [f for f in os.listdir(scene_path) if f.startswith('sis_structure_') and f.endswith('.json')]
+        if sis_files:
+            try:
+                with open(os.path.join(scene_path, sis_files[0]), 'r', encoding='utf-8') as f:
+                    sis_data = json.load(f)
+                    scene_name = sis_data.get('summary', scene_id)[:50]  # Use summary as name
+            except Exception as e:
+                print(f"Error reading SIS: {e}")
+        
+        # Check for thumbnail
+        thumbnail_path = None
+        has_image = False
+        for file in os.listdir(scene_path):
+            if file.startswith('image_') and file.endswith('.png') and not file.endswith('_candidate.png'):
+                thumbnail_path = f'/scene/{scene_id}/file/{file}'
+                has_image = True
+                break
+        
+        # Check for text file
+        has_text = any(f.startswith('text_') and f.endswith('.txt') 
+                      for f in os.listdir(scene_path))
+        
+        # Check for music file
+        has_music = any(f.startswith('music_') and f.endswith(('.wav', '.mp3', '.ogg'))
+                       for f in os.listdir(scene_path))
+        
+        return jsonify({
+            'success': True,
+            'scene_id': scene_id,
+            'scene_name': scene_name,
+            'thumbnail_path': thumbnail_path,
+            'has_image': has_image,
+            'has_text': has_text,
+            'has_music': has_music
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/projects/<project_id>/bulk_delete_scenes', methods=['POST'])
 def bulk_delete_scenes(project_id):
     """Bulk delete multiple scenes from a project"""
