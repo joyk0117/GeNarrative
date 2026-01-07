@@ -3215,6 +3215,7 @@ def generate_project_story_sis(project_id):
         
         story_type = data.get('story_type')
         scenes_by_type = data.get('scenes_by_type', {})
+        scene_type_counts = data.get('scene_type_counts')
         
         if not story_type:
             return jsonify({'success': False, 'error': 'story_type is required'}), 400
@@ -3271,7 +3272,8 @@ def generate_project_story_sis(project_id):
             scene_sis_list=scenes_list,
             api_config=APIConfig(),
             requested_story_type=story_type,
-            scene_type_overrides=scene_type_overrides
+            scene_type_overrides=scene_type_overrides,
+            scene_type_counts=scene_type_counts
         )
         
         if result.get('success'):

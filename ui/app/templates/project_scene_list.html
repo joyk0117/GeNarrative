@@ -1622,6 +1622,7 @@ document.getElementById('generateStorySIS').addEventListener('click', async func
     // Collect scenes from lanes
     const lanes = document.querySelectorAll('.scene-type-lane');
     const scenesByType = {};
+    const sceneTypeCounts = {};
     
     lanes.forEach(lane => {
         const sceneType = lane.dataset.sceneType;
@@ -1629,6 +1630,12 @@ document.getElementById('generateStorySIS').addEventListener('click', async func
         const sceneMiniCards = dropZone.querySelectorAll('.scene-mini-card');
         
         scenesByType[sceneType] = Array.from(sceneMiniCards).map(card => card.dataset.sceneId);
+        
+        // Collect max count from input
+        const maxCountInput = document.querySelector(`.max-count-input[data-scene-type="${sceneType}"]`);
+        if (maxCountInput) {
+            sceneTypeCounts[sceneType] = parseInt(maxCountInput.value) || 1;
+        }
     });
     
     // Check if at least one scene is assigned
@@ -1653,6 +1660,7 @@ document.getElementById('generateStorySIS').addEventListener('click', async func
             body: JSON.stringify({
                 story_type: storyType,
                 scenes_by_type: scenesByType,
+                scene_type_counts: sceneTypeCounts,
                 output_mode: 'candidate'
             })
         });
