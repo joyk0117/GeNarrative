@@ -35,6 +35,9 @@ flowchart LR
   SIS <-->|"Generate"| T
   SIS <-->|"Generate"| I
   SIS <-->|"Generate"| M
+  T -->|"Extract"| SIS
+  I -->|"Extract"| SIS
+  M -->|"Extract"| SIS  
 ```
 
 ---
