@@ -214,37 +214,46 @@ def _constrain_story_sis_schema_for_story_type(
     if not isinstance(props, dict):
         return schema
 
-    story_type_prop = props.get('story_type')
-    if isinstance(story_type_prop, dict):
-        story_type_prop['const'] = story_type
-        story_type_prop.setdefault('type', 'string')
-    else:
-        props['story_type'] = {'type': 'string', 'const': story_type}
-
-    sb = props.get('scene_blueprints')
-    if not isinstance(sb, dict):
-        sb = {'type': 'array'}
-        props['scene_blueprints'] = sb
-
-    sb['type'] = 'array'
-    sb['minItems'] = len(expected_roles)
-    sb['maxItems'] = len(expected_roles)
-
-    items: List[Dict[str, Any]] = []
-    for role in expected_roles:
-        items.append({
-            'type': 'object',
-            'properties': {
-                'scene_type': {'type': 'string', 'const': role},
-                'summary': {'type': 'string'}
-            },
-            'required': ['scene_type', 'summary'],
-            'additionalProperties': False
-        })
-
-    sb['items'] = items
-    sb['additionalItems'] = False
-
+    # 順序を保持するために、元のキー順序に従って新しいpropertiesを構築
+    # base_schemaから明示的にキーの順序を取得
+    base_keys = list(base_schema.get('properties', {}).keys())
+    new_props = {}
+    
+    for key in base_keys:
+        if key == 'story_type':
+            # story_typeを制約付きで追加
+            new_props['story_type'] = {
+                'type': 'string', 
+                'const': story_type, 
+                'description': props.get('story_type', {}).get('description', 'Story structure type')
+            }
+        elif key == 'scene_blueprints':
+            # scene_blueprintsを制約付きで追加
+            items: List[Dict[str, Any]] = []
+            for role in expected_roles:
+                items.append({
+                    'type': 'object',
+                    'properties': {
+                        'scene_type': {'type': 'string', 'const': role},
+                        'summary': {'type': 'string'}
+                    },
+                    'required': ['scene_type', 'summary'],
+                    'additionalProperties': False
+                })
+            
+            new_props['scene_blueprints'] = {
+                'type': 'array',
+                'minItems': len(expected_roles),
+                'maxItems': len(expected_roles),
+                'items': items,
+                'additionalItems': False,
+                'description': props.get('scene_blueprints', {}).get('description', 'Scene design blueprints')
+            }
+        else:
+            # その他のキーはそのままコピー
+            new_props[key] = props[key]
+    
+    schema['properties'] = new_props
     return schema
 
 
@@ -441,6 +450,16 @@ class SISTransformer(ContentProcessor):
                             bp = blueprints[idx]
                             if isinstance(bp, dict):
                                 bp['scene_type'] = override
+            
+            # 全ての修正が完了した後、スキーマのキー順序に従ってJSONをソート
+            # 明示的に正しい順序でソート（スキーマの順序を確認）
+            schema_key_order = list(story_sis_schema.get('properties', {}).keys())
+            self.logger.info(f"Schema key order: {schema_key_order}")
+            self.logger.info(f"Before sorting, story_sis keys: {list(story_sis_json.keys())}")
+            
+            story_sis_json = self._sort_json_by_schema(story_sis_json, story_sis_schema)
+            
+            self.logger.info(f"After sorting, story_sis keys: {list(story_sis_json.keys())}")
 
             self.logger.info(f"{function_name} completed successfully", extra={
                 'function': function_name,
@@ -873,6 +892,69 @@ class SISTransformer(ContentProcessor):
 
         return scene, applied_defaults
     
+    def _sort_json_by_schema(self, json_data: Any, schema: Dict[str, Any]) -> Any:
+        """スキーマのキー順序に従ってJSONをソート
+        
+        Args:
+            json_data: ソート対象のJSONデータ
+            schema: 順序の基準となるJSONスキーマ
+        
+        Returns:
+            ソート済みのJSONデータ
+        """
+        if not isinstance(json_data, dict) or not isinstance(schema, dict):
+            return json_data
+        
+        # スキーマからプロパティのキー順序を取得
+        properties = schema.get('properties', {})
+        if not properties:
+            return json_data
+        
+        # スキーマのキー順序に従ってソート（新しい辞書を作成）
+        sorted_data = {}
+        
+        # スキーマのpropertiesキー順序を明示的に保持
+        schema_key_order = list(properties.keys())
+        
+        # まずスキーマに定義されているキーを順番に追加
+        for key in schema_key_order:
+            if key in json_data:
+                value = json_data[key]
+                
+                # ネストされたオブジェクトの場合は再帰的にソート
+                if isinstance(value, dict):
+                    prop_schema = properties[key]
+                    if 'properties' in prop_schema:
+                        value = self._sort_json_by_schema(value, prop_schema)
+                    elif prop_schema.get('type') == 'object':
+                        # additionalPropertiesなどで定義されている場合
+                        value = self._sort_json_by_schema(value, prop_schema)
+                
+                # 配列の場合、各要素をソート
+                elif isinstance(value, list):
+                    prop_schema = properties[key]
+                    items_schema = prop_schema.get('items')
+                    
+                    if isinstance(items_schema, dict):
+                        # 単一のitemsスキーマの場合
+                        value = [self._sort_json_by_schema(item, items_schema) 
+                                if isinstance(item, dict) else item 
+                                for item in value]
+                    elif isinstance(items_schema, list):
+                        # タプル形式（固定長配列）の場合
+                        value = [self._sort_json_by_schema(item, items_schema[i]) 
+                                if i < len(items_schema) and isinstance(item, dict) else item 
+                                for i, item in enumerate(value)]
+                
+                sorted_data[key] = value
+        
+        # スキーマに定義されていないキーも末尾に追加
+        for key in json_data.keys():
+            if key not in sorted_data:
+                sorted_data[key] = json_data[key]
+        
+        return sorted_data
+    
     def _check_server_and_model(self) -> None:
         """Ollamaサーバーとモデルの確認"""
         try:
@@ -912,7 +994,7 @@ class SISTransformer(ContentProcessor):
             'stream': False,
             'format': schema,
             'options': {
-                'num_predict': 4096,  # より長いレスポンスを許可
+                'num_predict': 8192,  # より長いレスポンスを許可（StorySISは大きくなる可能性がある）
                 'temperature': 0.7
             }
         }

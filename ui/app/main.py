@@ -3286,11 +3286,19 @@ def generate_project_story_sis(project_id):
                     'error': 'No StorySIS generated'
                 }), 500
 
+            # DEBUG: Log story_sis keys order
+            if isinstance(story_sis, dict):
+                print(f"DEBUG: story_sis keys in main.py: {list(story_sis.keys())}")
+
             response_payload = {
                 'success': True,
                 'story_sis': story_sis,
                 'output_mode': output_mode,
             }
+            
+            # DEBUG: Log response_payload['story_sis'] keys order
+            if isinstance(response_payload.get('story_sis'), dict):
+                print(f"DEBUG: response_payload['story_sis'] keys: {list(response_payload['story_sis'].keys())}")
 
             # Candidate mode: persist generated StorySIS as a temporary file.
             # This avoids overwriting or auto-saving the main StorySIS until user confirms.
@@ -3308,7 +3316,12 @@ def generate_project_story_sis(project_id):
                     'candidate_filename': candidate_filename,
                 })
 
-            return jsonify(response_payload)
+            # jsonify()の代わりにjson.dumps()を使用してキー順序を保持
+            from flask import Response
+            return Response(
+                json.dumps(response_payload, ensure_ascii=False, indent=4),
+                mimetype='application/json'
+            )
         else:
             return jsonify({
                 'success': False,
@@ -3398,12 +3411,19 @@ def save_generated_project_story_sis(project_id):
         except Exception:
             pass
 
-        return jsonify({
+        response_payload = {
             'success': True,
             'filename': story_filename,
             'story_sis': story_sis,
             'message': f'StorySIS saved to {story_filename}'
-        })
+        }
+
+        # Use json.dumps() instead of jsonify() to preserve key order
+        from flask import Response
+        return Response(
+            json.dumps(response_payload, ensure_ascii=False, indent=4),
+            mimetype='application/json'
+        )
 
     except Exception as e:
         return jsonify({
@@ -3466,11 +3486,18 @@ def get_project_story_sis(project_id):
         with open(latest_file, 'r', encoding='utf-8') as f:
             story_sis = json.load(f)
         
-        return jsonify({
+        response_payload = {
             'success': True,
             'story_sis': story_sis,
             'filename': story_files[0]
-        })
+        }
+
+        # Use json.dumps() instead of jsonify() to preserve key order
+        from flask import Response
+        return Response(
+            json.dumps(response_payload, ensure_ascii=False, indent=4),
+            mimetype='application/json'
+        )
         
     except Exception as e:
         return jsonify({
