@@ -129,7 +129,27 @@ class ProcessingResult:
     debug_info: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        """辞書形式に変換（後方互換性のため）"""
+        """
+        辞書形式に変換（後方互換性のため）
+        
+        Returns:
+            Dict[str, Any]: 変換結果。常に以下のキーを含む:
+                - success (bool): 処理の成功/失敗
+                - error (str | None): エラーメッセージ
+                - metadata (dict): メタデータ
+                
+            成功時は追加で以下のいずれかが含まれる:
+                - SIS抽出: sis_data, extraction_time, prompt?, content?, content_format?
+                - コンテンツ生成: generated_text / content, generation_time
+                - SIS変換: dataの全内容がトップレベルにマージされる
+                  (例: scene_sis, story_sis, scenes, raw_text, prompt等)
+                  
+        Note:
+            SIS変換の場合(scene_sis/story_sis/scenes in data)、
+            self.dataの内容がresult.update()により直接トップレベルに展開されます。
+            そのため、呼び出し側は result['data']['scene_sis'] ではなく
+            result['scene_sis'] としてアクセスする必要があります。
+        """
         result = {
             'success': self.success,
             'error': self.error,
@@ -150,6 +170,7 @@ class ProcessingResult:
                 result.update(self.data)
                 result['generation_time'] = self.metadata.get('processing_time')
             # SIS変換の場合（story_sis, scenesなど）
+            # ⚠️ 重要: dataの内容をトップレベルにマージ
             elif 'story_sis' in self.data or 'scenes' in self.data or 'scene_sis' in self.data:
                 result.update(self.data)
             else:

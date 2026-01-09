@@ -3952,8 +3952,6 @@ def add_single_scene(project_id):
         # Use LLM to generate SceneSIS from blueprint
         from sis2sis import story2scene_single
         
-        print(f"[DEBUG] Generating SceneSIS for single scene: {scene_type}")
-        
         try:
             result = story2scene_single(
                 story_sis=story_sis,
@@ -3962,25 +3960,19 @@ def add_single_scene(project_id):
                 api_config=APIConfig()
             )
             
-            print(f"[DEBUG] story2scene_single result keys: {result.keys() if isinstance(result, dict) else 'not a dict'}")
-            print(f"[DEBUG] result.success: {result.get('success')}")
-            
             if result.get('success'):
-                # story2scene_single returns a dict with 'data' containing 'scene_sis'
-                data_dict = result.get('data', {})
-                scene_sis = data_dict.get('scene_sis', {})
+                # story2scene_single returns scene_sis at the top level (not in 'data')
+                scene_sis = result.get('scene_sis', {})
                 
                 # Ensure scene_sis is not empty and has proper structure
                 if not scene_sis or not isinstance(scene_sis, dict) or 'sis_type' not in scene_sis:
-                    print(f"[WARNING] Invalid scene_sis structure: {scene_sis}")
                     raise ValueError("Invalid SceneSIS structure returned from LLM")
                 
                 scene_sis['scene_id'] = scene_id
-                print(f"[DEBUG] Successfully generated SceneSIS with LLM for {scene_id}")
-                print(f"[DEBUG] SceneSIS keys: {list(scene_sis.keys())}")
             else:
-                # Fallback
-                print(f"Warning: LLM generation failed, using fallback")
+                # Fallback - this should not happen if sis2sis works correctly
+                error_msg = result.get('error', 'Unknown error')
+                print(f"Error: LLM generation failed: {error_msg}")
                 summary = blueprint.get('summary', '')
                 scene_sis = {
                     'sis_type': 'scene',

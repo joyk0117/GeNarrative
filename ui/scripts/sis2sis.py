@@ -532,7 +532,7 @@ class SISTransformer(ContentProcessor):
             fallback_applied = len(applied_defaults) > 0
             if fallback_applied:
                 self.logger.warning(
-                    "SceneSIS response missing fields; applied fallback defaults",
+                    f"SceneSIS response missing fields; applied fallback defaults: {', '.join(applied_defaults)}",
                     extra={
                         'function': function_name,
                         'blueprint_index': blueprint_index,
@@ -1138,7 +1138,23 @@ def story2scene_single(
         logger: ロガー
     
     Returns:
-        統一された戻り値辞書
+        Dict[str, Any]: トップレベルに以下のキーを含む辞書:
+            - success (bool): 処理の成功/失敗
+            - scene_sis (dict): 生成されたSceneSISデータ（successがTrueの場合）
+            - raw_text (str): LLMの生の応答テキスト
+            - prompt (str): LLMに送信したプロンプト
+            - blueprint_index (int): blueprintのインデックス
+            - duration_sec (float): 処理時間（秒）
+            - scene_type_hint (str): シーンタイプのヒント
+            - fallback_applied (bool): フォールバックが適用されたか
+            - fallback_details (list): フォールバックされたフィールドのリスト
+            - error (str | None): エラーメッセージ（失敗時）
+            - metadata (dict): メタデータ
+            
+    Note:
+        scene_sisは'data'の中ではなく、トップレベルに配置されます。
+        これはProcessingResult.to_dict()がSIS変換の場合にdata内容を
+        トップレベルにマージするためです。
     """
     transformer = SISTransformer(api_config, processing_config, logger)
     result = transformer.story_to_scene(story_sis, blueprint, blueprint_index)
