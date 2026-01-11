@@ -1439,8 +1439,18 @@ function toggleTextEdit(index) {
     const textEditor = document.getElementById(`text-editor-${index}`);
     const container = textContent.closest('.text-container');
     const editBtn = container.querySelector('.btn-edit');
-    const saveBtn = container.querySelector('.btn-save');
-    const cancelBtn = container.querySelector('.btn-cancel');
+    // Find the save/cancel buttons that are used for editing (not the generated ones with IDs)
+    const buttons = container.querySelectorAll('.btn-save, .btn-cancel');
+    let saveBtn = null;
+    let cancelBtn = null;
+    buttons.forEach(btn => {
+        if (btn.onclick && btn.onclick.toString().includes('saveText')) {
+            saveBtn = btn;
+        }
+        if (btn.onclick && btn.onclick.toString().includes('cancelTextEdit')) {
+            cancelBtn = btn;
+        }
+    });
     
     // 現在のテキストを取得
     const currentText = textContent.textContent;
@@ -1452,8 +1462,8 @@ function toggleTextEdit(index) {
     textContent.style.display = 'none';
     textEditor.style.display = 'block';
     editBtn.style.display = 'none';
-    saveBtn.style.display = 'inline-block';
-    cancelBtn.style.display = 'inline-block';
+    if (saveBtn) saveBtn.style.display = 'inline-block';
+    if (cancelBtn) cancelBtn.style.display = 'inline-block';
 }
 
 function cancelTextEdit(index) {
@@ -1461,15 +1471,25 @@ function cancelTextEdit(index) {
     const textEditor = document.getElementById(`text-editor-${index}`);
     const container = textContent.closest('.text-container');
     const editBtn = container.querySelector('.btn-edit');
-    const saveBtn = container.querySelector('.btn-save');
-    const cancelBtn = container.querySelector('.btn-cancel');
+    // Find the save/cancel buttons that are used for editing (not the generated ones with IDs)
+    const buttons = container.querySelectorAll('.btn-save, .btn-cancel');
+    let saveBtn = null;
+    let cancelBtn = null;
+    buttons.forEach(btn => {
+        if (btn.onclick && btn.onclick.toString().includes('saveText')) {
+            saveBtn = btn;
+        }
+        if (btn.onclick && btn.onclick.toString().includes('cancelTextEdit')) {
+            cancelBtn = btn;
+        }
+    });
     
     // 表示切り替え
     textContent.style.display = 'block';
     textEditor.style.display = 'none';
     editBtn.style.display = 'inline-block';
-    saveBtn.style.display = 'none';
-    cancelBtn.style.display = 'none';
+    if (saveBtn) saveBtn.style.display = 'none';
+    if (cancelBtn) cancelBtn.style.display = 'none';
 }
 
 function saveText(index, filename) {
@@ -1477,11 +1497,20 @@ function saveText(index, filename) {
     const content = textEditor.value;
     const sceneId = '{{ scene.id }}';
     const container = textEditor.closest('.text-container');
-    const saveBtn = container.querySelector('.btn-save');
+    // Find the save button that is used for editing (not the generated one with ID)
+    const buttons = container.querySelectorAll('.btn-save');
+    let saveBtn = null;
+    buttons.forEach(btn => {
+        if (btn.onclick && btn.onclick.toString().includes('saveText')) {
+            saveBtn = btn;
+        }
+    });
     
     // 保存ボタンを無効化
-    saveBtn.disabled = true;
-    saveBtn.textContent = '保存中...';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+    }
     
     fetch(`/scene/${sceneId}/save_text`, {
         method: 'POST',
@@ -1512,8 +1541,10 @@ function saveText(index, filename) {
     })
     .finally(() => {
         // ボタンを元に戻す
-        saveBtn.disabled = false;
-        saveBtn.textContent = '💾 Save';
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Save';
+        }
     });
 }
 
