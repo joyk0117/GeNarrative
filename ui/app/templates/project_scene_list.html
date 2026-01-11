@@ -2065,6 +2065,8 @@ async function saveStorySIS() {
             }
             
             if (storySISEditMode) {
+                // Update the original content with the newly saved content
+                originalStorySISContent = storySISContent;
                 cancelStorySISEdit();
             }
         } else {
