@@ -843,14 +843,21 @@ class SISTransformer(ContentProcessor):
         story_characters = []
         if isinstance(story_common.get('characters'), list) and story_common['characters']:
             story_characters = story_common['characters']
-        # NOTE: Empty list [] is a valid value (e.g., landscape-only scenes).
-        # Only backfill when the field is truly missing or None.
-        if 'characters' not in semantics_common or semantics_common.get('characters') is None:
+        # NOTE: Empty list [] is a valid value (e.g., landscape-only scenes, catalog entries).
+        # Only backfill when the field is truly missing (not present in the response).
+        # If LLM intentionally returns [] or None, respect that decision.
+        if 'characters' not in semantics_common:
+            # Field is completely missing - apply fallback only if story has characters
             if story_characters:
                 semantics_common['characters'] = [story_characters[0]]
             else:
                 semantics_common['characters'] = []
             applied_defaults.append('semantics.common.characters')
+        elif semantics_common.get('characters') is None:
+            # LLM explicitly returned null/None - convert to empty array (likely intentional)
+            semantics_common['characters'] = []
+            applied_defaults.append('semantics.common.characters')
+        # If semantics_common['characters'] is [] or any other value, keep it as-is
 
         if is_missing(semantics_common.get('objects')):
             semantics_common['objects'] = [{

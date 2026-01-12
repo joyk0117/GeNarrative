@@ -23,7 +23,8 @@ ${STORY_TYPE_GUIDE}
 - Do not try to generate or guess a unique scene_id (the system will assign it)
 - **summary**: Create a detailed summary that expands on the blueprint (2-3 sentences minimum)
 - **semantics.common.descriptions**: Provide 2-5 detailed descriptions that elaborate on the scene's visual, emotional, and narrative elements (DO NOT just copy the blueprint summary)
-- Include at least one character with name, traits, and visual description
+- **characters**: If this scene has NO characters (e.g., landscape, object-only scene, catalog entry), set semantics.common.characters to an empty array: [] (do NOT invent characters). Only include characters if they naturally appear in this scene.
+- If characters do appear, include at least one with name, traits, and visual description
 - Include at least one object with name and colors
 - Fill in mood, location, time, weather with specific values (not empty strings)
 - Provide specific style guidance in semantics.text/visual/audio
