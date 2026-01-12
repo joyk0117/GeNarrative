@@ -90,7 +90,7 @@
         </div>
         
         <div class="narrative-controls" style="margin-top: 20px;">
-            <button class="btn btn-success" id="generateStorySIS" disabled>Generate StorySIS</button>
+            <button class="btn btn-generate-sis" onclick="generateScenesFromStory()">🎬 Generate Scenes</button>
             <button class="btn btn-primary" id="generateNarrativeFromLanes" disabled>Generate Story</button>
             <button class="btn btn-secondary" id="clearStoryLanes" disabled>Clear All</button>
         </div>
@@ -108,7 +108,7 @@
                     <button class="btn btn-download" onclick="downloadStorySIS()">💾 Download</button>
                 </div>
                 <div class="sis-generation-controls">
-                    <button class="btn btn-generate-sis" onclick="generateScenesFromStory()">🎬 Generate Scenes</button>
+                    <button class="btn btn-primary" id="generateStorySIS">Generate StorySIS</button>
                 </div>
             </div>
             <div class="sis-container">
