@@ -30,58 +30,42 @@ from common_base import (
     ModelNotLoadedError, ContentTypeError, ValidationError,
     create_standard_response
 )
-# Story type presets aligned with docs/SIS.md §3.3
-STORY_TYPE_BLUEPRINTS = {
-    "three_act": {
-        "overview": "Drama pattern (difficulty → resolution)",
-        "scene_types": ["setup", "conflict", "resolution"],
-        "scene_type_descriptions": {
-            "setup": "Introduce characters, setting, and the initial situation.",
-            "conflict": "Escalate problems and obstacles leading to a turning point.",
-            "resolution": "Resolve the main conflict and show the new status quo."
-        }
-    },
-    "kishotenketsu": {
-        "overview": "Twist/punchline pattern (meaning flips at the end)",
-        "scene_types": ["ki", "sho", "ten", "ketsu"],
-        "scene_type_descriptions": {
-            "ki": "Introduce the situation and characters without strong conflict.",
-            "sho": "Develop the situation and deepen relationships or context.",
-            "ten": "Introduce an unexpected twist that re-frames earlier scenes.",
-            "ketsu": "Conclude by revealing the new meaning after the twist."
-        }
-    },
-    "circular": {
-        "overview": "Journey-and-return pattern (leave → change → return)",
-        "scene_types": ["home_start", "away", "change", "home_end"],
-        "scene_type_descriptions": {
-            "home_start": "Show the ordinary world before the journey begins.",
-            "away": "Depict the journey into a different place, state, or situation.",
-            "change": "Show events that transform the character or situation.",
-            "home_end": "Return to the starting point, highlighting what has changed."
-        }
-    },
-    "attempts": {
-        "overview": "Multiple-attempts pattern (trial and error)",
-        "scene_types": ["problem", "attempt", "result"],
-        "scene_type_descriptions": {
-            "problem": "Define the main problem or goal that must be solved.",
-            "attempt": "Show one or more trials and partial successes or failures.",
-            "result": "Reveal the final outcome of the attempts and their consequences."
-        }
-    },
-    "catalog": {
-        "overview": "Catalog/introduction pattern (weak ordering)",
-        "scene_types": ["intro", "entry", "outro"],
-        "scene_type_descriptions": {
-            "intro": "Introduce the theme and explain what will be presented.",
-            "entry": "Present one catalog item, character, or example at a time.",
-            "outro": "Summarise the catalog and restate the overall impression."
-        }
-    }
-}
 
-ALL_SCENE_TYPES = sorted({stype for cfg in STORY_TYPE_BLUEPRINTS.values() for stype in cfg["scene_types"]})
+SCHEMAS_DIR = Path(__file__).parent / 'schemas'
+STORY_TYPE_BLUEPRINTS_PATH = SCHEMAS_DIR / 'story_type_blueprints.json'
+
+
+@lru_cache(maxsize=1)
+def _load_story_type_blueprints() -> Dict[str, Any]:
+    """Load story type presets from JSON.
+
+    The JSON file is the single source of truth so UI/backend can share the same definitions.
+    """
+    if not STORY_TYPE_BLUEPRINTS_PATH.exists():
+        raise FileNotFoundError(f"Story type blueprints JSON not found: {STORY_TYPE_BLUEPRINTS_PATH}")
+
+    with open(STORY_TYPE_BLUEPRINTS_PATH, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    if not isinstance(data, dict):
+        raise ValidationError('story_type_blueprints.json must contain an object at the top level')
+
+    # Minimal validation for expected structure
+    for key, cfg in data.items():
+        if not isinstance(key, str) or not key.strip():
+            raise ValidationError('story_type_blueprints.json contains an invalid story_type key')
+        if not isinstance(cfg, dict):
+            raise ValidationError(f"story_type '{key}' config must be an object")
+        scene_types = cfg.get('scene_types')
+        if not isinstance(scene_types, list) or not scene_types or not all(isinstance(x, str) and x for x in scene_types):
+            raise ValidationError(f"story_type '{key}' must define a non-empty string array 'scene_types'")
+    return data
+
+
+# Story type presets aligned with docs/SIS.md §3.3 (loaded from JSON)
+STORY_TYPE_BLUEPRINTS = _load_story_type_blueprints()
+
+ALL_SCENE_TYPES = sorted({stype for cfg in STORY_TYPE_BLUEPRINTS.values() for stype in cfg.get('scene_types', [])})
 
 PROMPT_DIR = Path(__file__).parent / 'prompts'
 
@@ -230,37 +214,46 @@ def _constrain_story_sis_schema_for_story_type(
     if not isinstance(props, dict):
         return schema
 
-    story_type_prop = props.get('story_type')
-    if isinstance(story_type_prop, dict):
-        story_type_prop['const'] = story_type
-        story_type_prop.setdefault('type', 'string')
-    else:
-        props['story_type'] = {'type': 'string', 'const': story_type}
-
-    sb = props.get('scene_blueprints')
-    if not isinstance(sb, dict):
-        sb = {'type': 'array'}
-        props['scene_blueprints'] = sb
-
-    sb['type'] = 'array'
-    sb['minItems'] = len(expected_roles)
-    sb['maxItems'] = len(expected_roles)
-
-    items: List[Dict[str, Any]] = []
-    for role in expected_roles:
-        items.append({
-            'type': 'object',
-            'properties': {
-                'scene_type': {'type': 'string', 'const': role},
-                'summary': {'type': 'string'}
-            },
-            'required': ['scene_type', 'summary'],
-            'additionalProperties': False
-        })
-
-    sb['items'] = items
-    sb['additionalItems'] = False
-
+    # 順序を保持するために、元のキー順序に従って新しいpropertiesを構築
+    # base_schemaから明示的にキーの順序を取得
+    base_keys = list(base_schema.get('properties', {}).keys())
+    new_props = {}
+    
+    for key in base_keys:
+        if key == 'story_type':
+            # story_typeを制約付きで追加
+            new_props['story_type'] = {
+                'type': 'string', 
+                'const': story_type, 
+                'description': props.get('story_type', {}).get('description', 'Story structure type')
+            }
+        elif key == 'scene_blueprints':
+            # scene_blueprintsを制約付きで追加
+            items: List[Dict[str, Any]] = []
+            for role in expected_roles:
+                items.append({
+                    'type': 'object',
+                    'properties': {
+                        'scene_type': {'type': 'string', 'const': role},
+                        'summary': {'type': 'string'}
+                    },
+                    'required': ['scene_type', 'summary'],
+                    'additionalProperties': False
+                })
+            
+            new_props['scene_blueprints'] = {
+                'type': 'array',
+                'minItems': len(expected_roles),
+                'maxItems': len(expected_roles),
+                'items': items,
+                'additionalItems': False,
+                'description': props.get('scene_blueprints', {}).get('description', 'Scene design blueprints')
+            }
+        else:
+            # その他のキーはそのままコピー
+            new_props[key] = props[key]
+    
+    schema['properties'] = new_props
     return schema
 
 
@@ -457,6 +450,16 @@ class SISTransformer(ContentProcessor):
                             bp = blueprints[idx]
                             if isinstance(bp, dict):
                                 bp['scene_type'] = override
+            
+            # 全ての修正が完了した後、スキーマのキー順序に従ってJSONをソート
+            # 明示的に正しい順序でソート（スキーマの順序を確認）
+            schema_key_order = list(story_sis_schema.get('properties', {}).keys())
+            self.logger.info(f"Schema key order: {schema_key_order}")
+            self.logger.info(f"Before sorting, story_sis keys: {list(story_sis_json.keys())}")
+            
+            story_sis_json = self._sort_json_by_schema(story_sis_json, story_sis_schema)
+            
+            self.logger.info(f"After sorting, story_sis keys: {list(story_sis_json.keys())}")
 
             self.logger.info(f"{function_name} completed successfully", extra={
                 'function': function_name,
@@ -548,7 +551,7 @@ class SISTransformer(ContentProcessor):
             fallback_applied = len(applied_defaults) > 0
             if fallback_applied:
                 self.logger.warning(
-                    "SceneSIS response missing fields; applied fallback defaults",
+                    f"SceneSIS response missing fields; applied fallback defaults: {', '.join(applied_defaults)}",
                     extra={
                         'function': function_name,
                         'blueprint_index': blueprint_index,
@@ -840,17 +843,21 @@ class SISTransformer(ContentProcessor):
         story_characters = []
         if isinstance(story_common.get('characters'), list) and story_common['characters']:
             story_characters = story_common['characters']
-        if is_missing(semantics_common.get('characters')):
-            base_character = story_characters[0] if story_characters else {}
-            semantics_common['characters'] = [{
-                'name': base_character.get('name', 'Protagonist'),
-                'traits': base_character.get('traits', ['curious']),
-                'visual': base_character.get('visual', {
-                    'hair': 'unspecified hair',
-                    'clothes': 'unspecified clothes'
-                })
-            }]
+        # NOTE: Empty list [] is a valid value (e.g., landscape-only scenes, catalog entries).
+        # Only backfill when the field is truly missing (not present in the response).
+        # If LLM intentionally returns [] or None, respect that decision.
+        if 'characters' not in semantics_common:
+            # Field is completely missing - apply fallback only if story has characters
+            if story_characters:
+                semantics_common['characters'] = [story_characters[0]]
+            else:
+                semantics_common['characters'] = []
             applied_defaults.append('semantics.common.characters')
+        elif semantics_common.get('characters') is None:
+            # LLM explicitly returned null/None - convert to empty array (likely intentional)
+            semantics_common['characters'] = []
+            applied_defaults.append('semantics.common.characters')
+        # If semantics_common['characters'] is [] or any other value, keep it as-is
 
         if is_missing(semantics_common.get('objects')):
             semantics_common['objects'] = [{
@@ -892,6 +899,69 @@ class SISTransformer(ContentProcessor):
 
         return scene, applied_defaults
     
+    def _sort_json_by_schema(self, json_data: Any, schema: Dict[str, Any]) -> Any:
+        """スキーマのキー順序に従ってJSONをソート
+        
+        Args:
+            json_data: ソート対象のJSONデータ
+            schema: 順序の基準となるJSONスキーマ
+        
+        Returns:
+            ソート済みのJSONデータ
+        """
+        if not isinstance(json_data, dict) or not isinstance(schema, dict):
+            return json_data
+        
+        # スキーマからプロパティのキー順序を取得
+        properties = schema.get('properties', {})
+        if not properties:
+            return json_data
+        
+        # スキーマのキー順序に従ってソート（新しい辞書を作成）
+        sorted_data = {}
+        
+        # スキーマのpropertiesキー順序を明示的に保持
+        schema_key_order = list(properties.keys())
+        
+        # まずスキーマに定義されているキーを順番に追加
+        for key in schema_key_order:
+            if key in json_data:
+                value = json_data[key]
+                
+                # ネストされたオブジェクトの場合は再帰的にソート
+                if isinstance(value, dict):
+                    prop_schema = properties[key]
+                    if 'properties' in prop_schema:
+                        value = self._sort_json_by_schema(value, prop_schema)
+                    elif prop_schema.get('type') == 'object':
+                        # additionalPropertiesなどで定義されている場合
+                        value = self._sort_json_by_schema(value, prop_schema)
+                
+                # 配列の場合、各要素をソート
+                elif isinstance(value, list):
+                    prop_schema = properties[key]
+                    items_schema = prop_schema.get('items')
+                    
+                    if isinstance(items_schema, dict):
+                        # 単一のitemsスキーマの場合
+                        value = [self._sort_json_by_schema(item, items_schema) 
+                                if isinstance(item, dict) else item 
+                                for item in value]
+                    elif isinstance(items_schema, list):
+                        # タプル形式（固定長配列）の場合
+                        value = [self._sort_json_by_schema(item, items_schema[i]) 
+                                if i < len(items_schema) and isinstance(item, dict) else item 
+                                for i, item in enumerate(value)]
+                
+                sorted_data[key] = value
+        
+        # スキーマに定義されていないキーも末尾に追加
+        for key in json_data.keys():
+            if key not in sorted_data:
+                sorted_data[key] = json_data[key]
+        
+        return sorted_data
+    
     def _check_server_and_model(self) -> None:
         """Ollamaサーバーとモデルの確認"""
         try:
@@ -931,7 +1001,7 @@ class SISTransformer(ContentProcessor):
             'stream': False,
             'format': schema,
             'options': {
-                'num_predict': 4096,  # より長いレスポンスを許可
+                'num_predict': 8192,  # より長いレスポンスを許可（StorySISは大きくなる可能性がある）
                 'temperature': 0.7
             }
         }
@@ -1157,7 +1227,23 @@ def story2scene_single(
         logger: ロガー
     
     Returns:
-        統一された戻り値辞書
+        Dict[str, Any]: トップレベルに以下のキーを含む辞書:
+            - success (bool): 処理の成功/失敗
+            - scene_sis (dict): 生成されたSceneSISデータ（successがTrueの場合）
+            - raw_text (str): LLMの生の応答テキスト
+            - prompt (str): LLMに送信したプロンプト
+            - blueprint_index (int): blueprintのインデックス
+            - duration_sec (float): 処理時間（秒）
+            - scene_type_hint (str): シーンタイプのヒント
+            - fallback_applied (bool): フォールバックが適用されたか
+            - fallback_details (list): フォールバックされたフィールドのリスト
+            - error (str | None): エラーメッセージ（失敗時）
+            - metadata (dict): メタデータ
+            
+    Note:
+        scene_sisは'data'の中ではなく、トップレベルに配置されます。
+        これはProcessingResult.to_dict()がSIS変換の場合にdata内容を
+        トップレベルにマージするためです。
     """
     transformer = SISTransformer(api_config, processing_config, logger)
     result = transformer.story_to_scene(story_sis, blueprint, blueprint_index)

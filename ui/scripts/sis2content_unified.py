@@ -26,6 +26,9 @@ import shutil
 import re
 from datetime import datetime
 from typing import Dict, Any, Optional
+from pathlib import Path
+from functools import lru_cache
+from string import Template
 
 # 共通基盤のインポート
 from common_base import (
@@ -35,6 +38,19 @@ from common_base import (
     ModelNotLoadedError, ContentTypeError, ValidationError,
     create_standard_response
 )
+
+
+PROMPT_DIR = Path(__file__).parent / 'prompts'
+
+
+@lru_cache(maxsize=16)
+def _load_prompt_template(filename: str) -> Template:
+    """Load and cache prompt templates stored under ui/scripts/prompts."""
+    template_path = PROMPT_DIR / filename
+    if not template_path.exists():
+        raise FileNotFoundError(f"Prompt template not found: {template_path}")
+    with open(template_path, 'r', encoding='utf-8') as prompt_file:
+        return Template(prompt_file.read())
 
 
 # ========================================
@@ -240,36 +256,21 @@ class ContentGenerator(ContentProcessor):
     def _create_image_prompt(self, sis_data: Dict[str, Any], width: int, height: int) -> str:
         """画像生成プロンプト作成"""
         sis_json = json.dumps(sis_data, indent=2, ensure_ascii=False)
-        
-        return f"""You are an expert prompt engineer for an image generation AI like Stable Diffusion.
 
-Below is a JSON object representing the Semantic Interface Structure (SIS; formerly SIS) of a scene.
-
-Your task is to:
-1. Read and understand the JSON data.
-2. Convert the structured information into a vivid, coherent, and descriptive **natural language prompt** suitable for generating a {width}x{height} image in the specified style.
-3. Keep it within 1–2 sentences.
-4. Focus on key visual and emotional elements.
-5. Do NOT include any JSON or explanation in the output — output only the prompt.
-
-Here is the SIS data:
-
-```json
-{sis_json}
-```
-
-Generate the image prompt:"""
+        return _load_prompt_template('sis2content_image_prompt.md').substitute(
+            width=width,
+            height=height,
+            sis_json=sis_json
+        )
     
     def _create_music_prompt(self, sis_data: Dict[str, Any], duration: int) -> str:
         """音楽生成プロンプト作成（画像と同じシンプルな構造）"""
         sis_json = json.dumps(sis_data, indent=2, ensure_ascii=False)
-        
-        return f"""Based on the following SIS data, generate a MusicGen prompt in 1-2 sentences for a {duration}-second audio piece.
-Focus on genre, tempo, instruments, and emotional atmosphere.
-Output only the music prompt without any explanations.
 
-SIS data:
-{sis_json}"""
+        return _load_prompt_template('sis2content_music_prompt.md').substitute(
+            duration=duration,
+            sis_json=sis_json
+        )
     
     def _create_fallback_music_prompt(self, sis_data: Dict[str, Any], duration: int) -> str:
         """LLM失敗時のフォールバック: ルールベースで音楽プロンプト生成"""
@@ -310,24 +311,11 @@ SIS data:
     def _create_text_prompt(self, sis_data: Dict[str, Any], word_count: int) -> str:
         """テキスト生成プロンプト作成"""
         sis_json = json.dumps(sis_data, indent=2, ensure_ascii=False)
-        
-        return f"""You are a creative writer specializing in short narrative pieces.
 
-Below is the structured Semantic Interface Structure (SIS; formerly SIS) describing a scene.
-
-Your task is to:
-1. Read and interpret the SIS data completely.
-2. Write a compelling {word_count}-word story that incorporates the key elements from the SIS.
-3. Focus on vivid imagery, emotional depth, and compelling narrative.
-4. Output only the story text and nothing else.
-
-Here is the SIS:
-
-```json
-{sis_json}
-```
-
-Write the story:"""
+        return _load_prompt_template('sis2content_text_prompt.md').substitute(
+            word_count=word_count,
+            sis_json=sis_json
+        )
     
     def _generate_with_unsloth(self, prompt: str, content_type: str) -> str:
         """Unslothサーバーでの生成"""
@@ -500,23 +488,10 @@ Write the story:"""
         self.logger.logger.info(f"📊 SIS data size: {len(sis_json_str)} chars")
         
         # LLMに渡すプロンプト
-        system_prompt = """You are an expert at creating Stable Diffusion prompts from scene descriptions.
-Create concise, detailed image generation prompts that capture all important visual elements."""
-        
-        user_prompt = f"""Given this scene description in JSON format:
-{sis_json_str}
-
-Create a detailed image generation prompt for Stable Diffusion.
-Include:
-- Character appearance (hair, clothes, expressions)
-- Setting and location details
-- Objects and their colors
-- Lighting and atmosphere
-- Art style
-- Composition and perspective
-
-Keep the prompt concise but detailed. Use comma-separated tags.
-Output ONLY the prompt text (no JSON, no explanation, no quotes)."""
+        system_prompt = _load_prompt_template('sis2content_direct_image_system.md').substitute()
+        user_prompt = _load_prompt_template('sis2content_direct_image_user.md').substitute(
+            sis_json=sis_json_str
+        )
         
         try:
             # Ollamaで画像プロンプトを生成

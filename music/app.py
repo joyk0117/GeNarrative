@@ -8,6 +8,7 @@ import os
 import uuid
 import logging
 from datetime import datetime
+import math
 
 # Log configuration
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +20,48 @@ CORS(app)
 # Keep model in global variables
 model = None
 device = None
+
+
+def _apply_output_gain(
+    audio_tensor: torch.Tensor,
+    *,
+    target_peak: float = 0.98,
+    max_gain_db: float = 12.0,
+) -> tuple[torch.Tensor, float, float]:
+    """Apply peak normalization with a gain cap.
+
+    Returns: (processed_audio, peak_before, applied_gain_db)
+    """
+    if audio_tensor.numel() == 0:
+        return audio_tensor, 0.0, 0.0
+
+    # Ensure floating type for scaling.
+    if not torch.is_floating_point(audio_tensor):
+        audio_tensor = audio_tensor.to(torch.float32)
+
+    peak_before = float(audio_tensor.abs().max().item())
+    if peak_before <= 0.0 or not math.isfinite(peak_before):
+        return audio_tensor, peak_before, 0.0
+
+    # Clamp env/config values to sane ranges.
+    target_peak = float(target_peak)
+    if not math.isfinite(target_peak) or target_peak <= 0.0:
+        return audio_tensor, peak_before, 0.0
+    target_peak = max(0.05, min(target_peak, 0.999))
+
+    max_gain_db = float(max_gain_db)
+    if not math.isfinite(max_gain_db):
+        max_gain_db = 0.0
+    max_gain_db = max(0.0, min(max_gain_db, 30.0))
+
+    desired_scale = target_peak / peak_before
+    max_scale = 10.0 ** (max_gain_db / 20.0)
+    scale = min(desired_scale, max_scale)
+
+    applied_gain_db = 20.0 * math.log10(scale) if scale > 0 else 0.0
+
+    processed = (audio_tensor * scale).clamp(-1.0, 1.0)
+    return processed, peak_before, applied_gain_db
 
 def initialize_model():
     """Initialize MusicGen model"""
@@ -78,9 +121,20 @@ def generate_music():
         # Generate music
         with torch.no_grad():
             wav = model.generate([prompt])
-        
-        # Convert result to numpy
-        audio = wav[0].cpu().numpy()
+
+        # Apply output gain / peak normalization to make the result louder by default.
+        # Tunable via env vars to avoid changing UX.
+        target_peak = float(os.environ.get('MUSIC_TARGET_PEAK', '0.98'))
+        max_gain_db = float(os.environ.get('MUSIC_MAX_GAIN_DB', '12.0'))
+        audio_tensor = wav[0].detach().cpu()
+        audio_tensor, peak_before, applied_gain_db = _apply_output_gain(
+            audio_tensor,
+            target_peak=target_peak,
+            max_gain_db=max_gain_db,
+        )
+        logger.info(
+            f"Output gain applied: peak_before={peak_before:.4f}, applied_gain_db={applied_gain_db:.2f}dB, target_peak={target_peak}"
+        )
         
         # Generate filename
         filename = f"music_{uuid.uuid4().hex[:8]}.wav"
@@ -89,7 +143,7 @@ def generate_music():
         # Save audio file
         torchaudio.save(
             output_path,
-            torch.from_numpy(audio),
+            audio_tensor,
             sample_rate=model.sample_rate
         )
         
@@ -102,6 +156,8 @@ def generate_music():
             "prompt": prompt,
             "duration": duration,
             "sample_rate": model.sample_rate
+            ,
+            "applied_gain_db": applied_gain_db
         })
         
     except Exception as e:

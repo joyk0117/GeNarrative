@@ -12,6 +12,7 @@ import time
 import copy
 import shutil
 from datetime import datetime
+from functools import lru_cache
 
 # Add dev/scripts to Python path for content2sis_unified import
 sys.path.insert(0, '/app/dev/scripts')
@@ -26,8 +27,47 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 workspace_root = os.path.dirname(os.path.dirname(current_dir))
 dev_scripts_path = os.path.join(workspace_root, 'dev', 'scripts')
 ui_scripts_path = os.path.join(workspace_root, 'ui', 'scripts')
+
+# Docker dev mount layout note:
+# - docker-compose mounts ./ui/app -> /app
+# - docker-compose mounts ./ui/scripts -> /app/ui/scripts
+# In that case, the heuristic workspace_root becomes '/', so prefer existing paths.
+candidate_dev_scripts = [
+    os.path.join(current_dir, 'dev', 'scripts'),
+    os.path.join(workspace_root, 'dev', 'scripts'),
+    '/app/dev/scripts',
+]
+candidate_ui_scripts = [
+    os.path.join(current_dir, 'ui', 'scripts'),
+    os.path.join(os.path.dirname(current_dir), 'scripts'),
+    os.path.join(workspace_root, 'ui', 'scripts'),
+    '/app/ui/scripts',
+]
+
+for p in candidate_dev_scripts:
+    if isinstance(p, str) and os.path.exists(p):
+        dev_scripts_path = p
+        break
+
+for p in candidate_ui_scripts:
+    if isinstance(p, str) and os.path.exists(p):
+        ui_scripts_path = p
+        break
 sys.path.insert(0, dev_scripts_path)
 sys.path.insert(0, ui_scripts_path)
+
+
+@lru_cache(maxsize=1)
+def _load_story_type_blueprints() -> dict:
+    """Load story type definitions used by the Project screen lanes."""
+    path = os.path.join(ui_scripts_path, 'schemas', 'story_type_blueprints.json')
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception as e:
+        print(f"⚠️ Failed to load story_type_blueprints.json: {e}")
+        return {}
 
 print(f"📁 Current working directory: {os.getcwd()}")
 print(f"📁 Script directory: {current_dir}")
@@ -549,7 +589,12 @@ def project_detail(project_id):
     
     # Sort by newest first
     scenes.sort(key=lambda x: x['id'], reverse=True)
-    return render_template('project_scene_list.html', project_id=project_id, scenes=scenes)
+    return render_template(
+        'project_scene_list.html',
+        project_id=project_id,
+        scenes=scenes,
+        story_type_blueprints=_load_story_type_blueprints(),
+    )
 
 @app.route("/projects/<project_id>/create", methods=['POST'])
 def create_project(project_id):
@@ -3170,6 +3215,7 @@ def generate_project_story_sis(project_id):
         
         story_type = data.get('story_type')
         scenes_by_type = data.get('scenes_by_type', {})
+        scene_type_counts = data.get('scene_type_counts')
         
         if not story_type:
             return jsonify({'success': False, 'error': 'story_type is required'}), 400
@@ -3226,7 +3272,8 @@ def generate_project_story_sis(project_id):
             scene_sis_list=scenes_list,
             api_config=APIConfig(),
             requested_story_type=story_type,
-            scene_type_overrides=scene_type_overrides
+            scene_type_overrides=scene_type_overrides,
+            scene_type_counts=scene_type_counts
         )
         
         if result.get('success'):
@@ -3239,11 +3286,19 @@ def generate_project_story_sis(project_id):
                     'error': 'No StorySIS generated'
                 }), 500
 
+            # DEBUG: Log story_sis keys order
+            if isinstance(story_sis, dict):
+                print(f"DEBUG: story_sis keys in main.py: {list(story_sis.keys())}")
+
             response_payload = {
                 'success': True,
                 'story_sis': story_sis,
                 'output_mode': output_mode,
             }
+            
+            # DEBUG: Log response_payload['story_sis'] keys order
+            if isinstance(response_payload.get('story_sis'), dict):
+                print(f"DEBUG: response_payload['story_sis'] keys: {list(response_payload['story_sis'].keys())}")
 
             # Candidate mode: persist generated StorySIS as a temporary file.
             # This avoids overwriting or auto-saving the main StorySIS until user confirms.
@@ -3261,7 +3316,12 @@ def generate_project_story_sis(project_id):
                     'candidate_filename': candidate_filename,
                 })
 
-            return jsonify(response_payload)
+            # jsonify()の代わりにjson.dumps()を使用してキー順序を保持
+            from flask import Response
+            return Response(
+                json.dumps(response_payload, ensure_ascii=False, indent=4),
+                mimetype='application/json'
+            )
         else:
             return jsonify({
                 'success': False,
@@ -3351,12 +3411,19 @@ def save_generated_project_story_sis(project_id):
         except Exception:
             pass
 
-        return jsonify({
+        response_payload = {
             'success': True,
             'filename': story_filename,
             'story_sis': story_sis,
             'message': f'StorySIS saved to {story_filename}'
-        })
+        }
+
+        # Use json.dumps() instead of jsonify() to preserve key order
+        from flask import Response
+        return Response(
+            json.dumps(response_payload, ensure_ascii=False, indent=4),
+            mimetype='application/json'
+        )
 
     except Exception as e:
         return jsonify({
@@ -3419,11 +3486,18 @@ def get_project_story_sis(project_id):
         with open(latest_file, 'r', encoding='utf-8') as f:
             story_sis = json.load(f)
         
-        return jsonify({
+        response_payload = {
             'success': True,
             'story_sis': story_sis,
             'filename': story_files[0]
-        })
+        }
+
+        # Use json.dumps() instead of jsonify() to preserve key order
+        from flask import Response
+        return Response(
+            json.dumps(response_payload, ensure_ascii=False, indent=4),
+            mimetype='application/json'
+        )
         
     except Exception as e:
         return jsonify({
@@ -3612,7 +3686,15 @@ def generate_scenes_from_story(project_id):
                     print(f"[DEBUG] story2scene_single result: success={result.get('success')}")
                     
                     if result.get('success'):
-                        scene_sis = result.get('scene_sis', {})
+                        # story2scene_single returns a dict with 'data' containing 'scene_sis'
+                        data_dict = result.get('data', {})
+                        scene_sis = data_dict.get('scene_sis', {})
+                        
+                        # Ensure scene_sis is not empty and has proper structure
+                        if not scene_sis or not isinstance(scene_sis, dict) or 'sis_type' not in scene_sis:
+                            print(f"[WARNING] Invalid scene_sis structure from LLM")
+                            raise ValueError("Invalid SceneSIS structure")
+                        
                         # Update scene_id
                         scene_sis['scene_id'] = scene_id
                         print(f"[DEBUG] Successfully generated SceneSIS with LLM for {scene_id}")
@@ -3854,12 +3936,342 @@ def generate_scenes_from_story(project_id):
         })
         
     except Exception as e:
+        print(f"Error in generate_scenes_from_story: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/projects/<project_id>/add_single_scene', methods=['POST'])
+def add_single_scene(project_id):
+    """Add a single scene to a specific lane (scene_type) with full content generation"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        story_sis = data.get('story_sis')
+        scene_type = data.get('scene_type')
+        blueprint = data.get('blueprint')
+        
+        if not story_sis or not scene_type or not blueprint:
+            return jsonify({'success': False, 'error': 'story_sis, scene_type, and blueprint are required'}), 400
+        
+        # Verify project exists
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+        
+        scenes_dir = os.path.join(project_dir, 'scenes')
+        os.makedirs(scenes_dir, exist_ok=True)
+        
+        # Generate unique scene ID
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        scene_id = f"{timestamp}_{scene_type}"
+        
+        # Create scene directory
+        scene_path = os.path.join(scenes_dir, scene_id)
+        os.makedirs(scene_path, exist_ok=True)
+        
+        # Use LLM to generate SceneSIS from blueprint
+        from sis2sis import story2scene_single
+        
+        try:
+            result = story2scene_single(
+                story_sis=story_sis,
+                blueprint=blueprint,
+                blueprint_index=0,
+                api_config=APIConfig()
+            )
+            
+            if result.get('success'):
+                # story2scene_single returns scene_sis at the top level (not in 'data')
+                scene_sis = result.get('scene_sis', {})
+                
+                # Ensure scene_sis is not empty and has proper structure
+                if not scene_sis or not isinstance(scene_sis, dict) or 'sis_type' not in scene_sis:
+                    raise ValueError("Invalid SceneSIS structure returned from LLM")
+                
+                scene_sis['scene_id'] = scene_id
+            else:
+                # Fallback - this should not happen if sis2sis works correctly
+                error_msg = result.get('error', 'Unknown error')
+                print(f"Error: LLM generation failed: {error_msg}")
+                summary = blueprint.get('summary', '')
+                scene_sis = {
+                    'sis_type': 'scene',
+                    'scene_id': scene_id,
+                    'scene_type': scene_type,
+                    'summary': summary,
+                    'semantics': {
+                        'common': {
+                            'descriptions': [summary] if summary else [],
+                            'mood': '',
+                            'characters': [],
+                            'location': '',
+                            'time': '',
+                            'weather': '',
+                            'objects': []
+                        },
+                        'visual': {},
+                        'audio': {},
+                        'text': {}
+                    }
+                }
+        except Exception as e:
+            print(f"Error generating SceneSIS: {str(e)}")
+            summary = blueprint.get('summary', '')
+            scene_sis = {
+                'sis_type': 'scene',
+                'scene_id': scene_id,
+                'scene_type': scene_type,
+                'summary': summary,
+                'semantics': {
+                    'common': {
+                        'descriptions': [summary] if summary else [],
+                        'mood': '',
+                        'characters': [],
+                        'location': '',
+                        'time': '',
+                        'weather': '',
+                        'objects': []
+                    },
+                    'visual': {},
+                    'audio': {},
+                    'text': {}
+                }
+            }
+        
+        # Save SceneSIS
+        sis_file = os.path.join(scene_path, f'sis_structure_{scene_id}.json')
+        with open(sis_file, 'w', encoding='utf-8') as f:
+            json.dump(scene_sis, f, indent=2, ensure_ascii=False)
+        
+        # Generate prompts from SceneSIS
+        prompts = {}
+        try:
+            print(f"[DEBUG] Generating prompts for scene {scene_id}")
+            prompts, failures = regenerate_prompts_from_sis(scene_id, scene_sis)
+            if failures:
+                print(f"[WARNING] Some prompts failed: {failures}")
+        except Exception as e:
+            print(f"[WARNING] Failed to generate prompts: {str(e)}")
+        
+        # Auto-generate Image
+        if prompts.get('image', {}).get('text'):
+            try:
+                print(f"[DEBUG] Auto-generating image for scene {scene_id}")
+                image_prompt = prompts['image']['text']
+                sd_uri = 'http://sd:7860'
+                sd_payload = {
+                    'prompt': image_prompt,
+                    'negative_prompt': 'low quality, blurry, distorted, watermark, text',
+                    'width': 512,
+                    'height': 512,
+                    'steps': 20,
+                    'cfg_scale': 7.0,
+                    'sampler_name': 'Euler a',
+                    'seed': -1,
+                    'batch_size': 1,
+                    'n_iter': 1,
+                }
+                sd_resp = requests.post(f"{sd_uri}/sdapi/v1/txt2img", json=sd_payload, timeout=(10, 300))
+                if sd_resp.status_code == 200:
+                    sd_result = sd_resp.json() or {}
+                    images = sd_result.get('images') or []
+                    if images:
+                        import base64 as _b64
+                        img_bytes = _b64.b64decode(images[0])
+                        img_filename = f"image_{scene_id}.png"
+                        img_path = os.path.join(scene_path, img_filename)
+                        with open(img_path, 'wb') as f:
+                            f.write(img_bytes)
+                        print(f"[DEBUG] Image generated successfully")
+                else:
+                    print(f"[WARNING] Image generation failed: HTTP {sd_resp.status_code}")
+            except Exception as e:
+                print(f"[WARNING] Failed to auto-generate image: {str(e)}")
+        
+        # Auto-generate Text & TTS
+        try:
+            print(f"[DEBUG] Auto-generating text for scene {scene_id}")
+            api_config = APIConfig(
+                unsloth_uri='http://unsloth:5007',
+                sd_uri='http://sd:7860',
+                music_uri='http://music:5003',
+                tts_uri='http://tts:5002',
+                timeout=120
+            )
+            text_result = generate_content(
+                sis_data=scene_sis,
+                content_type='text',
+                api_config=api_config,
+                processing_config=ProcessingConfig(output_dir='/app/shared'),
+                generation_config=GenerationConfig(),
+                custom_timestamp=datetime.now().strftime("%Y%m%d_%H%M%S"),
+                test_case_name=f"scene_{scene_id}"
+            )
+            if isinstance(text_result, dict) and text_result.get('success'):
+                generated_text = text_result.get('generated_text')
+                if generated_text:
+                    text_filename = f"text_{scene_id}.txt"
+                    text_path = os.path.join(scene_path, text_filename)
+                    with open(text_path, 'w', encoding='utf-8') as f:
+                        f.write(generated_text)
+                    print(f"[DEBUG] Text generated successfully")
+                    
+                    # Auto-generate TTS
+                    try:
+                        print(f"[DEBUG] Auto-generating TTS for scene {scene_id}")
+                        tts_params = {'text': generated_text}
+                        tts_resp = requests.get("http://tts:5002/api/tts", params=tts_params, timeout=(5, 90))
+                        if tts_resp.status_code == 200:
+                            tts_filename = f"tts_{scene_id}.wav"
+                            tts_path = os.path.join(scene_path, tts_filename)
+                            with open(tts_path, 'wb') as f:
+                                f.write(tts_resp.content)
+                            print(f"[DEBUG] TTS generated successfully")
+                        else:
+                            print(f"[WARNING] TTS generation failed: HTTP {tts_resp.status_code}")
+                    except Exception as e:
+                        print(f"[WARNING] Failed to auto-generate TTS: {str(e)}")
+            else:
+                print(f"[WARNING] Text generation failed")
+        except Exception as e:
+            print(f"[WARNING] Failed to auto-generate text: {str(e)}")
+        
+        # Auto-generate Music
+        if prompts.get('music', {}).get('text'):
+            try:
+                print(f"[DEBUG] Auto-generating music for scene {scene_id}")
+                music_prompt = prompts['music']['text']
+                music_resp = requests.post(
+                    "http://music:5003/generate",
+                    json={'prompt': music_prompt, 'duration': 8},
+                    timeout=(10, 120)
+                )
+                if music_resp.status_code == 200:
+                    music_result = music_resp.json() or {}
+                    music_src_path = music_result.get('path')
+                    if music_src_path and os.path.exists(music_src_path):
+                        import shutil
+                        music_filename = f"music_{scene_id}.wav"
+                        music_dest = os.path.join(scene_path, music_filename)
+                        shutil.copy(music_src_path, music_dest)
+                        print(f"[DEBUG] Music generated successfully")
+                else:
+                    print(f"[WARNING] Music generation failed: HTTP {music_resp.status_code}")
+            except Exception as e:
+                print(f"[WARNING] Failed to auto-generate music: {str(e)}")
+        
+        # Update scene arrangement
+        story_dir = os.path.join(project_dir, 'story')
+        os.makedirs(story_dir, exist_ok=True)
+        arrangement_file = os.path.join(story_dir, 'scene_arrangement.json')
+        
+        scenes_by_type = {}
+        if os.path.exists(arrangement_file):
+            try:
+                with open(arrangement_file, 'r', encoding='utf-8') as f:
+                    existing_arrangement = json.load(f)
+                    scenes_by_type = existing_arrangement.get('scenes_by_type', {})
+            except Exception as e:
+                print(f"Warning: Could not load existing arrangement: {e}")
+        
+        # Add new scene to arrangement
+        if scene_type not in scenes_by_type:
+            scenes_by_type[scene_type] = []
+        scenes_by_type[scene_type].append(scene_id)
+        
+        # Save updated arrangement
+        arrangement_data = {
+            'story_type': story_sis.get('story_type', ''),
+            'scenes_by_type': scenes_by_type,
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        temp_arrangement_file = arrangement_file + '.tmp'
+        try:
+            with open(temp_arrangement_file, 'w', encoding='utf-8') as f:
+                json.dump(arrangement_data, f, indent=2, ensure_ascii=False)
+            
+            if os.path.exists(arrangement_file):
+                os.remove(arrangement_file)
+            os.rename(temp_arrangement_file, arrangement_file)
+        except Exception as e:
+            if os.path.exists(temp_arrangement_file):
+                os.remove(temp_arrangement_file)
+            raise e
+        
+        return jsonify({
+            'success': True,
+            'scene_id': scene_id,
+            'message': f'Successfully created scene: {scene_id}'
+        })
+        
+    except Exception as e:
         import traceback
         return jsonify({
             'success': False,
             'error': str(e),
             'traceback': traceback.format_exc()
         }), 500
+
+@app.route('/projects/<project_id>/scenes/<scene_id>', methods=['GET'])
+def get_project_scene_info(project_id, scene_id):
+    """Get scene information for display in project view"""
+    try:
+        project_dir = os.path.join(PROJECTS_DIR, project_id)
+        if not os.path.isdir(project_dir):
+            return jsonify({'success': False, 'error': f'Project {project_id} not found'}), 404
+        
+        scene_path = os.path.join(project_dir, 'scenes', scene_id)
+        if not os.path.isdir(scene_path):
+            return jsonify({'success': False, 'error': f'Scene {scene_id} not found'}), 404
+        
+        # Get scene name (from SIS or use scene_id)
+        scene_name = scene_id
+        sis_files = [f for f in os.listdir(scene_path) if f.startswith('sis_structure_') and f.endswith('.json')]
+        if sis_files:
+            try:
+                with open(os.path.join(scene_path, sis_files[0]), 'r', encoding='utf-8') as f:
+                    sis_data = json.load(f)
+                    scene_name = sis_data.get('summary', scene_id)[:50]  # Use summary as name
+            except Exception as e:
+                print(f"Error reading SIS: {e}")
+        
+        # Check for thumbnail
+        thumbnail_path = None
+        has_image = False
+        for file in os.listdir(scene_path):
+            if file.startswith('image_') and file.endswith('.png') and not file.endswith('_candidate.png'):
+                thumbnail_path = f'/scene/{scene_id}/file/{file}'
+                has_image = True
+                break
+        
+        # Check for text file
+        has_text = any(f.startswith('text_') and f.endswith('.txt') 
+                      for f in os.listdir(scene_path))
+        
+        # Check for music file
+        has_music = any(f.startswith('music_') and f.endswith(('.wav', '.mp3', '.ogg'))
+                       for f in os.listdir(scene_path))
+        
+        return jsonify({
+            'success': True,
+            'scene_id': scene_id,
+            'scene_name': scene_name,
+            'thumbnail_path': thumbnail_path,
+            'has_image': has_image,
+            'has_text': has_text,
+            'has_music': has_music
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/projects/<project_id>/bulk_delete_scenes', methods=['POST'])
 def bulk_delete_scenes(project_id):

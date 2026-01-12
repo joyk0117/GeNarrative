@@ -90,7 +90,7 @@
         </div>
         
         <div class="narrative-controls" style="margin-top: 20px;">
-            <button class="btn btn-success" id="generateStorySIS" disabled>Generate StorySIS</button>
+            <button class="btn btn-generate-sis" onclick="generateScenesFromStory()">🎬 Generate Scenes</button>
             <button class="btn btn-primary" id="generateNarrativeFromLanes" disabled>Generate Story</button>
             <button class="btn btn-secondary" id="clearStoryLanes" disabled>Clear All</button>
         </div>
@@ -108,8 +108,7 @@
                     <button class="btn btn-download" onclick="downloadStorySIS()">💾 Download</button>
                 </div>
                 <div class="sis-generation-controls">
-                    <button class="btn btn-generate-sis" onclick="generateScenesFromStory()">🎬 Generate Scenes</button>
-                    <button class="btn btn-generate-sis" onclick="copyStorySISToClipboard()">📋 Copy</button>
+                    <button class="btn btn-primary" id="generateStorySIS">Generate StorySIS</button>
                 </div>
             </div>
             <div class="sis-container">
@@ -736,7 +735,7 @@
     background: white;
     min-height: 100px;
     display: flex;
-    align-items: flex-start;
+    align-items: stretch;
 }
 
 .scene-type-label {
@@ -750,16 +749,35 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     text-align: center;
     gap: 8px;
+    align-self: stretch;
+}
+
+.scene-type-desc {
+    font-weight: normal;
+    font-size: 12px;
+    color: #6c757d;
+    line-height: 1.3;
+    text-align: left;
+    margin-bottom: 6px;
+}
+
+.scene-type-lane-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
 }
 
 .max-count-container {
     display: flex;
     align-items: center;
+    gap: 8px;
     font-weight: normal;
     font-size: 12px;
+    flex-wrap: wrap;
 }
 
 .max-count-input {
@@ -769,6 +787,32 @@
     border-radius: 4px;
     font-size: 14px;
     text-align: center;
+}
+
+.btn-add-scene {
+    padding: 4px 12px;
+    font-size: 0.85rem;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    margin-top: 4px;
+    display: block;
+    width: fit-content;
+}
+
+.btn-add-scene:hover:not(:disabled) {
+    background-color: #218838;
+    transform: translateY(-1px);
+}
+
+.btn-add-scene:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 .scene-type-drop-zone {
@@ -781,6 +825,12 @@
     align-items: flex-start;
     align-content: flex-start;
     transition: background-color 0.3s ease, border 0.3s ease;
+}
+
+/* When panels exist, match the drop-zone height to panel height */
+.scene-type-drop-zone.has-scenes {
+    min-height: 0;
+    padding: 0;
 }
 
 .scene-type-drop-zone.drag-over {
@@ -808,13 +858,25 @@
 }
 
 .scene-loading-spinner {
-    width: 120px;
-    height: 120px;
-    border: 8px solid #f3f3f3;
-    border-top: 8px solid #2196F3;
+    width: 72px;
+    height: 72px;
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #2196F3;
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin: 10px;
+}
+
+/* Small spinner for inline button loading (e.g., Create Scene) */
+.scene-loading-spinner-sm {
+    width: 20px;
+    height: 20px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #2196F3;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 @keyframes spin {
@@ -825,15 +887,63 @@
 .scene-mini-card {
     border: 1px solid #ddd;
     border-radius: 6px;
-    padding: 8px 12px;
+    padding: 6px 10px;
     background: white;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     cursor: move;
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 3px;
     transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
     user-select: none;
+    position: relative;
+}
+
+/* Add Scene Card - similar to Create New Scene */
+.add-scene-card {
+    border: 2px dashed #28a745;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background: #f0fff4;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: all 0.2s ease;
+    user-select: none;
+    min-width: 72px;
+}
+
+.add-scene-card:hover {
+    background: #e6f9ec;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
+}
+
+.add-scene-thumb {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #28a745;
+}
+
+.add-scene-icon {
+    font-size: 32px;
+    color: #28a745;
+    line-height: 1;
+}
+
+.add-scene-name {
+    font-size: 0.75rem;
+    color: #28a745;
+    font-weight: 600;
+    text-align: center;
 }
 
 .scene-mini-card:hover {
@@ -874,6 +984,17 @@
 .scene-mini-card .scene-name {
     font-size: 13px;
     font-weight: 500;
+    text-align: center;
+    width: 100%;
+    line-height: 1.15;
+}
+
+.scene-mini-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 100%;
 }
 
 .scene-mini-status-icons {
@@ -897,7 +1018,9 @@
 }
 
 .scene-mini-card .remove-from-lane {
-    margin-left: auto;
+    position: absolute;
+    top: 4px;
+    right: 4px;
     background: #dc3545;
     color: white;
     border: none;
@@ -1083,13 +1206,7 @@
 const projectId = "{{ project_id }}";
 
 // Story type definitions
-const STORY_TYPE_BLUEPRINTS = {
-    'three_act': ['setup', 'conflict', 'resolution'],
-    'kishotenketsu': ['ki', 'sho', 'ten', 'ketsu'],
-    'circular': ['home_start', 'away', 'change', 'home_end'],
-    'attempts': ['problem', 'attempt', 'result'],
-    'catalog': ['intro', 'entry', 'outro']
-};
+const STORY_TYPE_BLUEPRINTS = {{ (story_type_blueprints or {}) | tojson }};
 
 // Scene data storage
 const scenesData = {};
@@ -1147,7 +1264,8 @@ document.getElementById('storyTypeSelect').addEventListener('change', function()
     generateBtn.disabled = false;
     clearBtn.disabled = false;
     
-    const sceneTypes = STORY_TYPE_BLUEPRINTS[storyType] || [];
+    const storyCfg = (STORY_TYPE_BLUEPRINTS && STORY_TYPE_BLUEPRINTS[storyType]) ? STORY_TYPE_BLUEPRINTS[storyType] : {};
+    const sceneTypes = (storyCfg && storyCfg.scene_types) ? storyCfg.scene_types : [];
     lanesContainer.innerHTML = '';
     
     sceneTypes.forEach(sceneType => {
@@ -1157,7 +1275,10 @@ document.getElementById('storyTypeSelect').addEventListener('change', function()
         
         const label = document.createElement('div');
         label.className = 'scene-type-label';
-        label.textContent = sceneType;
+
+        const title = document.createElement('div');
+        title.textContent = sceneType;
+        label.appendChild(title);
         
         // Add max count input
         const maxCountContainer = document.createElement('div');
@@ -1172,20 +1293,47 @@ document.getElementById('storyTypeSelect').addEventListener('change', function()
         maxCountInput.addEventListener('change', function() {
             updateLaneColor(sceneType);
             saveMaxCounts();
+            updateAddSceneButtons();
         });
         
         maxCountContainer.appendChild(maxCountInput);
         label.appendChild(maxCountContainer);
         
+        // Add scene button (below the max count input)
+        const addSceneBtn = document.createElement('button');
+        addSceneBtn.className = 'btn btn-add-scene';
+        addSceneBtn.dataset.sceneType = sceneType;
+        addSceneBtn.textContent = 'Add Scene';
+        addSceneBtn.style.display = 'none';
+        addSceneBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            addSingleSceneToLane(sceneType);
+        });
+        label.appendChild(addSceneBtn);
+        
         const dropZone = document.createElement('div');
         dropZone.className = 'scene-type-drop-zone';
         dropZone.dataset.sceneType = sceneType;
+
+        // Right side content: description (top) + drop zone (bottom)
+        const laneContent = document.createElement('div');
+        laneContent.className = 'scene-type-lane-content';
+
+        const descMap = (storyCfg && storyCfg.scene_type_descriptions) ? storyCfg.scene_type_descriptions : null;
+        const descText = (descMap && descMap[sceneType]) ? descMap[sceneType] : null;
+        if (typeof descText === 'string' && descText.trim()) {
+            const desc = document.createElement('div');
+            desc.className = 'scene-type-desc';
+            desc.textContent = descText;
+            laneContent.appendChild(desc);
+        }
+        laneContent.appendChild(dropZone);
         
         // Setup drop zone events
         setupDropZoneEvents(dropZone);
         
         lane.appendChild(label);
-        lane.appendChild(dropZone);
+        lane.appendChild(laneContent);
         lanesContainer.appendChild(lane);
     });
 
@@ -1337,6 +1485,12 @@ function addSceneToLane(dropZone, sceneId) {
     statusIcons.appendChild(imageIcon);
     statusIcons.appendChild(textIcon);
     statusIcons.appendChild(musicIcon);
+
+    // Place name + icons under the thumbnail
+    const meta = document.createElement('div');
+    meta.className = 'scene-mini-meta';
+    meta.appendChild(name);
+    meta.appendChild(statusIcons);
     
     const removeBtn = document.createElement('button');
     removeBtn.className = 'remove-from-lane';
@@ -1351,11 +1505,12 @@ function addSceneToLane(dropZone, sceneId) {
         }
         // Update scene arrangement when a scene is removed
         updateSceneArrangement();
+        // Update add scene buttons visibility
+        updateAddSceneButtons();
     };
     
     miniCard.appendChild(thumb);
-    miniCard.appendChild(name);
-    miniCard.appendChild(statusIcons);
+    miniCard.appendChild(meta);
     miniCard.appendChild(removeBtn);
     
     // Add double-click event to open scene detail
@@ -1378,6 +1533,9 @@ function addSceneToLane(dropZone, sceneId) {
     
     // Update scene arrangement when a scene is added
     updateSceneArrangement();
+    
+    // Update add scene buttons visibility
+    updateAddSceneButtons();
 }
 
 // Setup drag events for mini cards in lanes
@@ -1463,6 +1621,7 @@ document.getElementById('generateStorySIS').addEventListener('click', async func
     // Collect scenes from lanes
     const lanes = document.querySelectorAll('.scene-type-lane');
     const scenesByType = {};
+    const sceneTypeCounts = {};
     
     lanes.forEach(lane => {
         const sceneType = lane.dataset.sceneType;
@@ -1470,6 +1629,12 @@ document.getElementById('generateStorySIS').addEventListener('click', async func
         const sceneMiniCards = dropZone.querySelectorAll('.scene-mini-card');
         
         scenesByType[sceneType] = Array.from(sceneMiniCards).map(card => card.dataset.sceneId);
+        
+        // Collect max count from input
+        const maxCountInput = document.querySelector(`.max-count-input[data-scene-type="${sceneType}"]`);
+        if (maxCountInput) {
+            sceneTypeCounts[sceneType] = parseInt(maxCountInput.value) || 1;
+        }
     });
     
     // Check if at least one scene is assigned
@@ -1494,6 +1659,7 @@ document.getElementById('generateStorySIS').addEventListener('click', async func
             body: JSON.stringify({
                 story_type: storyType,
                 scenes_by_type: scenesByType,
+                scene_type_counts: sceneTypeCounts,
                 output_mode: 'candidate'
             })
         });
@@ -1524,6 +1690,12 @@ function displayGeneratedStorySISCandidate() {
         return;
     }
 
+    // Ensure the StorySIS section is visible so the compare UI can be seen.
+    const resultDiv = document.getElementById('storySISResult');
+    if (resultDiv) {
+        resultDiv.style.display = 'block';
+    }
+
     const originalTextarea = document.getElementById('storySISContent');
     const originalCompareTextarea = document.getElementById('storySISOriginalCompare');
     const generatedCompareTextarea = document.getElementById('storySISGeneratedCompare');
@@ -1535,6 +1707,10 @@ function displayGeneratedStorySISCandidate() {
     generatedCompareTextarea.value = generatedText;
 
     showStorySISCompareSwiper();
+
+    if (resultDiv) {
+        resultDiv.scrollIntoView({ behavior: 'smooth' });
+    }
 }
 
 function showStorySISCompareSwiper() {
@@ -1792,6 +1968,7 @@ function populateLanesFromArrangement(scenesByType) {
     // Load max counts and update colors
     loadMaxCounts();
     updateAllLaneColors();
+    updateAddSceneButtons();
     
     // Reset flag after restoration is complete
     isRestoringArrangement = false;
@@ -1887,6 +2064,8 @@ async function saveStorySIS() {
             }
             
             if (storySISEditMode) {
+                // Update the original content with the newly saved content
+                originalStorySISContent = storySISContent;
                 cancelStorySISEdit();
             }
         } else {
@@ -1921,7 +2100,113 @@ function copyStorySISToClipboard() {
     });
 }
 
-// Generate Scenes from StorySIS
+// Update Add Scene buttons visibility based on current vs target counts
+function updateAddSceneButtons() {
+    const maxCountInputs = document.querySelectorAll('.max-count-input');
+    maxCountInputs.forEach(input => {
+        const sceneType = input.dataset.sceneType;
+        const targetCount = parseInt(input.value) || 0;
+        
+        const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${sceneType}"]`);
+        const currentCount = dropZone ? dropZone.querySelectorAll('.scene-mini-card').length : 0;
+        
+        const label = input.closest('.scene-type-label');
+        const addBtn = label ? label.querySelector('.btn-add-scene') : null;
+        if (addBtn) {
+            if (currentCount < targetCount) {
+                addBtn.style.display = 'block';
+            } else {
+                addBtn.style.display = 'none';
+            }
+        }
+    });
+}
+
+// Add a single scene to a specific lane
+async function addSingleSceneToLane(sceneType) {
+    const storySISContent = document.getElementById('storySISContent').value;
+    
+    if (!storySISContent) {
+        alert('No StorySIS available. Please generate a StorySIS first.');
+        return;
+    }
+    
+    try {
+        const storySIS = JSON.parse(storySISContent);
+        
+        if (!storySIS.scene_blueprints || storySIS.scene_blueprints.length === 0) {
+            alert('No scene blueprints found in StorySIS');
+            return;
+        }
+        
+        // Find blueprints matching this scene type
+        const matchingBlueprints = storySIS.scene_blueprints.filter(
+            bp => bp.scene_type === sceneType
+        );
+        
+        if (matchingBlueprints.length === 0) {
+            alert(`No blueprint found for scene type: ${sceneType}`);
+            return;
+        }
+        
+        // Use the first matching blueprint
+        const blueprint = matchingBlueprints[0];
+        
+        // Find the button and show loading state
+        const addBtn = document.querySelector(`.btn-add-scene[data-scene-type="${sceneType}"]`);
+        if (addBtn) {
+            const originalText = addBtn.textContent;
+            addBtn.disabled = true;
+            addBtn.textContent = 'Generating...';
+        }
+        
+        // Add loading spinner to the lane
+        const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${sceneType}"]`);
+        if (dropZone) {
+            const spinner = document.createElement('div');
+            spinner.className = 'scene-loading-spinner';
+            dropZone.appendChild(spinner);
+        }
+        
+        const response = await fetch(`/projects/${projectId}/add_single_scene`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                story_sis: storySIS,
+                scene_type: sceneType,
+                blueprint: blueprint
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.textContent = 'Add Scene';
+        }
+        
+        if (data.success) {
+            alert(`Successfully generated scene: ${data.scene_id}`);
+            
+            // Reload the page to show new scene
+            location.reload();
+        } else {
+            alert(`Failed to generate scene: ${data.error}`);
+        }
+        
+    } catch (error) {
+        alert(`Error generating scene: ${error.message}`);
+        const addBtn = document.querySelector(`.btn-add-scene[data-scene-type="${sceneType}"]`);
+        if (addBtn) {
+            addBtn.disabled = false;
+            addBtn.textContent = 'Add Scene';
+        }
+    }
+}
+
+// Generate Scenes from StorySIS - one by one with progress updates
 async function generateScenesFromStory() {
     const storySISContent = document.getElementById('storySISContent').value;
     
@@ -1959,23 +2244,37 @@ async function generateScenesFromStory() {
             currentCounts[sceneType] = currentCount;
         });
         
-        // Calculate scenes needed per type
-        const scenesNeeded = {};
-        Object.keys(targetCounts).forEach(sceneType => {
-            const needed = targetCounts[sceneType] - (currentCounts[sceneType] || 0);
-            if (needed > 0) {
-                scenesNeeded[sceneType] = needed;
+        // Build list of blueprints to generate
+        const blueprintsToGenerate = [];
+        storySIS.scene_blueprints.forEach((blueprint, index) => {
+            const sceneType = blueprint.scene_type;
+            const targetCount = targetCounts[sceneType] || 0;
+            const currentCount = currentCounts[sceneType] || 0;
+            
+            if (currentCount < targetCount) {
+                blueprintsToGenerate.push({
+                    blueprint: blueprint,
+                    sceneType: sceneType,
+                    index: index
+                });
+                currentCounts[sceneType]++;
             }
         });
         
-        const totalNeeded = Object.values(scenesNeeded).reduce((sum, count) => sum + count, 0);
+        const totalNeeded = blueprintsToGenerate.length;
         
         if (totalNeeded === 0) {
             alert('All scene types have reached their target count. No scenes need to be generated.');
             return;
         }
         
-        const message = Object.entries(scenesNeeded)
+        // Count by type for display
+        const countsByType = {};
+        blueprintsToGenerate.forEach(item => {
+            countsByType[item.sceneType] = (countsByType[item.sceneType] || 0) + 1;
+        });
+        
+        const message = Object.entries(countsByType)
             .map(([type, count]) => `${type}: ${count}`)
             .join('\n');
         
@@ -1983,53 +2282,133 @@ async function generateScenesFromStory() {
             return;
         }
         
-        // Add loading spinners to lanes
-        Object.entries(scenesNeeded).forEach(([sceneType, count]) => {
-            const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${sceneType}"]`);
-            if (dropZone) {
-                for (let i = 0; i < count; i++) {
-                    const spinner = document.createElement('div');
-                    spinner.className = 'scene-loading-spinner';
-                    dropZone.appendChild(spinner);
-                }
-            }
-        });
-        
-        // Show loading state
+        // Show loading state on button
         const btn = event.target;
         const originalText = btn.textContent;
         btn.disabled = true;
-        btn.textContent = 'Generating Scenes...';
         
-        const response = await fetch(`/projects/${projectId}/generate_scenes_from_story`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                story_sis: storySIS,
-                scenes_needed: scenesNeeded
-            })
-        });
+        let successCount = 0;
+        let failCount = 0;
         
-        const data = await response.json();
-        
-        if (data.success) {
-            alert(`Successfully generated ${data.scenes_created.length} scene(s)!`);
+        // Generate scenes one by one
+        for (let i = 0; i < blueprintsToGenerate.length; i++) {
+            const item = blueprintsToGenerate[i];
+            const progress = i + 1;
             
-            // Reload the page to show new scenes
-            location.reload();
-        } else {
-            alert(`Failed to generate scenes: ${data.error}`);
+            // Update button text with progress
+            btn.textContent = `Generating ${progress}/${totalNeeded}...`;
+            
+            // Add loading spinner to the lane
+            const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${item.sceneType}"]`);
+            const spinner = document.createElement('div');
+            spinner.className = 'scene-loading-spinner';
+            spinner.dataset.generationIndex = i;
+            if (dropZone) {
+                dropZone.appendChild(spinner);
+            }
+            
+            try {
+                const response = await fetch(`/projects/${projectId}/add_single_scene`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        story_sis: storySIS,
+                        scene_type: item.sceneType,
+                        blueprint: item.blueprint
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    successCount++;
+                    
+                    // Remove spinner
+                    if (spinner && spinner.parentNode) {
+                        spinner.parentNode.removeChild(spinner);
+                    }
+                    
+                    // Create and add the new scene card immediately
+                    await addSceneCardToLane(data.scene_id, item.sceneType, dropZone);
+                    
+                } else {
+                    failCount++;
+                    console.error(`Failed to generate scene: ${data.error}`);
+                    
+                    // Remove spinner on failure
+                    if (spinner && spinner.parentNode) {
+                        spinner.parentNode.removeChild(spinner);
+                    }
+                }
+            } catch (error) {
+                failCount++;
+                console.error(`Error generating scene: ${error.message}`);
+                
+                // Remove spinner on error
+                if (spinner && spinner.parentNode) {
+                    spinner.parentNode.removeChild(spinner);
+                }
+            }
         }
         
+        // Restore button
         btn.disabled = false;
         btn.textContent = originalText;
         
+        // Show summary
+        if (failCount > 0) {
+            alert(`Generation complete!\nSuccessful: ${successCount}\nFailed: ${failCount}`);
+        } else {
+            alert(`Successfully generated ${successCount} scene(s)!`);
+        }
+        
+        // Update button visibility
+        updateAddSceneButtons();
+        
     } catch (error) {
         alert(`Error generating scenes: ${error.message}`);
-        event.target.disabled = false;
-        event.target.textContent = '🎬 Generate Scenes';
+        if (event.target) {
+            event.target.disabled = false;
+            event.target.textContent = '🎬 Generate Scenes';
+        }
+    }
+}
+
+// Helper function to add a scene card to a lane without reloading
+async function addSceneCardToLane(sceneId, sceneType, dropZone) {
+    try {
+        // Fetch scene data
+        const response = await fetch(`/projects/${projectId}/scenes/${sceneId}`);
+        const data = await response.json();
+        
+        console.log('Scene data received:', data);
+        
+        if (!data.success) {
+            console.error('Failed to fetch scene data:', data.error);
+            return;
+        }
+        
+        // Add scene data to scenesData so addSceneToLane can use it
+        scenesData[sceneId] = {
+            id: sceneId,
+            hasImage: data.has_image || false,
+            imageUrl: data.thumbnail_path || null,
+            hasText: data.has_text || false,
+            hasMusic: data.has_music || false
+        };
+        
+        console.log('Updated scenesData:', scenesData[sceneId]);
+        
+        // Use the existing addSceneToLane function
+        addSceneToLane(dropZone, sceneId);
+        
+        console.log('Scene card added successfully:', sceneId);
+        
+    } catch (error) {
+        console.error(`Error adding scene card: ${error.message}`);
+        console.error(error);
     }
 }
 
@@ -2063,7 +2442,8 @@ function collectScenesFromLanes() {
     if (!storyType) {
         return [];
     }
-    const sceneTypes = STORY_TYPE_BLUEPRINTS[storyType] || [];
+    const storyCfg = (STORY_TYPE_BLUEPRINTS && STORY_TYPE_BLUEPRINTS[storyType]) ? STORY_TYPE_BLUEPRINTS[storyType] : {};
+    const sceneTypes = (storyCfg && storyCfg.scene_types) ? storyCfg.scene_types : [];
     const scenes = [];
     sceneTypes.forEach(type => {
         const dropZone = document.querySelector(`.scene-type-drop-zone[data-scene-type="${type}"]`);
@@ -2418,6 +2798,10 @@ function updateLaneColor(sceneType) {
     
     const targetCount = parseInt(maxCountInput.value) || 0;
     const currentCount = dropZone.querySelectorAll('.scene-mini-card').length;
+
+    // Keep drop zone height aligned with panels when scenes exist
+    const hasAnyPanels = currentCount > 0 || dropZone.querySelector('.scene-loading-spinner') !== null;
+    dropZone.classList.toggle('has-scenes', hasAnyPanels);
     
     // Remove all color classes
     dropZone.classList.remove('under-limit', 'at-limit', 'over-limit');
@@ -2522,6 +2906,14 @@ function hideCreateSceneModal() {
 }
 
 async function createNewScene() {
+    const modal = document.getElementById('createSceneModal');
+    const createBtn = modal ? modal.querySelector('.modal-footer .btn.btn-primary') : null;
+    const originalBtnHtml = createBtn ? createBtn.innerHTML : null;
+    if (createBtn) {
+        createBtn.disabled = true;
+        createBtn.innerHTML = '<span class="scene-loading-spinner-sm" aria-hidden="true"></span> Creating...';
+    }
+
     let sceneId = document.getElementById('sceneId').value.trim();
     const creationType = document.querySelector('input[name="creationType"]:checked').value;
     const sourceScene = document.getElementById('sourceScene').value;
@@ -2539,6 +2931,10 @@ async function createNewScene() {
     
     if (creationType === 'copy' && !sourceScene) {
         alert('Please select a source scene to copy');
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerHTML = originalBtnHtml;
+        }
         return;
     }
     
@@ -2564,6 +2960,11 @@ async function createNewScene() {
         }
     } catch (error) {
         alert(`Error creating scene: ${error.message}`);
+    } finally {
+        if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.innerHTML = originalBtnHtml;
+        }
     }
 }
 

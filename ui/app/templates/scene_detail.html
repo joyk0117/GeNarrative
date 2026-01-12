@@ -1439,8 +1439,18 @@ function toggleTextEdit(index) {
     const textEditor = document.getElementById(`text-editor-${index}`);
     const container = textContent.closest('.text-container');
     const editBtn = container.querySelector('.btn-edit');
-    const saveBtn = container.querySelector('.btn-save');
-    const cancelBtn = container.querySelector('.btn-cancel');
+    // Find the save/cancel buttons that are used for editing (not the generated ones with IDs)
+    const buttons = container.querySelectorAll('.btn-save, .btn-cancel');
+    let saveBtn = null;
+    let cancelBtn = null;
+    buttons.forEach(btn => {
+        if (btn.onclick && btn.onclick.toString().includes('saveText')) {
+            saveBtn = btn;
+        }
+        if (btn.onclick && btn.onclick.toString().includes('cancelTextEdit')) {
+            cancelBtn = btn;
+        }
+    });
     
     // 現在のテキストを取得
     const currentText = textContent.textContent;
@@ -1452,8 +1462,8 @@ function toggleTextEdit(index) {
     textContent.style.display = 'none';
     textEditor.style.display = 'block';
     editBtn.style.display = 'none';
-    saveBtn.style.display = 'inline-block';
-    cancelBtn.style.display = 'inline-block';
+    if (saveBtn) saveBtn.style.display = 'inline-block';
+    if (cancelBtn) cancelBtn.style.display = 'inline-block';
 }
 
 function cancelTextEdit(index) {
@@ -1461,15 +1471,25 @@ function cancelTextEdit(index) {
     const textEditor = document.getElementById(`text-editor-${index}`);
     const container = textContent.closest('.text-container');
     const editBtn = container.querySelector('.btn-edit');
-    const saveBtn = container.querySelector('.btn-save');
-    const cancelBtn = container.querySelector('.btn-cancel');
+    // Find the save/cancel buttons that are used for editing (not the generated ones with IDs)
+    const buttons = container.querySelectorAll('.btn-save, .btn-cancel');
+    let saveBtn = null;
+    let cancelBtn = null;
+    buttons.forEach(btn => {
+        if (btn.onclick && btn.onclick.toString().includes('saveText')) {
+            saveBtn = btn;
+        }
+        if (btn.onclick && btn.onclick.toString().includes('cancelTextEdit')) {
+            cancelBtn = btn;
+        }
+    });
     
     // 表示切り替え
     textContent.style.display = 'block';
     textEditor.style.display = 'none';
     editBtn.style.display = 'inline-block';
-    saveBtn.style.display = 'none';
-    cancelBtn.style.display = 'none';
+    if (saveBtn) saveBtn.style.display = 'none';
+    if (cancelBtn) cancelBtn.style.display = 'none';
 }
 
 function saveText(index, filename) {
@@ -1477,11 +1497,20 @@ function saveText(index, filename) {
     const content = textEditor.value;
     const sceneId = '{{ scene.id }}';
     const container = textEditor.closest('.text-container');
-    const saveBtn = container.querySelector('.btn-save');
+    // Find the save button that is used for editing (not the generated one with ID)
+    const buttons = container.querySelectorAll('.btn-save');
+    let saveBtn = null;
+    buttons.forEach(btn => {
+        if (btn.onclick && btn.onclick.toString().includes('saveText')) {
+            saveBtn = btn;
+        }
+    });
     
     // 保存ボタンを無効化
-    saveBtn.disabled = true;
-    saveBtn.textContent = '保存中...';
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+    }
     
     fetch(`/scene/${sceneId}/save_text`, {
         method: 'POST',
@@ -1512,8 +1541,10 @@ function saveText(index, filename) {
     })
     .finally(() => {
         // ボタンを元に戻す
-        saveBtn.disabled = false;
-        saveBtn.textContent = '💾 Save';
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = '💾 Save';
+        }
     });
 }
 
@@ -1663,10 +1694,8 @@ async function generateTextFromSIS(index, filename) {
         }
 
         displayGeneratedTextCandidate(index, filename, data.generated_text || '', data.candidate_filename || '');
-        // Generate TTS as candidate from the generated text and show compare
-        await generateTTSCandidateForGeneratedText(index, filename, data.generated_text || '');
 
-        showSISGenerationProgress('✅ Text & Speech generated (pending).', 'success');
+        showSISGenerationProgress('✅ Text generated (pending).', 'success');
     } catch (e) {
         console.error('generateTextFromSIS error:', e);
         showSISGenerationProgress(`❌ Failed to generate text: ${e.message}`, 'error');
@@ -1762,7 +1791,11 @@ function displayGeneratedTextCandidate(index, filename, generatedText, candidate
     }
 
     const originalText = (textEl.textContent || '').trim() === '読み込み中...' ? '' : (textEl.textContent || '');
-    const fixedHeight = textEl.getBoundingClientRect().height;
+    let fixedHeight = textEl.getBoundingClientRect().height;
+    // Ensure minimum height for proper display, especially when original text is empty
+    if (!fixedHeight || fixedHeight < 100) {
+        fixedHeight = 200; // Set a reasonable default height
+    }
 
     setPendingGeneratedText(index, {
         filename,
@@ -1908,6 +1941,8 @@ async function saveGeneratedTextAndSpeech(index, filename) {
     if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
     if (cancelBtn) cancelBtn.disabled = true;
 
+    const container = document.getElementById(`text-${index}`)?.closest('.text-container');
+
     try {
         // Save text candidate
         const res = await fetch(`/scene/{{ scene.id }}/save_generated_text`, {
@@ -1921,36 +1956,52 @@ async function saveGeneratedTextAndSpeech(index, filename) {
             throw new Error(data.error || `HTTP ${res.status}`);
         }
 
-        // Save TTS candidate if available
-        if (pending.tts_candidate_filename && pending.tts_target_filename) {
-            const res2 = await fetch(`/scene/{{ scene.id }}/save_generated_tts`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ candidate_filename: pending.tts_candidate_filename, tts_filename: pending.tts_target_filename })
-            });
-            let data2 = {};
-            try { data2 = await res2.json(); } catch { throw new Error('Invalid JSON response'); }
-            if (!res2.ok || !data2.success) {
-                throw new Error(data2.error || `HTTP ${res2.status}`);
-            }
-        }
-
         // Restore normal view with generated text
         const textEl = document.getElementById(`text-${index}`);
         if (textEl) {
             textEl.textContent = pending.generated_text || '';
         }
-        const container = textEl?.closest('.text-container');
         if (container) {
             restoreTTSOriginalBlock(index, container);
-            if (pending.tts_target_filename) {
-                // Update canonical player
-                updateTTSPlayer(index, container, pending.tts_target_filename);
-            }
         }
 
         setPendingGeneratedText(index, null);
-        showSISGenerationProgress('✅ Text & Speech saved.', 'success');
+        showSISGenerationProgress('✅ Text saved. Generating speech...', 'success');
+
+        // Generate TTS after text is saved
+        const targetTts = getTTSTargetFilenameFromTextFilename(filename);
+        if (targetTts) {
+            const overlay = showLoadingOverlay(container, '🎤 Generating speech...');
+            try {
+                const res2 = await fetch(`/scene/{{ scene.id }}/generate_tts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text_filename: filename,
+                        tts_filename: targetTts,
+                        output_mode: 'replace'
+                    })
+                });
+                let data2 = {};
+                try { data2 = await res2.json(); } catch { throw new Error('Invalid JSON from TTS server'); }
+                if (!res2.ok || !data2.success) {
+                    throw new Error(data2.error || `HTTP ${res2.status}`);
+                }
+
+                // Update TTS player with new audio
+                if (container) {
+                    updateTTSPlayer(index, container, targetTts);
+                }
+                showSISGenerationProgress('✅ Text & Speech saved.', 'success');
+            } catch (e) {
+                console.error('TTS generation error:', e);
+                showSISGenerationProgress(`⚠️ Text saved, but speech generation failed: ${e.message}`, 'error');
+            } finally {
+                hideLoadingOverlay(overlay);
+            }
+        } else {
+            showSISGenerationProgress('✅ Text saved.', 'success');
+        }
     } catch (e) {
         console.error('saveGeneratedTextAndSpeech error:', e);
         showSISGenerationProgress(`❌ Failed to save: ${e.message}`, 'error');
@@ -2172,7 +2223,8 @@ function updateTTSPlayer(index, container, ttsFilename) {
     const audio = player.querySelector('.audio-element');
     if (audio) {
         audio.pause();
-        audio.removeAttribute('src');
+        // Set new source with cache busting timestamp to ensure fresh audio loads
+        audio.src = `${remoteUrl}?t=${Date.now()}`;
         audio.load();
     }
 
