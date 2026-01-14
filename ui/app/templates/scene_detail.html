@@ -53,7 +53,7 @@
                 </div>
                 <!-- 画像直下：Image Prompt セクション -->
                 <section class="scene-section image-prompt-section" style="margin-top: 10px; border-top: 2px solid #dee2e6; padding-top: 20px;">
-                    <h3>📝 Image Prompt (Stable Diffusion)</h3>
+                    <h3>📝 Image Prompt</h3>
                     <div class="prompt-controls" style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
                         <button class="btn btn-edit" onclick="togglePromptEdit()">✏️ Edit</button>
                         <button class="btn btn-save" id="btn-prompt-save" onclick="saveImagePrompt()" style="display:none;">💾 Save</button>
@@ -121,7 +121,7 @@
                 </div>
                 <!-- 画像直下：Image Prompt セクション -->
                 <section class="scene-section image-prompt-section" style="margin-top: 10px; border-top: 2px solid #dee2e6; padding-top: 20px;">
-                    <h3>📝 Image Prompt (Stable Diffusion)</h3>
+                    <h3>📝 Image Prompt</h3>
                     <div class="prompt-controls" style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
                         <button class="btn btn-edit" onclick="togglePromptEdit()">✏️ Edit</button>
                         <button class="btn btn-save" id="btn-prompt-save" onclick="saveImagePrompt()" style="display:none;">💾 Save</button>
@@ -1285,7 +1285,7 @@ function loadMusicPromptFile(sceneId, filename) {
                 ta.value = txt.trim();
                 ta.readOnly = true;
                 const h3 = ta.closest('.music-prompt-section')?.querySelector('h3');
-                if (h3) h3.textContent = '📝 Music Prompt (Actual)';
+                if (h3) h3.textContent = '📝 Music Prompt';
                 return;
             }
         })
