@@ -53,7 +53,7 @@
                 </div>
                 <!-- 画像直下：Image Prompt セクション -->
                 <section class="scene-section image-prompt-section" style="margin-top: 10px; border-top: 2px solid #dee2e6; padding-top: 20px;">
-                    <h3>📝 Image Prompt (Stable Diffusion)</h3>
+                    <h3>📝 Image Prompt</h3>
                     <div class="prompt-controls" style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
                         <button class="btn btn-edit" onclick="togglePromptEdit()">✏️ Edit</button>
                         <button class="btn btn-save" id="btn-prompt-save" onclick="saveImagePrompt()" style="display:none;">💾 Save</button>
@@ -121,7 +121,7 @@
                 </div>
                 <!-- 画像直下：Image Prompt セクション -->
                 <section class="scene-section image-prompt-section" style="margin-top: 10px; border-top: 2px solid #dee2e6; padding-top: 20px;">
-                    <h3>📝 Image Prompt (Stable Diffusion)</h3>
+                    <h3>📝 Image Prompt</h3>
                     <div class="prompt-controls" style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
                         <button class="btn btn-edit" onclick="togglePromptEdit()">✏️ Edit</button>
                         <button class="btn btn-save" id="btn-prompt-save" onclick="saveImagePrompt()" style="display:none;">💾 Save</button>
@@ -380,9 +380,6 @@
                 <button class="btn btn-download" onclick="downloadSIS()">
                     💾 Download
                 </button>
-                <button class="btn btn-generate-sis" onclick="regeneratePrompts()" id="btn-update-prompts">
-                    Update Prompts
-                </button>
                 <button class="btn btn-save" id="btn-sis-generated-save" onclick="saveGeneratedSIS()" style="display:none;">
                     💾 Save
                 </button>
@@ -420,9 +417,6 @@
                 </button>
                 <button class="btn btn-generate-sis" onclick="generateSISFromMusic()">
                     🎵 Generate from Music
-                </button>
-                <button class="btn btn-generate-sis" onclick="regeneratePrompts()" id="btn-update-prompts">
-                    Update Prompts
                 </button>
                 <button class="btn btn-save" id="btn-sis-generated-save" onclick="saveGeneratedSIS()" style="display:none;">
                     💾 Save
@@ -1291,7 +1285,7 @@ function loadMusicPromptFile(sceneId, filename) {
                 ta.value = txt.trim();
                 ta.readOnly = true;
                 const h3 = ta.closest('.music-prompt-section')?.querySelector('h3');
-                if (h3) h3.textContent = '📝 Music Prompt (Actual)';
+                if (h3) h3.textContent = '📝 Music Prompt';
                 return;
             }
         })
@@ -3129,17 +3123,6 @@ function updateSISSection(sisContent, fileName) {
     let sisSection = document.querySelector('.sis-section');
 
     if (sisSection) {
-        // Ensure Update Prompts button exists even if the template predates the new control
-        const editControls = sisSection.querySelector('.sis-edit-main-controls');
-        if (editControls && !editControls.querySelector('#btn-update-prompts')) {
-            const updateBtn = document.createElement('button');
-            updateBtn.className = 'btn btn-generate-sis';
-            updateBtn.id = 'btn-update-prompts';
-            updateBtn.textContent = 'Update Prompts';
-            updateBtn.onclick = () => regeneratePrompts();
-            editControls.appendChild(updateBtn);
-        }
-
     // Do NOT replace existing buttons/controls; only update the SIS content area
         let sisContainer = sisSection.querySelector('.sis-container');
         if (!sisContainer) {
@@ -3197,7 +3180,6 @@ function updateSISSection(sisContent, fileName) {
                     <button class="btn btn-save" onclick="saveSIS(1, '${fileName}')" style="display: none;">💾 Save</button>
                     <button class="btn btn-cancel" onclick="cancelSISEdit(1)" style="display: none;">❌ Cancel</button>
                     <button class="btn btn-download" onclick="downloadSIS()">💾 Download</button>
-                    <button class="btn btn-generate-sis" onclick="regeneratePrompts()" id="btn-update-prompts">Update Prompts</button>
                 </div>
                 <div class="sis-generation-controls">
                     <button class="btn btn-generate-sis" onclick="generateSISFromImage()">Genarate from Image</button>
@@ -3340,7 +3322,11 @@ function saveSIS(index, fileName) {
             saveBtn.style.display = 'none';
             cancelBtn.style.display = 'none';
             
-            alert('SIS saved successfully!');
+            // alert('SIS saved successfully!');
+            showSISGenerationProgress('✅ SIS saved successfully! Updating prompts...', 'success');
+            
+            // 自動的にプロンプトを再生成
+            regeneratePrompts();
         } else {
             alert('Failed to save SIS: ' + data.error);
         }
