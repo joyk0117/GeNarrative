@@ -2867,7 +2867,10 @@ async function saveGeneratedSIS() {
 
         restoreSISFromCompare();
         setPendingGeneratedSIS(null);
-        showSISGenerationProgress('✅ SIS saved.', 'success');
+        showSISGenerationProgress('✅ SIS saved. Updating prompts...', 'success');
+        
+        // 自動的にプロンプトを再生成
+        regeneratePrompts();
     } catch (e) {
         console.error('saveGeneratedSIS error:', e);
         showSISGenerationProgress(`❌ Failed to save: ${e.message}`, 'error');
