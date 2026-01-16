@@ -837,7 +837,8 @@ class SISTransformer(ContentProcessor):
                      'semantics.common.time')
         ensure_value(semantics_common, 'weather', lambda: story_common.get('weather', 'unspecified weather'),
                      'semantics.common.weather')
-        ensure_value(semantics_common, 'descriptions', lambda: [default_summary], 'semantics.common.descriptions')
+        # Description duplication fix: Do not fallback to summary to avoid redundancy.
+        ensure_value(semantics_common, 'descriptions', lambda: [], 'semantics.common.descriptions')
 
         story_characters = []
         if isinstance(story_common.get('characters'), list) and story_common['characters']:
