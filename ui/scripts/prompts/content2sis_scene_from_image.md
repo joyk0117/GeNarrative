@@ -1,6 +1,6 @@
 Analyze the attached image and produce a complete SceneSIS JSON that matches the provided schema.
 
-Include all required fields: sis_type='scene', scene_id, summary, and semantics.
+Include all required fields: sis_type='scene', scene_id, and semantics.
 
 For semantics, include: common (mood, characters with visual details, location, time, weather, objects with colors, descriptions), text, visual, and audio.
 
