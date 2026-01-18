@@ -4119,8 +4119,10 @@ function showMusicCompareSwiper(originalInfo, candidateInfo) {
     if (!controlsWrapper) {
         // No music case: replace the "no-content" placeholder with a controls wrapper
         const noContent = section.querySelector('.no-content');
-        if (noContent && !window.__musicNoContentOriginalHTML) {
-            window.__musicNoContentOriginalHTML = noContent.outerHTML;
+        if (noContent) {
+            if (!window.__musicNoContentOriginalHTML) {
+                window.__musicNoContentOriginalHTML = noContent.outerHTML;
+            }
             const newDiv = document.createElement('div');
             newDiv.className = 'music-controls';
             noContent.replaceWith(newDiv);
@@ -4128,7 +4130,13 @@ function showMusicCompareSwiper(originalInfo, candidateInfo) {
         } else {
             const newDiv = document.createElement('div');
             newDiv.className = 'music-controls';
-            section.appendChild(newDiv);
+            // Insert before music-prompt-section to ensure correct order
+            const promptSection = section.querySelector('.music-prompt-section');
+            if (promptSection) {
+                section.insertBefore(newDiv, promptSection);
+            } else {
+                section.appendChild(newDiv);
+            }
             controlsWrapper = newDiv;
         }
     }
@@ -4259,11 +4267,23 @@ function injectGeneratedMusicPlayer(musicUrl, filename) {
     if (!musicUrl) return;
     const section = document.querySelector('.music-section');
     if (!section) return;
+
+    // Remove no-content if present
+    const noContent = section.querySelector('.no-content');
+    if (noContent) noContent.remove();
+
     let controlsWrapper = section.querySelector('.music-controls');
     if (!controlsWrapper) {
         controlsWrapper = document.createElement('div');
         controlsWrapper.className = 'music-controls';
-        section.appendChild(controlsWrapper);
+        
+        // Insert before music-prompt-section to ensure correct order
+        const promptSection = section.querySelector('.music-prompt-section');
+        if (promptSection) {
+            section.insertBefore(controlsWrapper, promptSection);
+        } else {
+            section.appendChild(controlsWrapper);
+        }
     }
     // 既存プレイヤーは一つに統一（シーン音楽は常に1ファイル運用を想定）
     controlsWrapper.querySelectorAll('.audio-player').forEach(p => p.remove());

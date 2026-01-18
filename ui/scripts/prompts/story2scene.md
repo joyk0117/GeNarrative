@@ -19,10 +19,9 @@ ${STORY_TYPE_GUIDE}
 5. Provide specific visual/text/audio generation policies suitable for this scene
 
 ## Requirements
-- Include ALL required fields: sis_type, scene_id, summary, semantics
+- Include ALL required fields: sis_type, scene_id, semantics
 - Do not try to generate or guess a unique scene_id (the system will assign it)
-- **summary**: Create a clear summary (1-2 sentences).
-- **semantics.common.descriptions**: Provide 2-3 concise descriptions that capture the scene's key visual and narrative elements without being overly verbose.
+- **semantics.common.descriptions**: Provide 1-2 **very short** descriptions (max 15 words each). **Do NOT simply repeat information from strictured fields (e.g. location, weather). Focus on unique specific actions, atmosphere, or details not covered by the tags.**
 - **characters**: If this scene has NO characters (e.g., landscape, object-only scene, catalog entry), set semantics.common.characters to an empty array: [] (do NOT invent characters). Only include characters if they naturally appear in this scene.
 - If characters do appear, include at least one with name, traits, and visual description
 - Include at least one object with name and colors

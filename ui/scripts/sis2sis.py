@@ -805,7 +805,6 @@ class SISTransformer(ContentProcessor):
         scene['scene_id'] = _generate_scene_id()
         if 'scene_id' not in applied_defaults:
             applied_defaults.append('scene_id')
-        ensure_value(scene, 'summary', lambda: default_summary, 'summary')
 
         semantics = scene.get('semantics') if isinstance(scene.get('semantics'), dict) else {}
         if semantics is not scene.get('semantics'):
@@ -838,7 +837,8 @@ class SISTransformer(ContentProcessor):
                      'semantics.common.time')
         ensure_value(semantics_common, 'weather', lambda: story_common.get('weather', 'unspecified weather'),
                      'semantics.common.weather')
-        ensure_value(semantics_common, 'descriptions', lambda: [default_summary], 'semantics.common.descriptions')
+        # Description duplication fix: Do not fallback to summary to avoid redundancy.
+        ensure_value(semantics_common, 'descriptions', lambda: [], 'semantics.common.descriptions')
 
         story_characters = []
         if isinstance(story_common.get('characters'), list) and story_common['characters']:
@@ -1136,13 +1136,9 @@ class SISTransformer(ContentProcessor):
                     "type": "string",
                     "description": "Identifier for this scene (assigned by the system)"
                 },
-                "summary": {
-                    "type": "string",
-                    "description": "Brief summary of what happens in this scene"
-                },
                 "semantics": semantics_schema
             },
-            "required": ["sis_type", "scene_id", "summary", "semantics"]
+            "required": ["sis_type", "scene_id", "semantics"]
         }
 
 

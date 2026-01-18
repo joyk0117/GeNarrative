@@ -1896,6 +1896,12 @@ async function loadExistingStorySIS() {
         
         if (data.success && data.story_sis) {
             displayStorySIS(data.story_sis, data.filename);
+        } else {
+            // Even if StorySIS is not present, display the area
+            const resultDiv = document.getElementById('storySISResult');
+            if (resultDiv) {
+                resultDiv.style.display = 'block';
+            }
         }
 
         // Ensure compare UI is hidden on load
@@ -1905,6 +1911,11 @@ async function loadExistingStorySIS() {
         await loadSceneArrangement();
     } catch (error) {
         console.error('Error loading existing StorySIS:', error);
+        // Display the area even on error
+        const resultDiv = document.getElementById('storySISResult');
+        if (resultDiv) {
+            resultDiv.style.display = 'block';
+        }
     }
 }
 

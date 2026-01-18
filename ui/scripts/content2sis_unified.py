@@ -337,13 +337,9 @@ class SISExtractor(ContentProcessor):
                     "type": "string",
                     "description": "Identifier for this scene (assigned by the system)"
                 },
-                "summary": {
-                    "type": "string",
-                    "description": "Brief summary of what happens in this scene"
-                },
                 "semantics": semantics_schema
             },
-            "required": ["sis_type", "scene_id", "summary", "semantics"]
+            "required": ["sis_type", "scene_id", "semantics"]
         }
 
     def _generate_scene_id(self) -> str:

@@ -1,8 +1,10 @@
 Analyze the attached image and produce a complete SceneSIS JSON that matches the provided schema.
 
-Include all required fields: sis_type='scene', scene_id, summary, and semantics.
+Include all required fields: sis_type='scene', scene_id, and semantics.
 
 For semantics, include: common (mood, characters with visual details, location, time, weather, objects with colors, descriptions), text, visual, and audio.
+
+**Important for descriptions**: Provide **at most 2** descriptions. Keep each description **very short and concise** (max 15 words). Do not merely repeat the visual tags. Provide narrative descriptions or atmospheric details that give context beyond simple object recognition.
 
 If there are NO characters (e.g., landscape-only image), set common.characters to an empty array: [] (do NOT invent characters).
 
