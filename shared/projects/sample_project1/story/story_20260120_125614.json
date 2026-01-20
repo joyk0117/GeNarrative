@@ -1,0 +1,43 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260120_124801_192006",
+  "title": "Coastal Reflections",
+  "summary": "A serene exploration of a coastal landscape, capturing the essence of tranquility and the simple beauty of the natural world.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "nature",
+        "peace",
+        "serenity",
+        "beauty"
+      ],
+      "descriptions": [
+        "A visually calming depiction of a coastal environment, emphasizing the harmonious relationship between nature and human presence.",
+        "The story evokes a sense of quiet contemplation and appreciation for the uncomplicated wonders of the beach."
+      ]
+    }
+  },
+  "story_type": "catalog",
+  "scene_blueprints": [
+    {
+      "scene_type": "intro",
+      "summary": "Establishes the setting – a beautiful, sunny beach with a prominent building and palm trees. Introduces the overarching theme of peaceful observation."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "Focuses on a solitary palm tree, highlighting its iconic presence and contributing to the feeling of isolation and tranquility."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "A closer look at the building near the beach, emphasizing its architectural details and the way it blends into the coastal landscape. It represents a quiet, enduring element of the environment."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "A panoramic view of the beach, showcasing the vastness of the ocean and the surrounding landscape. Reinforces the theme of open space and freedom."
+    },
+    {
+      "scene_type": "outro",
+      "summary": "A final reflection on the scene, summarizing the experience and restating the importance of appreciating the simple beauty of nature."
+    }
+  ]
+}

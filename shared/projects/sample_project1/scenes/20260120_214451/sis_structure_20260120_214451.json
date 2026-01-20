@@ -1,0 +1,57 @@
+{
+  "sis_type": "scene",
+  "scene_id": "1",
+  "semantics": {
+    "common": {
+      "mood": "sunny",
+      "characters": [
+        {
+          "name": "palm_tree",
+          "traits": [
+            "tall",
+            "green",
+            "tropical"
+          ],
+          "visual": {
+            "hair": "green",
+            "clothes": "none"
+          }
+        }
+      ],
+      "location": "beach",
+      "time": "day",
+      "weather": "clear",
+      "objects": [
+        {
+          "name": "building",
+          "colors": [
+            "white",
+            "gray"
+          ]
+        }
+      ],
+      "descriptions": [
+        "A sunny day with palm trees and a building."
+      ]
+    },
+    "text": {
+      "style": "plain",
+      "language": "english",
+      "tone": "neutral",
+      "point_of_view": "third_person"
+    },
+    "visual": {
+      "style": "realistic",
+      "composition": "close_up",
+      "lighting": "bright",
+      "perspective": "low_angle"
+    },
+    "audio": {
+      "genre": "none",
+      "tempo": "none",
+      "instruments": [
+        "none"
+      ]
+    }
+  }
+}

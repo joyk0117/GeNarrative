@@ -1,0 +1,38 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260120_130409_161719",
+  "title": "Coastal Reflections",
+  "summary": "A serene introduction to a collection of coastal scenes, showcasing the beauty and tranquility of the shoreline.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "Coastal Beauty",
+        "Tranquility",
+        "Reflection",
+        "Nature's Simplicity"
+      ],
+      "descriptions": [
+        "A collection of scenes depicting the peaceful beauty of a coastal environment, emphasizing a sense of calm and natural simplicity."
+      ]
+    }
+  },
+  "story_type": "catalog",
+  "scene_blueprints": [
+    {
+      "scene_type": "intro",
+      "summary": "Establishes the setting and theme – a peaceful coastal environment focused on reflection and beauty."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "Introduces the primary visual element: a sunny beach with palm trees and a building, establishing a sense of warmth and serenity."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "Further develops the coastal scene, reinforcing the initial impression of tranquility and natural beauty."
+    },
+    {
+      "scene_type": "outro",
+      "summary": "Summarizes the collection, reiterating the overall theme of coastal beauty and tranquility."
+    }
+  ]
+}

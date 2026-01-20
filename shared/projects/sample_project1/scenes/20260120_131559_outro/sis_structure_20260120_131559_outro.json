@@ -1,0 +1,56 @@
+{
+  "sis_type": "scene",
+  "scene_id": "20260120_131559_outro",
+  "semantics": {
+    "common": {
+      "mood": "peaceful",
+      "characters": [],
+      "location": "a weathered wooden bench overlooking a secluded cove",
+      "time": "late afternoon",
+      "weather": "partly cloudy, with a gentle sea breeze",
+      "objects": [
+        {
+          "name": "sea shell",
+          "colors": [
+            "white",
+            "cream",
+            "brown"
+          ]
+        },
+        {
+          "name": "worn wooden bench",
+          "colors": [
+            "grey",
+            "brown",
+            "beige"
+          ]
+        }
+      ],
+      "descriptions": [
+        "The last rays of sunlight cast long shadows across the sand.",
+        "Waves softly lap against the shore, creating a calming rhythm."
+      ]
+    },
+    "text": {
+      "style": "evocative, descriptive",
+      "language": "en-US",
+      "tone": "contemplative",
+      "point_of_view": "third person limited"
+    },
+    "visual": {
+      "style": "photorealistic",
+      "composition": "wide angle",
+      "lighting": "golden hour",
+      "perspective": "eye-level"
+    },
+    "audio": {
+      "genre": "ambient",
+      "tempo": "slow",
+      "instruments": [
+        "acoustic guitar",
+        "ocean waves",
+        "seagull cries"
+      ]
+    }
+  }
+}

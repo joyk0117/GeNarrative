@@ -1,0 +1,45 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260120_132811_698241",
+  "title": "Coastal Reflections",
+  "summary": "A collection of scenes depicting moments of peace and contemplation along a sun-drenched coastline.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "peace",
+        "reflection",
+        "nature",
+        "serenity",
+        "memory"
+      ],
+      "descriptions": [
+        "A series of vignettes capturing the beauty and tranquility of a coastal setting, inviting the viewer to pause and reflect.",
+        "Moments of quiet contemplation juxtaposed with the vibrant energy of the ocean.",
+        "A visual and auditory journey through a landscape of serene beauty."
+      ]
+    }
+  },
+  "story_type": "catalog",
+  "scene_blueprints": [
+    {
+      "scene_type": "intro",
+      "summary": "Establishes the setting and theme of peaceful coastal reflection through a bright, sunny beach scene. Introduces the core aesthetic of the collection."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "A solitary palm tree stands tall against a clear blue sky, symbolizing resilience and the enduring beauty of nature. The scene evokes a feeling of calm and serenity."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "A weathered wooden bench overlooks a secluded cove, inviting quiet contemplation. The scene uses warm lighting and a wide angle to create a sense of spaciousness and tranquility."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "A close-up of a worn wooden bench, emphasizing the textures and details of the wood. The scene highlights the passage of time and the beauty of natural materials."
+    },
+    {
+      "scene_type": "outro",
+      "summary": "A final, lingering view of the coastline, summarizing the themes of peace, reflection, and the enduring beauty of nature. The scene reinforces the overall feeling of serenity."
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260120_130854_261938",
+  "title": "Coastal Reflections",
+  "summary": "A quiet exploration of a solitary beach and the enduring beauty of its elements.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "solitude",
+        "nature",
+        "peace",
+        "reflection"
+      ],
+      "descriptions": [
+        "A serene beach scene, capturing a sense of quiet contemplation and the timeless beauty of the coastal environment."
+      ]
+    }
+  },
+  "story_type": "catalog",
+  "scene_blueprints": [
+    {
+      "scene_type": "intro",
+      "summary": "Establishes the setting and introduces the central theme of solitude and reflection on a coastal beach. A gentle introduction to the narrative's core elements."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "Focuses on the visual and sensory details of the beach – the towering palm tree, the sunlit building, and the overall atmosphere of peace."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "Highlights the feeling of solitude and introspection experienced within the tranquil coastal environment.  A moment of quiet observation."
+    },
+    {
+      "scene_type": "outro",
+      "summary": "Summarizes the experience of the beach and reinforces the themes of peace, reflection, and the enduring beauty of the natural world.  A final, contemplative note."
+    }
+  ]
+}

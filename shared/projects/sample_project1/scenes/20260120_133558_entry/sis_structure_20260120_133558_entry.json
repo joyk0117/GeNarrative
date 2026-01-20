@@ -1,0 +1,59 @@
+{
+  "sis_type": "scene",
+  "scene_id": "20260120_133558_entry",
+  "semantics": {
+    "common": {
+      "mood": "Serene",
+      "characters": [
+        {
+          "name": "Palm Tree",
+          "traits": [
+            "Resilient",
+            "Ancient",
+            "Weathered"
+          ],
+          "visual": {
+            "hair": "A cascade of fronds, tipped with a subtle green hue.",
+            "clothes": "No clothes, but a thick, textured bark that suggests a lifetime of sun and storms."
+          }
+        }
+      ],
+      "location": "A secluded cove on the coastline",
+      "time": "Late Afternoon",
+      "weather": "Partly Cloudy",
+      "objects": [
+        {
+          "name": "Smooth Grey Stone",
+          "colors": [
+            "Grey",
+            "Silver"
+          ]
+        }
+      ],
+      "descriptions": [
+        "Sunlight filters through the palm fronds, casting dappled shadows.",
+        "The weathered stone rests silently against the base of the tree."
+      ]
+    },
+    "text": {
+      "style": "Descriptive, evocative",
+      "language": "en-US",
+      "tone": "contemplative",
+      "point_of_view": "third person"
+    },
+    "visual": {
+      "style": "Photorealistic",
+      "composition": "Wide angle, emphasizing the scale of the palm tree and the surrounding coastline.",
+      "lighting": "Warm, golden hour light.",
+      "perspective": "Low angle, looking up at the palm tree."
+    },
+    "audio": {
+      "genre": "Ambient",
+      "tempo": "Slow",
+      "instruments": [
+        "Gentle acoustic guitar",
+        "Ocean waves"
+      ]
+    }
+  }
+}
