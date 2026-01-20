@@ -150,6 +150,10 @@ docker compose up -d
 5. "Generate Story" ボタンをクリックする
 6. "Save Story" ボタンをクリックして、任意の名前を入力する
 
+### サンプル
+以下のフォルダに生成されたサンプルストーリーが含まれています。
+[shared/story](shared/story)
+
 ### サービス状態確認
 ```powershell
 # すべてのサービス一覧

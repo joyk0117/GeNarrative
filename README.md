@@ -152,6 +152,11 @@ After starting, open `http://localhost:5000/` in your browser.
 5. Click the "Generate Story" button.
 6. Click the "Save Story" button and enter a name.
 
+### Samples
+
+You can find generated sample stories in the following folder:
+[shared/story](shared/story)
+
 ### Check service status
 
 ```powershell
