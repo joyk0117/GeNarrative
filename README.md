@@ -128,6 +128,30 @@ docker compose up -d
 
 After starting, open `http://localhost:5000/` in your browser.
 
+## Story Creation Workflow (Example: Creating from Image)
+
+### Project Screen
+1. Click the "Projects" button at the top right of the main screen.
+2. Click the "Create New Project" button, enter a project name, and click "Create Project".
+3. Click the "Create New Scene" button, enter a Scene ID (optional), and click "Create Scene".
+4. Click the "View Details" button.
+
+### Scene Editing Screen
+1. In the Image section, click the "Upload Image" button to upload an image.
+2. In the SIS section at the bottom, click the "Generate from Image" button. Once generation is complete, click "Save" and wait for the prompt to update.
+3. (Optional) If you want to change the content, click the "Edit" button and modify any part.
+4. In the Text & Speech section, click the "Generate" button, then click "Save" and wait for the audio to update.
+5. In the Music section, click the "Generate" button, then click "Save".
+6. Click the project name at the top left to return to the project screen.
+
+### Project Screen (Continued)
+1. Select a Story Type in the Create Story section.
+2. Drag and drop the created scene panel into the lane for the story components.
+3. In the StorySIS section, click the "Generate StorySIS" button, wait a moment, then click "Save".
+4. In the Create Story section, click the "Generate Scenes" button and wait for each scene to be generated.
+5. Click the "Generate Story" button.
+6. Click the "Save Story" button and enter a name.
+
 ### Check service status
 
 ```powershell

@@ -125,6 +125,31 @@ docker compose up -d
 
 起動後、ブラウザで `http://localhost:5000/` にアクセスして利用を開始します。
 
+
+## ストーリー作成手順（画像からの作成例）
+
+### プロジェクト画面
+1. トップ画面の右上にある "Projects" ボタンをクリック
+2. "Create New Project" ボタンをクリックして、任意のプロジェクト名を入力して、 "Create Project" ボタンをクリック
+3. "Create New Scene" ボタンをクリックして、任意の Scene ID を入力(省略可能)して "Create Scene" ボタンをクリック
+4. "View Details" ボタンをクリック
+
+### Scene編集画面
+1. Image セクションの "Upload Image" ボタンをクリックして、画像をアップロード
+2. 画面下部の SIS セクションにある "Generate from Image" ボタンをクリックして、生成が完了したら Save ボタンをクリックし、プロンプトが更新されるのを待つ
+3. （任意）内容を変更したい場合は、 "Edit" ボタンを押して任意の箇所を編集
+4. Text & Speech セクションにある "Generate" ボタンをクリックして、 "Save" ボタンをクリックして音声が更新されるのを待つ
+5. Music セクションにある "Generate" ボタンをクリックして、 "Save" ボタンをクリック
+6. 画面左上にあるプロジェクト名をクリックして、プロジェクト画面に戻る
+
+### プロジェクト画面（続き）
+1. Create Story セクションにある Story Type を選択
+2. 作成したシーンパネルをドラッグアンドドロップして、ストーリーの構成要素のレーンに置く
+3. StorySIS セクションにある "Generate StorySIS" ボタンをクリックして、しばらく待ったあと "Save" ボタンを押す
+4. Create Story セクションの "Generate Scenes" ボタンをクリックして、各シーンが生成されるまでしばらく待つ
+5. "Generate Story" ボタンをクリックする
+6. "Save Story" ボタンをクリックして、任意の名前を入力する
+
 ### サービス状態確認
 ```powershell
 # すべてのサービス一覧
@@ -145,7 +170,7 @@ docker compose logs ollama  # テキスト生成サーバ
 
 詳細なポートは `docker-compose.yml` を参照してください。
 
-## 🛠️ トラブルシューティング（Windows）
+## �🛠️ トラブルシューティング（Windows）
 
 ### GPU / CUDA
 - `nvidia-smi` で GPU 状態を確認（WSL2 上や対応環境で実行）
