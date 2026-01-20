@@ -1,0 +1,73 @@
+{
+  "sis_type": "scene",
+  "scene_id": "20260120_144842_ki",
+  "semantics": {
+    "common": {
+      "mood": "peaceful",
+      "characters": [
+        {
+          "name": "Lily",
+          "traits": [
+            "curious",
+            "youthful",
+            "observant"
+          ],
+          "visual": {
+            "hair": "light brown, braided",
+            "clothes": "white dress, simple sandals"
+          }
+        }
+      ],
+      "location": "a sun-drenched meadow",
+      "time": "late afternoon",
+      "weather": "sunny, gentle breeze",
+      "objects": [
+        {
+          "name": "butterfly",
+          "colors": [
+            "bright blue",
+            "white spots"
+          ]
+        },
+        {
+          "name": "wildflower",
+          "colors": [
+            "pale yellow",
+            "purple veins"
+          ]
+        },
+        {
+          "name": "grass",
+          "colors": [
+            "green",
+            "golden"
+          ]
+        }
+      ],
+      "descriptions": [
+        "A fleeting dance of blue and yellow.",
+        "The sun casts long shadows across the meadow."
+      ]
+    },
+    "text": {
+      "style": "descriptive, evocative",
+      "language": "english",
+      "tone": "serene",
+      "point_of_view": "third-person"
+    },
+    "visual": {
+      "style": "realistic, soft focus",
+      "composition": "wide shot",
+      "lighting": "golden hour",
+      "perspective": "eye-level"
+    },
+    "audio": {
+      "genre": "ambient",
+      "tempo": "slow",
+      "instruments": [
+        "birds chirping",
+        "gentle wind"
+      ]
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260120_143618_660873",
+  "title": "The Wildflower's Secret",
+  "summary": "A young woman finds solace in a peaceful meadow, only to discover a hidden truth that dramatically alters her perception of her surroundings.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "solitude",
+        "perception",
+        "nature's secrets",
+        "illusion"
+      ],
+      "descriptions": [
+        "The story explores the deceptive nature of appearances and the way our experiences shape our understanding of the world.",
+        "It highlights the contrast between the tranquil surface and the hidden complexities beneath."
+      ]
+    }
+  },
+  "story_type": "kishotenketsu",
+  "scene_blueprints": [
+    {
+      "scene_type": "ki",
+      "summary": "Elara finds peace in a sun-drenched meadow, observing the beauty of nature and contemplating her place within it."
+    },
+    {
+      "scene_type": "sho",
+      "summary": "Elara's appreciation for the meadow deepens as she examines the wildflower and the moss-covered stone, sensing a subtle, unsettling energy."
+    },
+    {
+      "scene_type": "ten",
+      "summary": "The wildflower reveals a hidden symbol, a miniature replica of a map, pointing towards a forgotten, shadowed corner of the meadow – a place Elara had previously ignored."
+    },
+    {
+      "scene_type": "ketsu",
+      "summary": "Elara discovers the shadowed corner contains a weathered journal, revealing that the meadow was once a site of a tragic, secret meeting between her ancestors, and the 'peaceful' setting was built upon a devastating betrayal."
+    }
+  ]
+}

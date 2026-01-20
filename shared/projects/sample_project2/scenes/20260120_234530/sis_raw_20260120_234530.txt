@@ -1,0 +1,93 @@
+{
+  "sis_type": "scene",
+  "scene_id": "1",
+  "semantics": {
+    "common": {
+      "mood": "neutral",
+      "characters": [
+        {
+          "name": "person",
+          "traits": [
+            "female",
+            "young"
+          ],
+          "visual": {
+            "hair": "long",
+            "clothes": "none"
+          }
+        },
+        {
+          "name": "butterfly",
+          "traits": [
+            "insect",
+            "flying"
+          ],
+          "visual": {
+            "hair": "none",
+            "clothes": "none"
+          }
+        },
+        {
+          "name": "flower",
+          "traits": [
+            "plant",
+            "colorful"
+          ],
+          "visual": {
+            "hair": "none",
+            "clothes": "none"
+          }
+        }
+      ]
+    ,
+      "location": "outdoor"
+    ,
+      "time": "day"
+    ,
+      "weather": "sunny"
+    ,
+      "objects": [
+        {
+          "name": "flower",
+          "colors": [
+            "red",
+            "blue"
+          ]
+        }
+      ]
+    ,
+      "descriptions": [
+        "a girl and a butterfly"
+      ]
+    }
+  ,
+  "text": {
+    "style": "sketch"
+  ,
+    "language": "english"
+  ,
+    "tone": "neutral"
+  ,
+    "point_of_view": "third_person"
+  }
+  ,
+  "visual": {
+    "style": "sketch",
+    "composition": "close_up"
+  ,
+    "lighting": "natural"
+  ,
+    "perspective": "front_view"
+  }
+  ,
+  "audio": {
+    "genre": "none"
+  ,
+    "tempo": "none"
+  ,
+    "instruments": [
+      "none"
+    ]
+  }
+}
+    }
