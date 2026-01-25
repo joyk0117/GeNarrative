@@ -14,6 +14,14 @@ By combining scripts, illustrations, narration, and BGM, you can create an origi
 - Example outputs: narrated multimedia stories (HTML / MP4)
 - Goal: not a **finished app**, but a state where the generation pipeline can be **observed, reproduced, and compared**
 
+### 🎥 Demo Video
+See the actual operation demo here.
+
+<!-- 
+Drag and drop a video file into the GitHub Web Editor or Issue comment field,
+and paste the generated URL (e.g., https://github.com/user/repo/assets/...) here.
+-->
+
 ## What’s new
 
 ### 1) SIS: make the “semantic schema” explicit
