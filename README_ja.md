@@ -219,7 +219,7 @@ docker compose logs tts
 - TTS 詳細: `tts/README.md`
 
 ## 🎯 今後の予定 (Roadmap)
-- ワークフロー管理の高度化
+- ワークフロー管理の高度化(Prefect)
 - 多言語対応の強化
 - 外部のAIサービスとの連携
 - 音楽および音声からのSIS生成
