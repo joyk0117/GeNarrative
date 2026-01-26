@@ -1,0 +1,40 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260120_132659_171473",
+  "title": "Beach Reflections",
+  "summary": "A quiet exploration of memory and the passage of time, set against the backdrop of a sun-drenched beach.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "memory",
+        "time",
+        "reflection",
+        "peace",
+        "nature"
+      ],
+      "descriptions": [
+        "The story evokes a sense of tranquility and introspection, exploring the lasting impact of experiences on the human spirit.",
+        "It uses the beach as a metaphor for the ebb and flow of life, inviting the reader to contemplate their own memories and journeys."
+      ]
+    }
+  },
+  "story_type": "catalog",
+  "scene_blueprints": [
+    {
+      "scene_type": "intro",
+      "summary": "Establishes the setting and introduces the central theme of memory and reflection. The beach serves as a visual and emotional anchor for the story's exploration of the past."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "Introduces a vivid scene of a sunny beach with palm trees, suggesting a nostalgic mood and the initial setting of the story."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "Presents a contemplative scene of a weathered wooden bench overlooking a secluded cove, highlighting the theme of reflection and the passage of time."
+    },
+    {
+      "scene_type": "outro",
+      "summary": "Provides a final, reflective image of the beach, summarizing the story's exploration of memory and the enduring power of the past."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "story_type": "three_act",
+  "scenes_by_type": {
+    "setup": [
+      "20260126_225856"
+    ],
+    "conflict": [
+      "20260126_141241_conflict"
+    ],
+    "resolution": [
+      "20260126_141409_resolution"
+    ]
+  },
+  "updated_at": "2026-01-26T14:15:10.102367"
+}

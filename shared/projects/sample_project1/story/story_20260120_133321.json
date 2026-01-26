@@ -1,0 +1,44 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260120_133314_840496",
+  "title": "Echoes of the Shore",
+  "summary": "A contemplative journey exploring the quiet beauty and enduring peace found along a remote coastline.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "Solitude",
+        "Reflection",
+        "Nature's Resilience",
+        "Peaceful Moments"
+      ],
+      "descriptions": [
+        "This story evokes a sense of calm and introspection, capturing the essence of a life lived in harmony with the natural world. It focuses on quiet observations and the restorative power of solitude.",
+        "The scenes are designed to create a feeling of serene contemplation, inviting the reader to appreciate the simple beauty of a coastal landscape.",
+        "The story’s core is the contrast between the enduring strength of nature and the fleeting nature of human experience."
+      ]
+    }
+  },
+  "story_type": "catalog",
+  "scene_blueprints": [
+    {
+      "scene_type": "intro",
+      "summary": "Establishes the setting and mood of a solitary coastal beach, introducing the core themes of peace and reflection. Sets the scene for a contemplative journey."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "Introduces a palm tree as a central element, symbolizing resilience and the enduring nature of the landscape. Highlights the beauty of the natural environment."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "Expands on the initial scene, depicting a weathered wooden bench and the subtle details of the coastline.  Focuses on the contrast between the elements."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "Presents another palm tree, reinforcing the theme of resilience and the connection between the natural world and the human spirit."
+    },
+    {
+      "scene_type": "outro",
+      "summary": "Summarizes the journey, emphasizing the enduring peace and reflective quality of the coastal experience.  Restates the story's core themes."
+    }
+  ]
+}

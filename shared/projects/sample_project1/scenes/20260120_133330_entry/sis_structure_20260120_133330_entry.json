@@ -1,0 +1,55 @@
+{
+  "scene_id": "20260120_133330_entry",
+  "semantics": {
+    "audio": {
+      "genre": "Ambient",
+      "instruments": [
+        "Gentle acoustic guitar",
+        "Ocean waves",
+        "Seagull calls (distant)"
+      ],
+      "tempo": "Slow"
+    },
+    "common": {
+      "characters": [],
+      "descriptions": [
+        "A lone palm tree stands sentinel against the backdrop of the vast ocean.",
+        "The warm afternoon light casts long shadows across the undulating sand dunes."
+      ],
+      "location": "Coastal Dune",
+      "mood": "Serene",
+      "objects": [
+        {
+          "colors": [
+            "Green",
+            "Brown",
+            "Beige"
+          ],
+          "name": "Palm Tree"
+        },
+        {
+          "colors": [
+            "Tan",
+            "Light Brown"
+          ],
+          "name": "Sand Dune"
+        }
+      ],
+      "time": "Late Afternoon",
+      "weather": "Partly Cloudy"
+    },
+    "text": {
+      "language": "English",
+      "point_of_view": "Third Person Limited (focused on observation)",
+      "style": "Descriptive, evocative",
+      "tone": "Contemplative"
+    },
+    "visual": {
+      "composition": "Wide angle, emphasizing scale",
+      "lighting": "Warm, golden hour light",
+      "perspective": "Eye-level, slightly elevated",
+      "style": "Realistic, slightly painterly"
+    }
+  },
+  "sis_type": "scene"
+}

@@ -1,0 +1,77 @@
+{
+  "scene_id": "20260120_144959_sho",
+  "semantics": {
+    "audio": {
+      "genre": "Ambient",
+      "instruments": [
+        "Flute",
+        "Strings",
+        "Birdsong"
+      ],
+      "tempo": "Slow"
+    },
+    "common": {
+      "characters": [
+        {
+          "name": "Lily",
+          "traits": [
+            "curious",
+            "youthful",
+            "observant"
+          ],
+          "visual": {
+            "clothes": "white dress, simple sandals",
+            "hair": "light brown, braided"
+          }
+        }
+      ],
+      "descriptions": [
+        "A fleeting dance of color and light.",
+        "The gentle rustle of petals in the breeze."
+      ],
+      "location": "A sun-drenched meadow",
+      "mood": "Serene, contemplative",
+      "objects": [
+        {
+          "colors": [
+            "Emerald green",
+            "Sapphire blue",
+            "Golden yellow"
+          ],
+          "name": "Butterfly"
+        },
+        {
+          "colors": [
+            "Pale pink",
+            "Ivory white",
+            "Dusty rose"
+          ],
+          "name": "Wildflower"
+        },
+        {
+          "colors": [
+            "Gray",
+            "Brown",
+            "Moss green"
+          ],
+          "name": "Smooth River Stone"
+        }
+      ],
+      "time": "Late afternoon",
+      "weather": "Warm, breezy"
+    },
+    "text": {
+      "language": "English",
+      "point_of_view": "First-person",
+      "style": "Descriptive, evocative",
+      "tone": "Peaceful"
+    },
+    "visual": {
+      "composition": "Rule of thirds",
+      "lighting": "Warm, golden hour",
+      "perspective": "Eye-level",
+      "style": "Impressionistic, soft focus"
+    }
+  },
+  "sis_type": "scene"
+}

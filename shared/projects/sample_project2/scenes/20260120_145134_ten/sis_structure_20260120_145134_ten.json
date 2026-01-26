@@ -1,0 +1,74 @@
+{
+  "scene_id": "20260120_145134_ten",
+  "semantics": {
+    "audio": {
+      "genre": "ambient",
+      "instruments": [
+        "gentle piano",
+        "distant rain sounds"
+      ],
+      "tempo": "slow"
+    },
+    "common": {
+      "characters": [
+        {
+          "name": "Lily",
+          "traits": [
+            "curious",
+            "youthful",
+            "observant"
+          ],
+          "visual": {
+            "clothes": "white dress, simple sandals",
+            "hair": "light brown, braided"
+          }
+        }
+      ],
+      "descriptions": [
+        "A single Monarch dances among the wildflowers, its wings catching the fading light.",
+        "The scent of rain mingled with the sweetness of the blossoms."
+      ],
+      "location": "a meadow at twilight",
+      "mood": "melancholy",
+      "objects": [
+        {
+          "colors": [
+            "orange",
+            "black"
+          ],
+          "name": "a Monarch butterfly"
+        },
+        {
+          "colors": [
+            "pale pink",
+            "yellow",
+            "white"
+          ],
+          "name": "a field of wildflowers"
+        },
+        {
+          "colors": [
+            "gray",
+            "green (moss)"
+          ],
+          "name": "a weathered stone bench"
+        }
+      ],
+      "time": "late afternoon",
+      "weather": "light drizzle"
+    },
+    "text": {
+      "language": "English",
+      "point_of_view": "first-person",
+      "style": "poetic, evocative",
+      "tone": "reflective"
+    },
+    "visual": {
+      "composition": "close-up on the butterfly and flower",
+      "lighting": "soft, diffused light",
+      "perspective": "slightly elevated",
+      "style": "impressionistic"
+    }
+  },
+  "sis_type": "scene"
+}

@@ -1,0 +1,52 @@
+{
+  "scene_id": "20260120_133457_entry",
+  "semantics": {
+    "audio": {
+      "genre": "Ambient",
+      "instruments": [
+        "Gentle waves",
+        "Seagulls (distant)"
+      ],
+      "tempo": "Slow"
+    },
+    "common": {
+      "characters": [],
+      "descriptions": [
+        "Waves gently lap against the dark gray sea rocks, creating a rhythmic sound."
+      ],
+      "location": "Remote coastline",
+      "mood": "Serene, contemplative",
+      "objects": [
+        {
+          "colors": [
+            "Dark Gray",
+            "White"
+          ],
+          "name": "Sea Rocks"
+        },
+        {
+          "colors": [
+            "Barnacle Gray",
+            "Pale Beige"
+          ],
+          "name": "Driftwood"
+        }
+      ],
+      "time": "Late afternoon",
+      "weather": "Overcast, slight breeze"
+    },
+    "text": {
+      "language": "English",
+      "point_of_view": "Third person limited",
+      "style": "Descriptive, evocative",
+      "tone": "Quietly observant"
+    },
+    "visual": {
+      "composition": "Wide shot, emphasizing the coastline",
+      "lighting": "Soft, diffused light from the overcast sky",
+      "perspective": "Eye-level",
+      "style": "Realistic, muted colors"
+    }
+  },
+  "sis_type": "scene"
+}

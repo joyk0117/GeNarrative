@@ -1,0 +1,73 @@
+{
+  "scene_id": "20260120_145246_ketsu",
+  "semantics": {
+    "audio": {
+      "genre": "ambient",
+      "instruments": [
+        "acoustic guitar",
+        "birdsong"
+      ],
+      "tempo": "slow"
+    },
+    "common": {
+      "characters": [
+        {
+          "name": "Lily",
+          "traits": [
+            "curious",
+            "youthful",
+            "observant"
+          ],
+          "visual": {
+            "clothes": "white dress, simple sandals",
+            "hair": "light brown, braided"
+          }
+        }
+      ],
+      "descriptions": [
+        "A fleeting dance of color and fragility.",
+        "The quiet acceptance of a beautiful, brief moment."
+      ],
+      "location": "a sun-drenched meadow",
+      "mood": "reflective",
+      "objects": [
+        {
+          "colors": [
+            "bright orange",
+            "black spots"
+          ],
+          "name": "butterfly"
+        },
+        {
+          "colors": [
+            "pale pink",
+            "yellow center"
+          ],
+          "name": "wildflower"
+        },
+        {
+          "colors": [
+            "grey",
+            "smooth"
+          ],
+          "name": "small stone"
+        }
+      ],
+      "time": "late afternoon",
+      "weather": "partly cloudy"
+    },
+    "text": {
+      "language": "English",
+      "point_of_view": "first person",
+      "style": "poetic and contemplative",
+      "tone": "melancholic, hopeful"
+    },
+    "visual": {
+      "composition": "close-up on Lin's face and the butterfly",
+      "lighting": "soft, diffused sunlight",
+      "perspective": "eye-level",
+      "style": "impressionistic"
+    }
+  },
+  "sis_type": "scene"
+}

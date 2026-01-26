@@ -1,0 +1,36 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260126_140911_336711",
+  "title": "The Purple Butterfly",
+  "summary": "A solitary tree in a forest witnesses a fleeting moment of beauty and change.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "beauty",
+        "transience",
+        "nature's cycle"
+      ],
+      "descriptions": [
+        "A peaceful forest setting.",
+        "A solitary tree.",
+        "A purple butterfly.",
+        "The fading light of sunset."
+      ]
+    }
+  },
+  "story_type": "three_act",
+  "scene_blueprints": [
+    {
+      "scene_type": "setup",
+      "summary": "Introduces the setting and a single, observant tree."
+    },
+    {
+      "scene_type": "conflict",
+      "summary": "The butterfly appears, creating a brief moment of wonder and then disappears, signifying a loss."
+    },
+    {
+      "scene_type": "resolution",
+      "summary": "The tree remains, contemplating the ephemeral beauty it witnessed."
+    }
+  ]
+}

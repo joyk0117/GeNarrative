@@ -1,0 +1,68 @@
+{
+  "sis_type": "scene",
+  "scene_id": "1",
+  "semantics": {
+    "common": {
+      "mood": "happy",
+      "characters": [
+        {
+          "name": "tree",
+          "traits": [
+            "green",
+            "tall"
+          ]
+        ,
+          "visual": {
+            "hair": "none",
+            "clothes": "none"
+          }
+        }
+      ],
+      "location": "forest",
+      "time": "day"
+    ,
+      "weather": "sunny"
+    ,
+      "objects": [
+        {
+          "name": "star",
+          "colors": [
+            "purple"
+          ]
+        }
+      ]
+    ,
+      "descriptions": [
+        "A tree with a purple star."
+      ]
+    }
+  ,
+  "text": {
+    "style": "watercolor",
+    "language": "english"
+  ,
+  "tone": "neutral"
+  ,
+  "point_of_view": "third-person"
+  }
+  ,
+  "visual": {
+    "style": "watercolor",
+    "composition": "vertical"
+  ,
+  "lighting": "natural"
+  ,
+  "perspective": "flat"
+  }
+  ,
+  "audio": {
+    "genre": "none"
+  ,
+  "tempo": "none"
+  ,
+  "instruments": [
+    "none"
+  ]
+  }
+  }
+}

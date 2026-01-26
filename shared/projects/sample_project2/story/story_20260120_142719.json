@@ -1,0 +1,35 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260120_142716_415372",
+  "title": "Ephemeral Bloom",
+  "summary": "A young girl discovers a fleeting beauty in a simple flower, leading to a moment of quiet contemplation and acceptance of change.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "beauty",
+        "transience",
+        "youth",
+        "acceptance"
+      ],
+      "descriptions": [
+        "A story about the delicate nature of beauty and the acceptance of inevitable change.",
+        "The story explores the contrast between youthful wonder and the realization that all things are temporary."
+      ]
+    }
+  },
+  "story_type": "three_act",
+  "scene_blueprints": [
+    {
+      "scene_type": "setup",
+      "summary": "Introduction of a young girl and a vibrant flower in a sunny outdoor setting. Establishes a mood of innocent wonder and a simple, beautiful world."
+    },
+    {
+      "scene_type": "conflict",
+      "summary": "The girl observes the flower, noting its beauty but also its eventual fading. This leads to a moment of quiet contemplation about the nature of change and the impermanence of beauty."
+    },
+    {
+      "scene_type": "resolution",
+      "summary": "The girl accepts the flower's fading, finding a sense of peace and understanding in its transient beauty. A quiet moment of reflection concludes the story."
+    }
+  ]
+}

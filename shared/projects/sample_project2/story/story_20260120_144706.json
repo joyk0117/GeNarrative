@@ -1,0 +1,38 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260120_144703_926740",
+  "title": "Ephemeral Bloom",
+  "summary": "A young girl discovers a fleeting beauty in a butterfly and flower, only to realize its transient nature holds a deeper, poignant truth.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "transience",
+        "beauty",
+        "acceptance",
+        "perspective"
+      ],
+      "descriptions": [
+        "A delicate dance between youth, nature, and the acceptance of change."
+      ]
+    }
+  },
+  "story_type": "kishotenketsu",
+  "scene_blueprints": [
+    {
+      "scene_type": "ki",
+      "summary": "Introduction of a young girl observing a butterfly and flower in a sunny outdoor setting. A neutral and peaceful scene establishing the initial observation and setting."
+    },
+    {
+      "scene_type": "sho",
+      "summary": "The girl spends time with the butterfly and flower, deepening her appreciation for their beauty. A subtle exploration of her feelings and connection with nature."
+    },
+    {
+      "scene_type": "ten",
+      "summary": "A sudden realization: the butterfly's flight and the flower's bloom are fleeting. A shocking twist that shifts the perspective."
+    },
+    {
+      "scene_type": "ketsu",
+      "summary": "The girl understands that the beauty lies not in permanence, but in the shared experience of their brief existence. A concluding scene revealing the deeper meaning and acceptance of transience."
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "sis_type": "story",
+  "story_id": "story_20260120_130315_633307",
+  "title": "Coastal Reflections",
+  "summary": "A quiet exploration of a seaside town, revealing its simple beauty and subtle mysteries.",
+  "semantics": {
+    "common": {
+      "themes": [
+        "peace",
+        "isolation",
+        "nostalgia",
+        "observation"
+      ],
+      "descriptions": [
+        "A small coastal town, bathed in sunlight, offers a sense of tranquility and introspection."
+      ]
+    }
+  },
+  "story_type": "catalog",
+  "scene_blueprints": [
+    {
+      "scene_type": "intro",
+      "summary": "Establishes the setting and introduces the overarching mood of quiet contemplation."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "A lone building stands as a silent observer of the town's everyday life."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "The rhythmic sound of waves and the distant cries of seagulls create a calming atmosphere."
+    },
+    {
+      "scene_type": "entry",
+      "summary": "A weathered bench invites reflection amidst the simplicity of the coastal landscape."
+    },
+    {
+      "scene_type": "outro",
+      "summary": "A final glimpse of the town, leaving the audience with a sense of peaceful solitude."
+    }
+  ]
+}
