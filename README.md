@@ -16,11 +16,7 @@ By combining scripts, illustrations, narration, and BGM, you can create an origi
 
 ### 🎥 Demo Video
 See the actual operation demo here.
-
-<!-- 
-Drag and drop a video file into the GitHub Web Editor or Issue comment field,
-and paste the generated URL (e.g., https://github.com/user/repo/assets/...) here.
--->
+https://github.com/user-attachments/assets/a2332437-5cd2-4e9a-80e3-bd72a1bf83c0
 
 ## What’s new
 
