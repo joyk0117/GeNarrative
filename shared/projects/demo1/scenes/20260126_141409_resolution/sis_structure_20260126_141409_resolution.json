@@ -1,0 +1,55 @@
+{
+  "sis_type": "scene",
+  "scene_id": "20260126_141409_resolution",
+  "semantics": {
+    "common": {
+      "mood": "reflective",
+      "characters": [],
+      "location": "a weathered oak tree, deep within a shadowed forest",
+      "time": "dusk",
+      "weather": "a gentle mist hangs in the air",
+      "objects": [
+        {
+          "name": "oak leaves",
+          "colors": [
+            "brown",
+            "ochre",
+            "golden"
+          ]
+        },
+        {
+          "name": "tree roots",
+          "colors": [
+            "gray",
+            "dark brown"
+          ]
+        }
+      ],
+      "descriptions": [
+        "The final rays of sunlight filter through the canopy, illuminating swirling dust motes.",
+        "A single purple butterfly rests momentarily on a weathered oak leaf."
+      ]
+    },
+    "text": {
+      "style": "evocative",
+      "language": "english",
+      "tone": "peaceful",
+      "point_of_view": "third-person limited, observing the tree"
+    },
+    "visual": {
+      "style": "impressionistic",
+      "composition": "wide shot, emphasizing the tree's solitude",
+      "lighting": "soft, diffused light",
+      "perspective": "slightly elevated, looking down at the tree"
+    },
+    "audio": {
+      "genre": "ambient",
+      "tempo": "slow",
+      "instruments": [
+        "piano",
+        "strings",
+        "nature sounds (distant wind, rustling leaves)"
+      ]
+    }
+  }
+}

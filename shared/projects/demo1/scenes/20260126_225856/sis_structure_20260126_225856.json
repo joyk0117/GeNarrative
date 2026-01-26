@@ -1,0 +1,55 @@
+{
+  "scene_id": "1",
+  "semantics": {
+    "audio": {
+      "genre": "none",
+      "instruments": [
+        "none"
+      ],
+      "tempo": "none"
+    },
+    "common": {
+      "characters": [
+        {
+          "name": "tree",
+          "traits": [
+            "green",
+            "tall"
+          ],
+          "visual": {
+            "clothes": "none",
+            "hair": "none"
+          }
+        }
+      ],
+      "descriptions": [
+        "A tree with a purple butterfly."
+      ],
+      "location": "forest",
+      "mood": "happy",
+      "objects": [
+        {
+          "colors": [
+            "purple"
+          ],
+          "name": "butterfly"
+        }
+      ],
+      "time": "day",
+      "weather": "sunset"
+    },
+    "text": {
+      "language": "english",
+      "point_of_view": "third-person",
+      "style": "watercolor",
+      "tone": "neutral"
+    },
+    "visual": {
+      "composition": "vertical",
+      "lighting": "natural",
+      "perspective": "flat",
+      "style": "watercolor"
+    }
+  },
+  "sis_type": "scene"
+}

@@ -1,0 +1,66 @@
+{
+  "sis_type": "scene",
+  "scene_id": "20260126_141241_conflict",
+  "semantics": {
+    "common": {
+      "mood": "melancholy",
+      "characters": [
+        {
+          "name": "Elderwood",
+          "traits": [
+            "ancient",
+            "silent",
+            "weathered"
+          ],
+          "visual": {
+            "hair": "graying branches",
+            "clothes": "rough bark, moss-covered roots"
+          }
+        }
+      ],
+      "location": "a secluded clearing within a dense forest",
+      "time": "late afternoon",
+      "weather": "softly fading sunlight",
+      "objects": [
+        {
+          "name": "purple butterfly",
+          "colors": [
+            "deep purple",
+            "iridescent"
+          ]
+        },
+        {
+          "name": "sun-drenched moss",
+          "colors": [
+            "emerald green",
+            "golden yellow"
+          ]
+        }
+      ],
+      "descriptions": [
+        "A single purple butterfly flits through the fading light.",
+        "The ancient tree seems to absorb the last rays of the sun."
+      ]
+    },
+    "text": {
+      "style": "evocative, contemplative",
+      "language": "English",
+      "tone": "reflective",
+      "point_of_view": "third-person omniscient"
+    },
+    "visual": {
+      "style": "realistic, painterly",
+      "composition": "wide shot, emphasizing the tree's solitude",
+      "lighting": "warm, golden hues gradually fading to cooler tones",
+      "perspective": "eye-level"
+    },
+    "audio": {
+      "genre": "ambient",
+      "tempo": "slow",
+      "instruments": [
+        "gentle strings",
+        "distant birdsong"
+      ]
+    }
+  }
+}

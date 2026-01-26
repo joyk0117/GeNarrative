@@ -71,7 +71,9 @@ shared/*
 shared/projects/*
 !shared/projects/sample_project1/
 !shared/projects/sample_project2/
+!shared/projects/demo1/
 !shared/story/
 shared/story/*
 !shared/story/sample_story1.html
 !shared/story/sample_story2.html
+!shared/story/demo1.html
