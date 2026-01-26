@@ -16,9 +16,7 @@ GeNarrative はローカル環境で動作するマルチモーダル生成の�
 ### 🎥 デモ動画
 実際の動作デモはこちらをご覧ください。
 
-<!-- 
-https://github.com/user/repo/assets/...
--->
+https://github.com/user-attachments/assets/a2332437-5cd2-4e9a-80e3-bd72a1bf83c0
 
 ## 何が新しいか
 ### 1) SIS：意味のスキーマを“表に出す”
