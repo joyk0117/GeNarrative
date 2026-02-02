@@ -14,6 +14,13 @@ By combining scripts, illustrations, narration, and BGM, you can create an origi
 - Example outputs: narrated multimedia stories (HTML / MP4)
 - Goal: not a **finished app**, but a state where the generation pipeline can be **observed, reproduced, and compared**
 
+## ✨ Key Features
+- **Scene generation from image (or text)**
+  - A sequence of generation: "Image or Text → Image, Text, Speech, Music"
+- **Automatic generation of an entire story starting from a single scene**
+- **Output generated stories in picture book format**
+  - Exportable as HTML (single file) or MP4 video
+
 ### 🎥 Demo Video
 See the actual operation demo here.
 
